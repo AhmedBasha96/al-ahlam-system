@@ -26,7 +26,9 @@ export default async function LoginPage(props: { searchParams: Promise<{ [key: s
         redirect('/?error=invalid');
       }
     } catch (error: any) {
-      if (error.message === 'NEXT_REDIRECT') throw error; // Handle redirects in server actions
+      if (error?.digest?.startsWith('NEXT_REDIRECT') || error?.message === 'NEXT_REDIRECT') {
+        throw error;
+      }
       console.error('[Login] Error during handleLogin:', error);
       const message = error.message || 'Unknown server error';
       redirect(`/?error=${encodeURIComponent(message)}`);

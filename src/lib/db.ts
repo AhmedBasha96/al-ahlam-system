@@ -3,21 +3,29 @@ import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
 const prismaClientSingleton = () => {
-    console.log('[DB] Initializing Prisma Client...');
-    if (process.env.TURSO_AUTH_TOKEN && process.env.DATABASE_URL) {
+    const url = process.env.DATABASE_URL
+    const authToken = process.env.TURSO_AUTH_TOKEN
+
+    console.log(`[DB] Initialization attempt (URL: ${url ? 'Present' : 'Missing'}, Token: ${authToken ? 'Present' : 'Missing'})`);
+
+    if (url?.startsWith('libsql://') || authToken) {
+        if (!url || !authToken) {
+            const missing = !url ? 'DATABASE_URL' : 'TURSO_AUTH_TOKEN';
+            console.error(`[DB] Critical Error: ${missing} is missing but required for Turso.`);
+            throw new Error(`Missing environment variable: ${missing}`);
+        }
+
         console.log('[DB] Using Turso/LibSQL adapter');
         try {
-            const libsql = createClient({
-                url: process.env.DATABASE_URL,
-                authToken: process.env.TURSO_AUTH_TOKEN,
-            })
+            const libsql = createClient({ url, authToken })
             const adapter = new PrismaLibSql(libsql)
             return new PrismaClient({ adapter })
         } catch (error) {
             console.error('[DB] Failed to initialize Turso adapter:', error);
-            return new PrismaClient()
+            throw error;
         }
     }
+
     console.log('[DB] Using default Prisma Client (SQLite)');
     return new PrismaClient()
 }
