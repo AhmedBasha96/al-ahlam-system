@@ -42,7 +42,13 @@ export default async function LoginPage(props: any) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative overflow-hidden">
+        {/* Environment Status Badge - For Debugging Deployment */}
+        <div className="absolute top-0 right-0 p-2 flex gap-1 z-10">
+          <div title="DATABASE_URL" className={`w-3 h-3 rounded-full ${process.env.DATABASE_URL ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <div title="TURSO_AUTH_TOKEN" className={`w-3 h-3 rounded-full ${process.env.TURSO_AUTH_TOKEN ? 'bg-green-500' : 'bg-red-500'}`}></div>
+        </div>
+
         {error && (
           <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm">
             {error === 'invalid' ? 'اسم المستخدم أو كلمة المرور غير صحيحة' :
