@@ -15,12 +15,13 @@ const prismaClientSingleton = () => {
     url = url?.trim();
     authToken = authToken?.trim();
 
-    console.log(`[DB] Env Check: URL = ${url ? `${url.substring(0, 10)}...` : 'MISSING'}, Token = ${authToken ? 'PRESENT' : 'MISSING'} `);
+    console.log(`[DB] Env Check: URL=${url ? `${url.substring(0, 10)}...` : 'MISSING'}, Token=${authToken ? 'PRESENT' : 'MISSING'}`);
 
-    // FORCE set the DATABASE_URL in the process env so Prisma Engine can find it even if it ignores the adapter
-    if (url) {
-        process.env.DATABASE_URL = url;
-    }
+    // TRICK: Set DATABASE_URL to a valid local file path.
+    // This satisfies Prisma's internal engine validation which expects a valid URL for the 'sqlite' provider.
+    // If the adapter is working, it will intercept the queries and use Turso.
+    // If we passed the LibSQL url here directly without adapter, it might fail validation if 'previewFeatures' aren't picked up.
+    process.env.DATABASE_URL = "file:./dev.db";
 
     const isLibsql = typeof url === 'string' && (url.startsWith('libsql://') || url.startsWith('https://') || url.startsWith('wss://'));
 
@@ -30,11 +31,7 @@ const prismaClientSingleton = () => {
         const libsql = createClient({ url: url!, authToken: authToken! })
         const adapter = new PrismaLibSQL(libsql as any)
 
-        // Pass BOTH the adapter AND the explicit datasourceUrl
-        return new PrismaClient({
-            adapter,
-            datasourceUrl: url
-        })
+        return new PrismaClient({ adapter })
     }
 
     // Explicitly THROW to see what's wrong in the UI
