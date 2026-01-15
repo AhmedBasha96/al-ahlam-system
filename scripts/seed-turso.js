@@ -27,7 +27,12 @@ async function seed() {
             });
             console.log("Admin user created successfully!");
         } else {
-            console.log("Admin user already exists.");
+            console.log("Admin user exists. Updating password...");
+            await client.execute({
+                sql: "UPDATE User SET password = ? WHERE username = ?",
+                args: [password, username]
+            });
+            console.log("Admin password updated successfully.");
         }
     } catch (e) {
         console.error("Error seeding database:", e);
