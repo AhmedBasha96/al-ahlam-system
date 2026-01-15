@@ -2,7 +2,9 @@ import { getAllUsers, setMockUser } from "@/lib/actions";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 
-export default async function LoginPage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export const dynamic = 'force-dynamic';
+
+export default async function LoginPage(props: any) {
   async function handleLogin(formData: FormData) {
     'use server';
     try {
