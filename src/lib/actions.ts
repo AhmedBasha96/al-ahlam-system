@@ -1,6 +1,6 @@
 'use server';
 
-import prisma from "@/lib/db";
+import prisma from "@/lib/db-turso";
 import { Role } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
