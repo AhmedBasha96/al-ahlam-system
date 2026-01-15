@@ -37,8 +37,9 @@ const prismaClientSingleton = () => {
         })
     }
 
-    console.log('[DB] No Turso config found. Using default Prisma Client (SQLite file).');
-    return new PrismaClient()
+    // Explicitly THROW to see what's wrong in the UI
+    const debugInfo = `URL: '${url}' (${typeof url}), Token: '${authToken ? 'HIDDEN' : 'MISSING'}'`
+    throw new Error(`DB Config Missing. ${debugInfo}. EnvDB: ${process.env.DATABASE_URL}, EnvTurso: ${process.env.TURSO_DB_URL}`)
 }
 
 declare const globalThis: {
