@@ -3,28 +3,33 @@ import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
 const prismaClientSingleton = () => {
-    const url = process.env.DATABASE_URL
+    let url = process.env.DATABASE_URL
     const authToken = process.env.TURSO_AUTH_TOKEN
 
-    console.log(`[DB] Initialization attempt (URL: ${url ? 'Present' : 'Missing'}, Token: ${authToken ? 'Present' : 'Missing'})`);
+    // Safety check for literal 'undefined' string which can happen in some environments
+    if (url === 'undefined') url = undefined;
 
-    if (url?.startsWith('libsql://') || authToken) {
+    const isLibsql = url?.startsWith('libsql://') || url?.startsWith('https://') || url?.startsWith('wss://');
+
+    if (isLibsql || authToken) {
         if (!url || !authToken) {
-            console.error(`[DB] Configuration Error: One of DATABASE_URL or TURSO_AUTH_TOKEN is missing for Turso.`);
+            console.error(`[DB] Configuration Error: Missing required variables for Turso. URL: ${url ? 'OK' : 'MISSING'}, Token: ${authToken ? 'OK' : 'MISSING'}`);
+            // Fallback to default Prisma which will try to use local SQLite if DATABASE_URL is not set or fail with a clearer message
             return new PrismaClient()
         }
 
-        console.log('[DB] Attempting to use Turso/LibSQL adapter');
+        console.log('[DB] Attempting to initialize Turso/LibSQL adapter...');
         try {
             const libsql = createClient({ url, authToken })
             const adapter = new PrismaLibSql(libsql as any)
             return new PrismaClient({ adapter })
-        } catch (error) {
-            console.error('[DB] Failed to initialize Turso adapter.', error);
+        } catch (error: any) {
+            console.error(`[DB] Failed to initialize Turso adapter: ${error.message}`);
             return new PrismaClient()
         }
     }
 
+    console.log('[DB] Using default Prisma Client (Local SQLite)');
     return new PrismaClient()
 }
 
