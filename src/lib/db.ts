@@ -1,35 +1,33 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaLibSql } from '@prisma/adapter-libsql'
+import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
 const prismaClientSingleton = () => {
-    let url = process.env.DATABASE_URL
+    const url = process.env.DATABASE_URL
     const authToken = process.env.TURSO_AUTH_TOKEN
 
-    // Safety check for literal 'undefined' string which can happen in some environments
-    if (url === 'undefined') url = undefined;
+    console.log(`[DB] Env Check: URL=${url ? `${url.substring(0, 15)}...` : 'MISSING'}, Token=${authToken ? 'PRESENT' : 'MISSING'}`);
 
-    const isLibsql = url?.startsWith('libsql://') || url?.startsWith('https://') || url?.startsWith('wss://');
+    const isLibsql = typeof url === 'string' && (url.startsWith('libsql://') || url.startsWith('https://') || url.startsWith('wss://'));
 
-    if (isLibsql || authToken) {
-        if (!url || !authToken) {
-            console.error(`[DB] Configuration Error: Missing required variables for Turso. URL: ${url ? 'OK' : 'MISSING'}, Token: ${authToken ? 'OK' : 'MISSING'}`);
-            // Fallback to default Prisma which will try to use local SQLite if DATABASE_URL is not set or fail with a clearer message
-            return new PrismaClient()
-        }
-
-        console.log('[DB] Attempting to initialize Turso/LibSQL adapter...');
+    if (isLibsql && authToken) {
+        console.log('[DB] Valid Turso config found. Initializing adapter...');
         try {
-            const libsql = createClient({ url, authToken })
-            const adapter = new PrismaLibSql(libsql as any)
+            const libsql = createClient({ url: url!, authToken: authToken! })
+            const adapter = new PrismaLibSQL(libsql as any)
             return new PrismaClient({ adapter })
         } catch (error: any) {
-            console.error(`[DB] Failed to initialize Turso adapter: ${error.message}`);
+            console.error(`[DB] Error during Turso initialization: ${error.message}`);
+            // Fallback to avoid complete crash
             return new PrismaClient()
         }
     }
 
-    console.log('[DB] Using default Prisma Client (Local SQLite)');
+    if (url?.startsWith('eyJ')) {
+        console.error('[DB] Error: DATABASE_URL seems to contain an Auth Token instead of a URL. Please check Vercel settings.');
+    }
+
+    console.log('[DB] Falling back to default Prisma Client (SQLite)');
     return new PrismaClient()
 }
 
