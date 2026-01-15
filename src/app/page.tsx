@@ -64,6 +64,15 @@ export default async function LoginPage(props: { searchParams: Promise<{ [key: s
         </div>
 
         <form action={handleLogin} className="space-y-6">
+          {/* Diagnostic info (only visible if error exists) */}
+          {error && (
+            <div className="mt-2 text-[10px] text-gray-400 border-t pt-2">
+              <p>Diagnostics: </p>
+              <p>URL: {process.env.DATABASE_URL ? '✅ Found' : '❌ Missing'}</p>
+              <p>Token: {process.env.TURSO_AUTH_TOKEN ? '✅ Found' : '❌ Missing'}</p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
               اسم المستخدم
