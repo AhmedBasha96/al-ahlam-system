@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(uuid())
+  username       String          @unique
+  password       String
+  name           String
+  image          String?
+  role           Role            @default(ACCOUNTANT)
+  agencyId       String?
+  warehouseId    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  pricingType    String?
+  createdRecords AccountRecord[]
+  customers      Customer[]      @relation("RepCustomers")
+  transactions   Transaction[]
+  warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id])
+  agency         Agency?         @relation(fields: [agencyId], references: [id])
+}
+
+model Agency {
+  id           String          @id @default(uuid())
+  name         String
+  address      String?
+  phone        String?
+  image        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  accounts     AccountRecord[]
+  customers    Customer[]
+  products     Product[]
+  transactions Transaction[]
+  users        User[]
+  warehouses   Warehouse[]
+}
+
+model Warehouse {
+  id           String        @id @default(uuid())
+  name         String
+  agencyId     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  stock        Stock[]
+  transactions Transaction[]
+  users        User[]
+  agency       Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  barcode          String?           @unique
+  factoryPrice     Decimal
+  wholesalePrice   Decimal
+  retailPrice      Decimal
+  agencyId         String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  image            String?
+  agency           Agency            @relation(fields: [agencyId], references: [id])
+  stocks           Stock[]
+  transactionItems TransactionItem[]
+}
+
+model Stock {
+  id          String    @id @default(uuid())
+  warehouseId String
+  productId   String
+  quantity    Int       @default(0)
+  product     Product   @relation(fields: [productId], references: [id])
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([warehouseId, productId])
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  type            TransactionType
+  totalAmount     Decimal
+  userId          String
+  agencyId        String
+  warehouseId     String?
+  customerId      String?
+  paymentType     PaymentType       @default(CASH)
+  paidAmount      Decimal?
+  remainingAmount Decimal?
+  note            String?
+  createdAt       DateTime          @default(now())
+  customer        Customer?         @relation(fields: [customerId], references: [id])
+  warehouse       Warehouse?        @relation(fields: [warehouseId], references: [id])
+  agency          Agency            @relation(fields: [agencyId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+  items           TransactionItem[]
+}
+
+model Customer {
+  id               String        @id @default(uuid())
+  name             String
+  phone            String?
+  address          String?
+  representativeId String
+  agencyId         String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  agency           Agency        @relation(fields: [agencyId], references: [id])
+  representative   User          @relation("RepCustomers", fields: [representativeId], references: [id])
+  transactions     Transaction[]
+}
+
+model TransactionItem {
+  id            String      @id @default(uuid())
+  transactionId String
+  productId     String
+  quantity      Int
+  price         Decimal
+  createdAt     DateTime    @default(now())
+  product       Product     @relation(fields: [productId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model AccountRecord {
+  id          String            @id @default(uuid())
+  type        AccountRecordType
+  amount      Decimal
+  description String
+  agencyId    String
+  userId      String
+  createdAt   DateTime          @default(now())
+  createdBy   User              @relation(fields: [userId], references: [id])
+  agency      Agency            @relation(fields: [agencyId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  ACCOUNTANT
+  WAREHOUSE_KEEPER
+  SALES_REPRESENTATIVE
+}
+
+enum PaymentType {
+  CASH
+  CREDIT
+  PARTIAL
+}
+
+enum TransactionType {
+  SALE
+  PURCHASE
+  RETURN_IN
+  RETURN_OUT
+}
+
+enum AccountRecordType {
+  INCOME
+  EXPENSE
+}
