@@ -11,17 +11,30 @@ const prismaClientSingleton = () => {
     if (url === 'undefined' || !url) url = undefined;
     if (authToken === 'undefined' || !authToken) authToken = undefined;
 
+    // TRIM values to avoid whitespace issues
+    url = url?.trim();
+    authToken = authToken?.trim();
+
     console.log(`[DB] Env Check: URL=${url ? `${url.substring(0, 10)}...` : 'MISSING'}, Token=${authToken ? 'PRESENT' : 'MISSING'}`);
+
+    // FORCE set the DATABASE_URL in the process env so Prisma Engine can find it even if it ignores the adapter
+    if (url) {
+        process.env.DATABASE_URL = url;
+    }
 
     const isLibsql = typeof url === 'string' && (url.startsWith('libsql://') || url.startsWith('https://') || url.startsWith('wss://'));
 
     if (isLibsql && authToken) {
         console.log('[DB] Found Turso config. Initializing adapter...');
-        // We do NOT use try-catch here. If this fails, we want the app to crash/error 
-        // with the specific reason, rather than falling back to a broken default client.
+
         const libsql = createClient({ url: url!, authToken: authToken! })
         const adapter = new PrismaLibSQL(libsql as any)
-        return new PrismaClient({ adapter })
+
+        // Pass BOTH the adapter AND the explicit datasourceUrl
+        return new PrismaClient({
+            adapter,
+            datasourceUrl: url
+        })
     }
 
     console.log('[DB] No Turso config found. Using default Prisma Client (SQLite file).');
