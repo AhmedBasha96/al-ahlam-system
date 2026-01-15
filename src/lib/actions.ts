@@ -16,6 +16,22 @@ export async function setMockUser(id: string, role: string, agencyId?: string) {
     revalidatePath('/', 'layout');
 }
 
+// Debug helper
+function safeStringify(obj: any) {
+    try {
+        const cache = new Set();
+        return JSON.stringify(obj, (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+                if (cache.has(value)) return '[Circular]';
+                cache.add(value);
+            }
+            return value;
+        }, 2);
+    } catch {
+        return 'Create Error Stringify Failed';
+    }
+}
+
 export async function getCurrentUser() {
     const currentUser = g.mockAuthUser || {
         id: 'admin-id',
