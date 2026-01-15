@@ -3,45 +3,29 @@ import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
 const prismaClientSingleton = () => {
-    // Try new unique names first, then fall back to defaults
-    let url = process.env.TURSO_DB_URL || process.env.DATABASE_URL
-    let authToken = process.env.TURSO_DB_TOKEN || process.env.TURSO_AUTH_TOKEN
+    // HARDCODED DEBUG CREDENTIALS (V2)
+    const url = "libsql://ahmed-ahmedbasha96.aws-ap-northeast-1.turso.io";
+    const authToken = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3Njg0NzQyNDgsImlkIjoiNjA3MmVjYzEtZmMzNS00ZDU2LWI3ZWEtYjYwMzc3MGNlM2U3IiwicmlkIjoiOGNkMjQ1MGUtZmI0Yy00MDcwLWE0MWUtYmJlZWJkNDg3ZWI3In0.x1vlueR05-q3ErHnBy9wN9sNqfxwDJ39ew0SJbw2EASsosAGPlCGcWCOmOUXSRz7HL8CkqU0EBiZeIZBHxiaDA";
 
-    // Safety check for literal 'undefined' string
-    if (url === 'undefined' || !url) url = undefined;
-    if (authToken === 'undefined' || !authToken) authToken = undefined;
+    console.log(`[DB] Using HARDCODED credentials with datasources object.`);
 
-    // TRIM values to avoid whitespace issues
-    url = url?.trim();
-    authToken = authToken?.trim();
-
-    console.log(`[DB] Env Check: URL=${url ? `${url.substring(0, 10)}...` : 'MISSING'}, Token=${authToken ? 'PRESENT' : 'MISSING'}`);
-
-    // TRICK: Set DATABASE_URL to a valid local file path.
-    // This satisfies Prisma's internal engine validation which expects a valid URL for the 'sqlite' provider.
-    // If the adapter is working, it will intercept the queries and use Turso.
-    // If we passed the LibSQL url here directly without adapter, it might fail validation if 'previewFeatures' aren't picked up.
+    // Force env just in case
     process.env.DATABASE_URL = "file:./dev.db";
 
-    const isLibsql = typeof url === 'string' && (url.startsWith('libsql://') || url.startsWith('https://') || url.startsWith('wss://'));
+    console.log('[DB] Found Turso config. Initializing adapter...');
 
-    if (isLibsql && authToken) {
-        console.log('[DB] Found Turso config. Initializing adapter...');
+    const libsql = createClient({ url, authToken })
+    const adapter = new PrismaLibSQL(libsql as any)
 
-        const libsql = createClient({ url: url!, authToken: authToken! })
-        const adapter = new PrismaLibSQL(libsql as any)
-
-        // Pass BOTH the adapter AND the explicit datasourceUrl
-        // This 'file:' URL satisfies the engine validation, but the adapter INTERCEPTS the query.
-        return new PrismaClient({
-            adapter,
-            datasourceUrl: "file:./dev.db"
-        })
-    }
-
-    // Explicitly THROW to see what's wrong in the UI
-    const debugInfo = `URL: '${url}' (${typeof url}), Token: '${authToken ? 'HIDDEN' : 'MISSING'}'`
-    throw new Error(`DB Config Missing. ${debugInfo}. EnvDB: ${process.env.DATABASE_URL}, EnvTurso: ${process.env.TURSO_DB_URL}`)
+    // Explicitly using the full 'datasources' object to override the schema
+    return new PrismaClient({
+        adapter,
+        datasources: {
+            db: {
+                url: "file:./dev.db"
+            }
+        }
+    })
 }
 
 declare const globalThis: {
