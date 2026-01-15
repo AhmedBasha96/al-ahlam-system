@@ -14,8 +14,17 @@ const prismaClientSingleton = () => {
     const adapter = new PrismaLibSQL(libsql as any)
 
     // We do NOT need to pass datasources URL here because it is defined in schema.prisma as "file:./dev.db"
-    // The adapter will automatically intercept the connection.
-    return new PrismaClient({ adapter })
+    // However, to be absolutely safe against env vars stripping it:
+    console.log('[DB] Adapter initialized. Forcing datasourceUrl to file:./dev.db to satisfy engine.');
+
+    return new PrismaClient({
+        adapter,
+        datasources: {
+            db: {
+                url: "file:./dev.db"
+            }
+        }
+    })
 }
 
 declare const globalThis: {
