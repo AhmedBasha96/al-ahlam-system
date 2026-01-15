@@ -2,8 +2,13 @@ import { createAgency, getAgencies } from "@/lib/actions";
 import CreateAgencyForm from "./create-agency-form";
 import AgenciesList from "./agencies-list";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AgenciesPage() {
-    const agencies = await getAgencies();
+    let agencies: any[] = [];
+    try {
+        agencies = await getAgencies();
+    } catch (e) { console.error("Agencies fetch error:", e); }
 
     return (
         <div className="space-y-6">

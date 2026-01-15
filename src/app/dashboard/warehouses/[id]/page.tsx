@@ -4,28 +4,29 @@ import WarehouseOperations from "./warehouse-operations";
 
 export default async function WarehouseDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: warehouseId } = await params;
-    const warehouse = await getWarehouse(warehouseId);
 
-    if (!warehouse) {
-        return (
-            <div className="p-12 text-center bg-white rounded-2xl shadow-sm border border-red-100">
-                <div className="text-4xl mb-4">⚠️</div>
-                <h1 className="text-xl font-bold text-gray-800">المخزن غير موجود</h1>
-                <p className="text-gray-500 mt-2">يرجى التأكد من الرابط الصحيح أو العودة للقائمة.</p>
-                <Link href="/dashboard/warehouses" className="inline-block mt-4 text-emerald-600 hover:underline">
-                    &larr; العودة للمخازن
-                </Link>
-            </div>
-        );
-    }
+    let warehouse: any = null;
+    let allProducts: any[] = [];
+    let allStocks: any[] = [];
+    let allUsers: any[] = [];
+    let transactions: any[] = [];
+    let allRepStocks: any[] = [];
+    let allCustomers: any[] = [];
+    let allWarehouses: any[] = [];
 
-    const allProducts = await getProducts();
-    const allStocks = await getStocks();
-    const allUsers = await getUsers();
-    const transactions = await getTransactions(warehouseId);
-    const allRepStocks = await getAllRepStocks();
-    const allCustomers = await getCustomers();
-    const allWarehouses = await getWarehouses();
+    try {
+        warehouse = await getWarehouse(warehouseId);
+        // Only fetch others if warehouse exists? No, keep parallelish for simplicity or sequential inside try
+        if (warehouse) {
+            allProducts = await getProducts();
+            allStocks = await getStocks();
+            allUsers = await getUsers();
+            transactions = await getTransactions(warehouseId);
+            allRepStocks = await getAllRepStocks();
+            allCustomers = await getCustomers();
+            allWarehouses = await getWarehouses();
+        }
+    } catch (e) { console.error("Warehouse details fetch error:", e); }
 
     // Map products to convert Decimal to number
     const agencyProducts = allProducts

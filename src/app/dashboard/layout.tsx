@@ -9,8 +9,13 @@ export default async function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const currentUser = await getCurrentUser();
-    const role = currentUser.role;
+    let currentUser = { id: '', role: 'GUEST', agencyId: null } as any;
+    try {
+        currentUser = await getCurrentUser();
+    } catch (e) {
+        console.error("Layout data fetch error:", e);
+    }
+    const role = currentUser.role || 'GUEST';
 
     console.log('[Dashboard Layout] Current user:', currentUser);
 

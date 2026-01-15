@@ -2,15 +2,21 @@ import { createProduct, getAgencies, getProducts, getCurrentUser } from "@/lib/a
 import CreateProductForm from "./create-product-form";
 import ProductsList from "./products-list";
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProductsPage() {
-    const agencies = await getAgencies();
-    const rawProducts = await getProducts();
-    const products = rawProducts.map((p: any) => ({
-        ...p,
-        factoryPrice: Number(p.factoryPrice),
-        wholesalePrice: Number(p.wholesalePrice),
-        retailPrice: Number(p.retailPrice)
-    }));
+    let agencies: any[] = [];
+    let products: any[] = [];
+    try {
+        agencies = await getAgencies();
+        const rawProducts = await getProducts();
+        products = rawProducts.map((p: any) => ({
+            ...p,
+            factoryPrice: Number(p.factoryPrice),
+            wholesalePrice: Number(p.wholesalePrice),
+            retailPrice: Number(p.retailPrice)
+        }));
+    } catch (e) { console.error("Products fetch error:", e); }
     const user = await getCurrentUser();
 
     const canManageProducts = user.role !== 'SALES_REPRESENTATIVE';

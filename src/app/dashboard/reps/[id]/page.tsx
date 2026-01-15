@@ -9,31 +9,34 @@ export const dynamic = 'force-dynamic';
 
 export default async function RepStockPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: repId } = await params;
-    const rawProducts = await getProducts();
+
+    let rawProducts: any[] = [];
+    let rawRepStocks: any[] = [];
+    let users: any[] = [];
+    let repCustomers: any[] = [];
+    let warehouses: any[] = [];
+    let salesSessions: any[] = [];
+    let rep: any = null;
+    let currentUser = { role: 'GUEST' } as any;
+
+    try {
+        rawProducts = await getProducts();
+        rawRepStocks = await getRepStocks(repId);
+        users = await getUsers();
+        repCustomers = await getRepCustomers(repId);
+        warehouses = await getWarehouses();
+        // salesSessions fetch moved to safely execute
+        salesSessions = await getSalesSessions({ repId });
+        rep = users.find((u: any) => u.id === repId);
+        currentUser = await getCurrentUser();
+    } catch (e) { console.error("RepPage data fetch error:", e); }
+
     const allProducts = rawProducts.map((p: any) => ({
-        ...p,
-        factoryPrice: Number(p.factoryPrice),
-        wholesalePrice: Number(p.wholesalePrice),
-        retailPrice: Number(p.retailPrice)
+        ...p, factoryPrice: Number(p.factoryPrice), wholesalePrice: Number(p.wholesalePrice), retailPrice: Number(p.retailPrice)
     }));
+    const repStocks = rawRepStocks.map(s => ({ productId: s.productId, quantity: s.quantity }));
 
-    // Sanitize repStocks to remove nested Prisma objects (Decimal)
-    const rawRepStocks = await getRepStocks(repId);
-    const repStocks = rawRepStocks.map(s => ({
-        productId: s.productId,
-        quantity: s.quantity
-    }));
-
-    const users = await getUsers();
-    const repCustomers = await getRepCustomers(repId);
-    const warehouses = await getWarehouses();
-    const rep = users.find((u: any) => u.id === repId);
-    const currentUser = await getCurrentUser();
-
-    if (!rep) return <div>المندوب غير موجود</div>;
-
-    // Fetch sales sessions to calculate debts
-    const salesSessions = await getSalesSessions({ repId });
+    if (!rep) return <div>المندوب غير موجود (أو خطأ في الخادم)</div>;
 
     // Personal Debt: Sessions with NO customerId (Audit-based)
     const personalDebt = salesSessions

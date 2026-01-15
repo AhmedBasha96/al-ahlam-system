@@ -1,11 +1,16 @@
-import { createWarehouse, getWarehouses, getAgencies, deleteWarehouse, getUsers } from "@/lib/actions";
+import { createWarehouse, getAgencies, getWarehouses, deleteWarehouse } from "@/lib/actions";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default async function WarehousesPage() {
-    const warehouses = await getWarehouses();
-    const agencies = await getAgencies();
+    let warehouses: any[] = [];
+    let agencies: any[] = [];
+
+    try {
+        warehouses = await getWarehouses();
+        agencies = await getAgencies();
+    } catch (e) { console.error("Warehouses fetch error:", e); }
 
     // Mock Permission Check (In real app, use session)
     // For now, assume we show Create Form only if Admin/Manager

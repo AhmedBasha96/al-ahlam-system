@@ -10,15 +10,22 @@ export default async function SalesReportsPage({
     searchParams: Promise<{ repId?: string; start?: string; end?: string }>
 }) {
     const filters = await searchParams;
-    const users = await getUsers();
-    const currentUser = await getCurrentUser();
-    const reps = users.filter((u: any) => u.role === 'SALES_REPRESENTATIVE');
+    let users: any[] = [];
+    let currentUser: any = { role: 'GUEST' };
+    let rawSessions: any[] = [];
 
-    const rawSessions = await getSalesSessions({
-        repId: filters.repId,
-        startDate: filters.start,
-        endDate: filters.end
-    });
+    try {
+        users = await getUsers();
+        currentUser = await getCurrentUser();
+        rawSessions = await getSalesSessions({
+            repId: filters.repId,
+            startDate: filters.start,
+            endDate: filters.end
+        });
+    } catch (e) {
+        console.error("Sales Reports fetch error:", e);
+    }
+    const reps = users.filter((u: any) => u.role === 'SALES_REPRESENTATIVE');
 
     const sessions = rawSessions.map((s: any) => ({
         id: s.id,

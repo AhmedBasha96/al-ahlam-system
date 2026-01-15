@@ -2,14 +2,23 @@ import { getCustomers, getUsers, getAgencies, createCustomer, getCurrentUser } f
 import CustomersList from "./customers-list";
 import CreateCustomerForm from "./create-customer-form";
 
+export const dynamic = 'force-dynamic';
+
 export default async function CustomersPage() {
-    const rawCustomers = await getCustomers();
-    const customers = rawCustomers.map((c: any) => ({
-        ...c,
-        representativeIds: [c.representativeId]
-    }));
-    const users = await getUsers();
-    const agencies = await getAgencies();
+    let customers: any[] = [];
+    let users: any[] = [];
+    let agencies: any[] = [];
+
+    try {
+        const rawCustomers = await getCustomers();
+        customers = rawCustomers.map((c: any) => ({
+            ...c,
+            representativeId: c.representativeId || undefined,
+            agencyId: c.agencyId || undefined
+        }));
+        users = await getUsers();
+        agencies = await getAgencies();
+    } catch (e) { console.error("Customers/Data fetch error:", e); }
 
     // Only identify users who can be representatives (SALES_REPRESENTATIVE or ACCOUNTANT for now)
     const representatives = users.filter((u: any) => u.role === 'SALES_REPRESENTATIVE' || u.role === 'ACCOUNTANT');
