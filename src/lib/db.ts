@@ -16,18 +16,15 @@ const prismaClientSingleton = () => {
     const isLibsql = typeof url === 'string' && (url.startsWith('libsql://') || url.startsWith('https://') || url.startsWith('wss://'));
 
     if (isLibsql && authToken) {
-        console.log('[DB] Connecting to Turso via LibSQL Adapter...');
-        try {
-            const libsql = createClient({ url: url!, authToken: authToken! })
-            const adapter = new PrismaLibSQL(libsql as any)
-            return new PrismaClient({ adapter })
-        } catch (error: any) {
-            console.error(`[DB] Turso Connection Failed: ${error.message}`);
-            return new PrismaClient()
-        }
+        console.log('[DB] Found Turso config. Initializing adapter...');
+        // We do NOT use try-catch here. If this fails, we want the app to crash/error 
+        // with the specific reason, rather than falling back to a broken default client.
+        const libsql = createClient({ url: url!, authToken: authToken! })
+        const adapter = new PrismaLibSQL(libsql as any)
+        return new PrismaClient({ adapter })
     }
 
-    console.log('[DB] No valid Turso config. Falling back to default SQLite.');
+    console.log('[DB] No Turso config found. Using default Prisma Client (SQLite file).');
     return new PrismaClient()
 }
 
