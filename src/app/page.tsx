@@ -2,33 +2,50 @@ import { getAllUsers, setMockUser } from "@/lib/actions";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 
-export default async function LoginPage() {
+export default async function LoginPage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   async function handleLogin(formData: FormData) {
     'use server';
-    const username = formData.get('username') as string;
-    const password = formData.get('password') as string;
+    try {
+      const username = formData.get('username') as string;
+      const password = formData.get('password') as string;
 
-    const users = await getAllUsers();
-    const user = users.find((u: any) => u.username === username);
+      console.log(`[Login] Attempting login for: ${username}`);
+      const users = await getAllUsers();
+      const user = users.find((u: any) => u.username === username);
 
-    if (user && password) {
-      // Check admin password
-      if (user.username === 'admin' && password !== '12345') {
-        redirect('/?error=wrongpassword');
-        return;
+      if (user && password) {
+        if (user.username === 'admin' && password !== '12345') {
+          redirect('/?error=wrongpassword');
+          return;
+        }
+
+        console.log(`[Login] Success for ${username}. Setting mock user and redirecting...`);
+        await setMockUser(user.id, user.role, (user as any).agencyId);
+        redirect('/dashboard');
+      } else {
+        redirect('/?error=invalid');
       }
-
-      // For other users, any password works (mock system)
-      await setMockUser(user.id, user.role, (user as any).agencyId);
-      redirect('/dashboard');
-    } else {
-      redirect('/?error=invalid');
+    } catch (error: any) {
+      if (error.message === 'NEXT_REDIRECT') throw error; // Handle redirects in server actions
+      console.error('[Login] Error during handleLogin:', error);
+      const message = error.message || 'Unknown server error';
+      redirect(`/?error=${encodeURIComponent(message)}`);
     }
   }
+
+  const searchParams = await props.searchParams;
+  const error = searchParams.error as string | undefined;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm">
+            {error === 'invalid' ? 'اسم المستخدم أو كلمة المرور غير صحيحة' :
+              error === 'wrongpassword' ? 'كلمة المرور غير صحيحة' :
+                `خطأ في الخادم: ${error}`}
+          </div>
+        )}
         <div className="text-center mb-8">
           <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center">
             <Image

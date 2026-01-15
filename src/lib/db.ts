@@ -11,7 +11,7 @@ const prismaClientSingleton = () => {
                 url: process.env.DATABASE_URL,
                 authToken: process.env.TURSO_AUTH_TOKEN,
             })
-            const adapter = new PrismaLibSql(libsql as any)
+            const adapter = new PrismaLibSql(libsql)
             return new PrismaClient({ adapter })
         } catch (error) {
             console.error('[DB] Failed to initialize Turso adapter:', error);
