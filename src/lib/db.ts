@@ -31,7 +31,12 @@ const prismaClientSingleton = () => {
         const libsql = createClient({ url: url!, authToken: authToken! })
         const adapter = new PrismaLibSQL(libsql as any)
 
-        return new PrismaClient({ adapter })
+        // Pass BOTH the adapter AND the explicit datasourceUrl
+        // This 'file:' URL satisfies the engine validation, but the adapter INTERCEPTS the query.
+        return new PrismaClient({
+            adapter,
+            datasourceUrl: "file:./dev.db"
+        })
     }
 
     // Explicitly THROW to see what's wrong in the UI
