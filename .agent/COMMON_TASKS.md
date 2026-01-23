@@ -506,4 +506,26 @@ node scripts/view-db-content.js
 
 ---
 
+## 🗄️ Database Migrations & Seeding
+
+### Creating a New Migration:
+1. Edit `prisma/schema.prisma`
+2. Run `npm run prisma:migrate`
+3. If prompt for name: provide a descriptive name (e.g., `add_customer_notes`)
+
+### Updating Locally After Someone Else's Changes:
+1. Pull latest code
+2. Run `npx prisma migrate deploy`
+3. Run `npm run prisma:generate`
+
+### Resetting and Re-seeding Case:
+If you want to wipe the local DB and start fresh with the seed user:
+1. Run `npm run prisma:reset`
+
+### Modifying the Seed Script:
+1. Edit `prisma/seed.ts`
+2. Run `npm run prisma:seed` to apply changes (warning: skip if it creates duplicates)
+
+---
+
 **Last Updated**: January 2026

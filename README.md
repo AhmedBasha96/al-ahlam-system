@@ -5,13 +5,14 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16.1.1-black)
 ![React](https://img.shields.io/badge/React-19.2.3-blue)
 ![Prisma](https://img.shields.io/badge/Prisma-6.19.0-2D3748)
+![MySQL](https://img.shields.io/badge/MySQL-8.0+-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue)
 
 ## 📖 نظرة عامة | Overview
 
-نظام إدارة متكامل للتوكيلات التجارية يدعم إدارة المستودعات، المنتجات، المبيعات، والعملاء مع تتبع كامل للمخزون والمعاملات المالية.
+نظام إدارة متكامل للتوكيلات التجارية يدعم إدارة المستودعات، المنتجات، المبيعات، والعملاء مع تتبع كامل للمخزون والمعاملات المالية. يستخدم النظام الآن قاعدة بيانات **MySQL** لضمان أفضل أداء واستقرار.
 
-A comprehensive management system for commercial agencies supporting warehouse management, products, sales, and customers with complete inventory and financial transaction tracking.
+A comprehensive management system for commercial agencies supporting warehouse management, products, sales, and customers with complete inventory and financial transaction tracking. The system now uses **MySQL** for robust data management.
 
 ## ✨ الميزات الرئيسية | Key Features
 
@@ -29,27 +30,38 @@ A comprehensive management system for commercial agencies supporting warehouse m
 ### المتطلبات | Prerequisites
 
 - Node.js 20 or higher
+- MySQL Server 8.0+
 - npm or yarn
 
 ### التثبيت | Installation
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone <repository-url>
 cd al-ahlam-system
 
-# Install dependencies
+# 2. Install dependencies
 npm install
 
-# Generate Prisma client
-npx prisma generate
+# 3. Configure environment
+# Copy .env.example to .env and fill in MySQL credentials
+cp .env.example .env
 
-# Apply database schema
-npx prisma db push
+# 5. Apply database migrations & seed
+npm run prisma:reset
 
-# Run development server
+# 6. Run development server
 npm run dev
 ```
+
+### NPM Scripts
+
+- `npm run dev` - تشغيل مشروع التطوير | Run dev server
+- `npm run prisma:migrate` - إنشاء ترحيل جديد | Create new migration
+- `npm run prisma:seed` - إضافة البيانات التجريبية | Seed database
+- `npm run prisma:reset` - مسح قاعدة البيانات وإعادة بنائها | Reset DB & re-seed (⚠️ Removes current data)
+- `npm run prisma:studio` - فتح واجهة قاعدة البيانات | Open Prisma Studio
+- `npm run prisma:generate` - تحديث ملفات Prisma Client | Regenerate client
 
 افتح المتصفح على [http://localhost:3000](http://localhost:3000)
 
@@ -70,7 +82,7 @@ Open your browser at [http://localhost:3000](http://localhost:3000)
 al-ahlam-system/
 ├── prisma/
 │   ├── schema.prisma      # Database schema
-│   └── dev.db            # SQLite database
+│   └── migrations/        # MySQL migrations
 ├── src/
 │   ├── app/              # Next.js App Router
 │   │   ├── page.tsx      # Login page
@@ -84,11 +96,11 @@ al-ahlam-system/
 
 ## 🗄️ قاعدة البيانات | Database
 
-النظام يستخدم SQLite مع Prisma ORM ويحتوي على:
+النظام يستخدم **MySQL** مع Prisma ORM ويحتوي على:
 
-The system uses SQLite with Prisma ORM and contains:
+The system uses **MySQL** with Prisma ORM and contains:
 
-- **8 Models**: User, Agency, Warehouse, Product, Stock, Transaction, Customer, AccountRecord
+- **9 Models**: User, Agency, Warehouse, Product, Stock, Transaction, TransactionItem, Customer, AccountRecord
 - **5 User Roles**: Admin, Manager, Accountant, Warehouse Keeper, Sales Representative
 - **Multi-agency support** with complete data separation
 - **Virtual warehouses** for sales representatives
@@ -131,7 +143,7 @@ Rep → Enter Remaining Quantities → System Calculates Sales → Create Invoic
 
 - **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4
 - **Backend**: Next.js Server Actions
-- **Database**: SQLite with Prisma ORM
+- **Database**: MySQL with Prisma ORM
 - **Language**: TypeScript 5.9
 - **Styling**: Tailwind CSS with Emerald theme
 
@@ -143,6 +155,8 @@ For more details, see:
 
 - **[BUSINESS_REQUIREMENTS.md](./BUSINESS_REQUIREMENTS.md)** - متطلبات العمل وحالات الاستخدام
 - **[TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)** - الوثائق الفنية والمعمارية
+- **[.agent/COMMON_TASKS.md](./.agent/COMMON_TASKS.md)** - دليل المهام الشائعة (بما في ذلك الترحيلات)
+- **[.agent/DOC_UPDATE_GUIDE.md](./.agent/DOC_UPDATE_GUIDE.md)** - دليل تحديث الوثائق
 
 ## 🔧 البناء للإنتاج | Production Build
 
@@ -156,7 +170,7 @@ npm start
 
 ## 📝 ملاحظات مهمة | Important Notes
 
-- ✅ النظام يستخدم SQLite محلياً (`./dev.db`)
+- ✅ النظام يستخدم **MySQL** (يتطلب خادم MySQL نشط)
 - ✅ الواجهة بالعربية بالكامل مع دعم RTL
 - ✅ نظام المصادقة الحالي تجريبي (Mock Authentication)
 - ⚠️ يُنصح بتطبيق نظام مصادقة حقيقي للإنتاج
@@ -164,6 +178,7 @@ npm start
 
 ## 🚧 التطوير المستقبلي | Future Enhancements
 
+- [x] Migrate to MySQL (Prisma)
 - [ ] نظام مصادقة حقيقي (NextAuth.js)
 - [ ] تشفير كلمات المرور (bcrypt)
 - [ ] نظام إشعارات

@@ -16,7 +16,7 @@
 - **Runtime**: Node.js
 - **Framework**: Next.js API Routes / Server Actions
 - **ORM**: Prisma 6.19.0
-- **Database**: SQLite (file:./dev.db)
+- **Database**: MySQL 8.0+
 
 #### Development Tools
 - **Linting**: ESLint 9
@@ -31,7 +31,8 @@
 al-ahlam-system/
 ├── prisma/
 │   ├── schema.prisma          # Database schema
-│   └── dev.db                 # SQLite database file
+│   ├── seed.ts                # Database seed script
+│   └── migrations/            # MySQL migration history
 ├── public/
 │   ├── logo.jpg               # Application logo
 │   └── ...                    # Static assets
@@ -64,6 +65,8 @@ al-ahlam-system/
 ├── tsconfig.json
 ├── next.config.ts
 ├── tailwind.config.ts
+├── .env                       # Environment variables (MySQL credentials)
+├── .env.example               # Environment variables template
 └── README.md
 ```
 
@@ -107,7 +110,7 @@ model User {
   username       String   @unique
   password       String
   name           String
-  image          String?
+  image          String?  @db.Text
   role           Role     @default(ACCOUNTANT)
   agencyId       String?
   warehouseId    String?
@@ -131,7 +134,7 @@ model Agency {
   name      String
   address   String?
   phone     String?
-  image     String?  // Base64 encoded
+  image     String?  @db.Text // Base64 encoded
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -161,7 +164,7 @@ model Product {
   wholesalePrice Decimal
   retailPrice    Decimal
   agencyId       String
-  image          String? // Base64 encoded
+  image          String? @db.Text // Base64 encoded
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -710,6 +713,7 @@ async function performWarehouseAudit(
 ### Prerequisites
 ```bash
 - Node.js 20+
+- MySQL Server 8.0+
 - npm or yarn
 ```
 
@@ -722,23 +726,34 @@ cd al-ahlam-system
 # Install dependencies
 npm install
 
-# Generate Prisma client
+# 3. Configure environment
+# Copy .env.example to .env and fill in MySQL credentials
+cp .env.example .env
+
+# 4. Generate Prisma client
 npx prisma generate
 
-# Apply database schema
-npx prisma db push
+# 5. Apply database migration
+npx prisma migrate dev --name init
 
-# (Optional) Seed database
-node scripts/seed-turso.js
+# 6. Seed database
+npx prisma db seed
 
-# Run development server
+# 7. Run development server
 npm run dev
+```
+
+### Useful Prisma Commands
+```bash
+npm run prisma:migrate  # Update schema changes
+npm run prisma:reset    # Full reset and re-seed
+npm run prisma:studio   # Inspect DB
 ```
 
 ### Environment Variables
 ```env
 # .env file
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="mysql://user:password@localhost:3306/al_ahlam_db"
 NODE_ENV="development"
 ```
 
@@ -758,7 +773,7 @@ npm start
 ### Console Logging
 ```typescript
 // Database connection
-console.log('[DB] Using local SQLite database (./dev.db)');
+console.log('[DB] Connecting to MySQL...');
 
 // Login attempts
 console.log(`[Login] Attempting login for: ${username}`);

@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -12,7 +12,7 @@ model User {
   username       String          @unique
   password       String
   name           String
-  image          String?
+  image          String?         @db.Text
   role           Role            @default(ACCOUNTANT)
   agencyId       String?
   warehouseId    String?
@@ -31,7 +31,7 @@ model Agency {
   name         String
   address      String?
   phone        String?
-  image        String?
+  image        String?         @db.Text
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   accounts     AccountRecord[]
@@ -65,7 +65,7 @@ model Product {
   agencyId         String
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-  image            String?
+  image            String?           @db.Text
   agency           Agency            @relation(fields: [agencyId], references: [id])
   stocks           Stock[]
   transactionItems TransactionItem[]

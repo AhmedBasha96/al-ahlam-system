@@ -15,7 +15,7 @@ This is a **Commercial Agencies Management System** (نظام إدارة الت�
 
 - **Framework**: Next.js 16.1.1 (App Router)
 - **React**: 19.2.3 with React Compiler
-- **Database**: SQLite with Prisma ORM 6.19.0
+- **Database**: MySQL 8.0+ with Prisma ORM 6.19.0
 - **Language**: TypeScript 5.9.3
 - **Styling**: Tailwind CSS 4.0
 - **API**: Next.js Server Actions
@@ -203,10 +203,19 @@ await updateStock(warehouseId, productId, quantity, note, factoryPrice);
 ```bash
 npm run dev          # Start dev server
 npm run build        # Build for production
-npx prisma generate  # Regenerate Prisma client
-npx prisma db push   # Apply schema changes
+npm run prisma:generate # Regenerate Prisma client
+npm run prisma:migrate # Create migration
+npm run prisma:seed   # Seed database
+npm run prisma:reset  # Reset and Seed
 npx prisma studio    # Open database GUI
 ```
+
+## 🔐 Default Admin Account
+
+- **Username**: `ahmed`
+- **Password**: `1`
+- **Role**: `ADMIN`
+- **Source**: `prisma/seed.ts` (Password is hashed with bcrypt)
 
 ## ⚠️ Known Issues
 
@@ -214,6 +223,7 @@ npx prisma studio    # Open database GUI
 - Passwords are plain text (needs bcrypt hashing)
 - No rate limiting
 - No email/SMS notifications
+- **MySQL Connection**: Requires active MySQL server and correct DATABASE_URL in .env
 
 ## 📞 Demo Accounts
 
