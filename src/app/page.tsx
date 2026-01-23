@@ -112,17 +112,6 @@ export default async function LoginPage(props: any) {
             تسجيل الدخول
           </button>
         </form>
-
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-xs text-blue-800 font-bold mb-2">حسابات تجريبية:</p>
-          <ul className="text-xs text-blue-700 space-y-1">
-            <li>• <strong>admin</strong> - المدير العام (كلمة المرور: 12345)</li>
-            <li>• <strong>manager_ali</strong> - مدير توكيلات</li>
-            <li>• <strong>ahmed_sales</strong> - محاسب</li>
-            <li>• <strong>kareem_rep</strong> - مندوب مبيعات</li>
-          </ul>
-          <p className="text-[10px] text-blue-600 mt-2">باقي الحسابات: أي كلمة مرور تعمل</p>
-        </div>
       </div>
     </div>
   );
