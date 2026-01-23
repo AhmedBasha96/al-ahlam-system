@@ -1,7 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 
 const prismaClientSingleton = () => {
-    console.log('[DB] Using local SQLite database (./dev.db)');
+    const url = process.env.DATABASE_URL || '';
+    const protocol = url.split(':')[0] || 'unknown';
+    console.log(`[DB] Connecting to ${protocol} database...`);
     return new PrismaClient();
 };
 
