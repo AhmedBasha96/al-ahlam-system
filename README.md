@@ -1,36 +1,191 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# نظام الأحلام للتوكيلات التجارية
+# Al-Ahlam Commercial Agencies Management System
 
-## Getting Started
+![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
+![Next.js](https://img.shields.io/badge/Next.js-16.1.1-black)
+![React](https://img.shields.io/badge/React-19.2.3-blue)
+![Prisma](https://img.shields.io/badge/Prisma-6.19.0-2D3748)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue)
 
-First, run the development server:
+## 📖 نظرة عامة | Overview
+
+نظام إدارة متكامل للتوكيلات التجارية يدعم إدارة المستودعات، المنتجات، المبيعات، والعملاء مع تتبع كامل للمخزون والمعاملات المالية.
+
+A comprehensive management system for commercial agencies supporting warehouse management, products, sales, and customers with complete inventory and financial transaction tracking.
+
+## ✨ الميزات الرئيسية | Key Features
+
+- 🏢 **إدارة متعددة التوكيلات** - Multi-agency management
+- 📦 **نظام مخزون ذكي** - Smart inventory system
+- 💰 **نظام تسعير مرن** - Flexible pricing system (Factory/Wholesale/Retail)
+- 📊 **إدارة مبيعات متقدمة** - Advanced sales management
+- 👥 **إدارة المندوبين والعملاء** - Sales reps and customer management
+- 📈 **تقارير شاملة** - Comprehensive reports
+- 🔐 **نظام صلاحيات متعدد** - Multi-role permission system
+- 🌐 **واجهة عربية كاملة** - Full Arabic interface
+
+## 🚀 البدء السريع | Quick Start
+
+### المتطلبات | Prerequisites
+
+- Node.js 20 or higher
+- npm or yarn
+
+### التثبيت | Installation
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd al-ahlam-system
+
+# Install dependencies
+npm install
+
+# Generate Prisma client
+npx prisma generate
+
+# Apply database schema
+npx prisma db push
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+افتح المتصفح على [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open your browser at [http://localhost:3000](http://localhost:3000)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### الحسابات التجريبية | Demo Accounts
 
-## Learn More
+| Username | Role | Password | الدور |
+|----------|------|----------|-------|
+| `admin` | Admin | `12345` | المدير العام |
+| `manager_ali` | Manager | any | مدير توكيلات |
+| `ahmed_sales` | Accountant | any | محاسب |
+| `kareem_rep` | Sales Rep | any | مندوب مبيعات |
 
-To learn more about Next.js, take a look at the following resources:
+## 📁 هيكل المشروع | Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+al-ahlam-system/
+├── prisma/
+│   ├── schema.prisma      # Database schema
+│   └── dev.db            # SQLite database
+├── src/
+│   ├── app/              # Next.js App Router
+│   │   ├── page.tsx      # Login page
+│   │   └── dashboard/    # Dashboard pages
+│   └── lib/
+│       ├── db.ts         # Prisma client
+│       └── actions.ts    # Server actions
+├── public/               # Static assets
+└── scripts/              # Utility scripts
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🗄️ قاعدة البيانات | Database
 
-## Deploy on Vercel
+النظام يستخدم SQLite مع Prisma ORM ويحتوي على:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The system uses SQLite with Prisma ORM and contains:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **8 Models**: User, Agency, Warehouse, Product, Stock, Transaction, Customer, AccountRecord
+- **5 User Roles**: Admin, Manager, Accountant, Warehouse Keeper, Sales Representative
+- **Multi-agency support** with complete data separation
+- **Virtual warehouses** for sales representatives
+
+## 👥 الأدوار | User Roles
+
+| Role | الدور | Permissions | الصلاحيات |
+|------|--------|-------------|-----------|
+| **ADMIN** | المدير العام | Full system access | صلاحيات كاملة |
+| **MANAGER** | مدير توكيلات | Agency-level management | إدارة التوكيلات |
+| **ACCOUNTANT** | محاسب | Financial operations | العمليات المالية |
+| **WAREHOUSE_KEEPER** | أمين مستودع | Inventory management | إدارة المخزون |
+| **SALES_REPRESENTATIVE** | مندوب مبيعات | Sales operations | عمليات البيع |
+
+## 🔄 سير العمل | Workflows
+
+### 1. توريد بضاعة | Stock Supply
+```
+Warehouse Keeper → Select Warehouse → Add Product → Enter Quantity & Price → Update Stock
+```
+
+### 2. تحميل للمندوب | Load to Rep
+```
+Warehouse → Rep Virtual Warehouse → Deduct from Warehouse → Add to Rep Stock
+```
+
+### 3. جرد المندوب | Rep Audit
+```
+Rep → Enter Remaining Quantities → System Calculates Sales → Create Invoice → Return Stock
+```
+
+## 📊 التقارير | Reports
+
+- **تقارير المبيعات** - Sales reports by rep/agency/period
+- **تقارير المخزون** - Inventory reports by warehouse
+- **التقارير المالية** - Financial reports (income/expenses)
+- **حركة المخزون** - Stock movement tracking
+
+## 🛠️ التقنيات المستخدمة | Tech Stack
+
+- **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4
+- **Backend**: Next.js Server Actions
+- **Database**: SQLite with Prisma ORM
+- **Language**: TypeScript 5.9
+- **Styling**: Tailwind CSS with Emerald theme
+
+## 📚 الوثائق | Documentation
+
+للمزيد من التفاصيل، راجع:
+
+For more details, see:
+
+- **[BUSINESS_REQUIREMENTS.md](./BUSINESS_REQUIREMENTS.md)** - متطلبات العمل وحالات الاستخدام
+- **[TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)** - الوثائق الفنية والمعمارية
+
+## 🔧 البناء للإنتاج | Production Build
+
+```bash
+# Build the application
+npm run build
+
+# Start production server
+npm start
+```
+
+## 📝 ملاحظات مهمة | Important Notes
+
+- ✅ النظام يستخدم SQLite محلياً (`./dev.db`)
+- ✅ الواجهة بالعربية بالكامل مع دعم RTL
+- ✅ نظام المصادقة الحالي تجريبي (Mock Authentication)
+- ⚠️ يُنصح بتطبيق نظام مصادقة حقيقي للإنتاج
+- ⚠️ يُنصح بتشفير كلمات المرور باستخدام bcrypt
+
+## 🚧 التطوير المستقبلي | Future Enhancements
+
+- [ ] نظام مصادقة حقيقي (NextAuth.js)
+- [ ] تشفير كلمات المرور (bcrypt)
+- [ ] نظام إشعارات
+- [ ] تطبيق موبايل للمندوبين
+- [ ] تقارير متقدمة مع رسوم بيانية
+- [ ] نظام طباعة الفواتير
+- [ ] تكامل مع قارئ الباركود
+- [ ] تصدير التقارير (Excel/PDF)
+
+## 📄 الترخيص | License
+
+هذا المشروع خاص بشركة الأحلام للتوكيلات التجارية.
+
+This project is proprietary to Al-Ahlam Commercial Agencies.
+
+## 📞 الدعم | Support
+
+للدعم الفني أو الاستفسارات، يرجى التواصل مع فريق التطوير.
+
+For technical support or inquiries, please contact the development team.
+
+---
+
+**تاريخ آخر تحديث | Last Updated**: يناير 2026 | January 2026  
+**الإصدار | Version**: 0.1.0

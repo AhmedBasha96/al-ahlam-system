@@ -5,7 +5,7 @@ CREATE TABLE "User" (
     "password" TEXT NOT NULL,       
     "name" TEXT NOT NULL,
     "image" TEXT,
-    "role" TEXT NOT NULL DEFAULT 'ACCOUNTANT',
+    "role" TEXT NOT NULL,
     "agencyId" TEXT,
     "warehouseId" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
