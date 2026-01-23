@@ -86,7 +86,7 @@ export default function CustomersList({ customers, representatives, agencies, us
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {filteredCustomers.map((customer) => {
-                            const customerRepIds = customer.representativeIds || [];
+                            const customerRepIds = customer?.representativeIds || [];
                             const reps = representatives.filter(r => customerRepIds.includes(r.id));
                             const agency = agencies.find(a => a.id === customer.agencyId);
                             return (
@@ -116,7 +116,7 @@ export default function CustomersList({ customers, representatives, agencies, us
                                     </td>
                                     <td className="px-6 py-4 text-center flex items-center justify-center gap-2">
                                         <Link
-                                            href={`/dashboard/reps/${(customer.representativeIds && customer.representativeIds[0]) || 'unknown'}?customerId=${customer.id}`}
+                                            href={`/dashboard/reps/${(customer?.representativeIds && customer?.representativeIds[0]) || 'unknown'}?customerId=${customer.id}`}
                                             className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition shadow-sm whitespace-nowrap"
                                         >
                                             عمل فاتورة 📄

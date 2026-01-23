@@ -87,7 +87,7 @@ export default function EditCustomerModal({ customer, representatives, agencies,
                                             type="checkbox"
                                             name="representativeIds"
                                             value={rep.id}
-                                            defaultChecked={customer.representativeIds.includes(rep.id)}
+                                            defaultChecked={customer?.representativeIds?.includes(rep.id)}
                                             className="w-4 h-4 accent-emerald-600 rounded"
                                         />
                                         <span className="text-sm font-medium text-gray-700">{rep.name}</span>
