@@ -100,6 +100,7 @@ model Transaction {
   agency          Agency            @relation(fields: [agencyId], references: [id])
   user            User              @relation(fields: [userId], references: [id])
   items           TransactionItem[]
+  imageUrl        String?           @db.LongText
 }
 
 model Customer {
@@ -122,6 +123,7 @@ model TransactionItem {
   productId     String
   quantity      Int
   price         Decimal
+  cost          Decimal     @default(0)
   createdAt     DateTime    @default(now())
   product       Product     @relation(fields: [productId], references: [id])
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
@@ -132,11 +134,13 @@ model AccountRecord {
   type        AccountRecordType
   amount      Decimal
   description String
-  agencyId    String
+  category    String?
+  agencyId    String?
   userId      String
   createdAt   DateTime          @default(now())
   createdBy   User              @relation(fields: [userId], references: [id])
-  agency      Agency            @relation(fields: [agencyId], references: [id])
+  agency      Agency?           @relation(fields: [agencyId], references: [id])
+  imageUrl    String?           @db.LongText
 }
 
 enum Role {
@@ -163,4 +167,68 @@ enum TransactionType {
 enum AccountRecordType {
   INCOME
   EXPENSE
+}
+
+model Bank {
+  id            String            @id @default(uuid())
+  name          String
+  accountNumber String?
+  balance       Decimal           @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  transactions  BankTransaction[]
+  loans         Loan[]
+}
+
+model BankTransaction {
+  id          String              @id @default(uuid())
+  amount      Decimal
+  type        BankTransactionType
+  description String
+  date        DateTime            @default(now())
+  bankId      String
+  bank        Bank                @relation(fields: [bankId], references: [id])
+  imageUrl    String?             @db.LongText
+}
+
+model Loan {
+  id           String        @id @default(uuid())
+  bankId       String
+  bank         Bank          @relation(fields: [bankId], references: [id])
+  principal    Decimal
+  interest     Decimal       @default(0)
+  totalAmount  Decimal
+  startDate    DateTime
+  endDate      DateTime?
+  status       LoanStatus    @default(ACTIVE)
+  notes        String?
+  installments Installment[]
+  createdAt    DateTime      @default(now())
+}
+
+model Installment {
+  id        String            @id @default(uuid())
+  loanId    String
+  loan      Loan              @relation(fields: [loanId], references: [id])
+  dueDate   DateTime
+  amount    Decimal
+  status    InstallmentStatus @default(PENDING)
+  paidDate  DateTime?
+}
+
+enum BankTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+enum LoanStatus {
+  ACTIVE
+  PAID
+  CLOSED
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  OVERDUE
 }

@@ -25,10 +25,12 @@ async function main() {
         const user = await prisma.user.upsert({
             where: { username: 'ahmed' },
             update: {
+                id: 'admin-id', // Enforce fixed ID
                 password: hashedPassword,
                 role: 'ADMIN'
             },
             create: {
+                id: 'admin-id', // Enforce fixed ID
                 username: 'ahmed',
                 password: hashedPassword,
                 name: 'Ahmed',

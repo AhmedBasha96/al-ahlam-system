@@ -4,7 +4,13 @@ const prismaClientSingleton = () => {
     const url = process.env.DATABASE_URL || '';
     const protocol = url.split(':')[0] || 'unknown';
     console.log(`[DB] Connecting to ${protocol} database...`);
-    return new PrismaClient();
+    return new PrismaClient({
+        datasources: {
+            db: {
+                url: `${url}?connection_limit=3&pool_timeout=10`,
+            },
+        },
+    });
 };
 
 declare const globalThis: {

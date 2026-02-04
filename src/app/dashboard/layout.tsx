@@ -90,6 +90,16 @@ export default async function DashboardLayout({
                         </Link>
                     )}
 
+                    {/* Banks & Loans */}
+                    {canSeeAccounts && (
+                        <Link href="/dashboard/accounts/banks" className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-700 rounded-lg transition">
+                            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                            </svg>
+                            <span>البنوك والقروض</span>
+                        </Link>
+                    )}
+
                     {/* Sales Reports */}
                     {canSeeSalesReports && (
                         <Link href="/dashboard/reports/sales" className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-700 rounded-lg transition text-emerald-100">

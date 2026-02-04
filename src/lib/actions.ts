@@ -555,7 +555,8 @@ export async function updateStock(
                         create: [{
                             productId: productId,
                             quantity: absChange,
-                            price: factoryPrice || 0
+                            price: factoryPrice || 0,
+                            cost: factoryPrice || 0
                         }]
                     }
                 }
@@ -706,7 +707,8 @@ export async function loadStockToRep(data: FormData) {
                         create: [{
                             productId: item.productId,
                             quantity: item.quantity,
-                            price: 0
+                            price: 0,
+                            cost: Number(await tx.product.findUnique({ where: { id: item.productId } }).then(p => p?.factoryPrice || 0))
                         }]
                     }
                 }
@@ -822,10 +824,14 @@ export async function finalizeRepAudit(
                         paidAmount: paymentInfo.paidAmount || 0,
                         remainingAmount: totalAmount - (paymentInfo.paidAmount || 0),
                         items: {
-                            create: soldItems.map(si => ({
-                                productId: si.productId,
-                                quantity: si.quantity,
-                                price: si.price
+                            create: await Promise.all(soldItems.map(async si => {
+                                const prod = await tx.product.findUnique({ where: { id: si.productId } });
+                                return {
+                                    productId: si.productId,
+                                    quantity: si.quantity,
+                                    price: si.price,
+                                    cost: prod?.factoryPrice || 0
+                                };
                             }))
                         }
                     }
@@ -871,10 +877,14 @@ export async function recordSalesSession(
                 paidAmount: paymentInfo?.paidAmount || 0,
                 remainingAmount: totalAmount - (paymentInfo?.paidAmount || 0),
                 items: {
-                    create: items.map(item => ({
-                        productId: item.productId,
-                        quantity: item.quantity,
-                        price: item.price || 0
+                    create: await Promise.all(items.map(async item => {
+                        const product = await prisma.product.findUnique({ where: { id: item.productId } });
+                        return {
+                            productId: item.productId,
+                            quantity: item.quantity,
+                            price: item.price || 0,
+                            cost: product?.factoryPrice || 0
+                        };
                     }))
                 }
             }
@@ -922,10 +932,14 @@ export async function recordDirectSale(
                     paidAmount: paymentInfo.paidAmount || 0,
                     remainingAmount: totalAmount - (paymentInfo.paidAmount || 0),
                     items: {
-                        create: items.map(item => ({
-                            productId: item.productId,
-                            quantity: item.quantity,
-                            price: item.price
+                        create: await Promise.all(items.map(async item => {
+                            const product = await prisma.product.findUnique({ where: { id: item.productId } });
+                            return {
+                                productId: item.productId,
+                                quantity: item.quantity,
+                                price: item.price,
+                                cost: product?.factoryPrice || 0
+                            };
                         }))
                     }
                 }
@@ -967,11 +981,15 @@ export async function updateSalesSession(id: string, updates: any) {
 
                 // Create new items
                 await tx.transactionItem.createMany({
-                    data: updates.items.map((item: any) => ({
-                        transactionId: id,
-                        productId: item.productId,
-                        quantity: item.quantity,
-                        price: item.price
+                    data: await Promise.all(updates.items.map(async (item: any) => {
+                        const product = await prisma.product.findUnique({ where: { id: item.productId } });
+                        return {
+                            transactionId: id,
+                            productId: item.productId,
+                            quantity: item.quantity,
+                            price: item.price,
+                            cost: product?.factoryPrice || 0
+                        };
                     }))
                 });
 
