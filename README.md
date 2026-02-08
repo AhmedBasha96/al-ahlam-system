@@ -210,7 +210,7 @@ For technical support or inquiries, please contact the development team.
 ### متطلبات | Prerequisites
 
 - Docker Engine و Docker Compose مثبتان على المضيف
-- قاعدة بيانات MySQL جاهزة (يمكن استخدام الخدمة المضمنة في `docker-compose.yml` للاختبار المحلي)
+- قاعدة بيانات MySQL جاهزة (يمكن استخدام الخدمة المضمنة في `docker compose.yml` للاختبار المحلي)
 - إعداد متغيرات البيئة الصحيحة في `.env` أو في نظام التهيئة (انظر `.env.production.example`)
 
 ### الإعداد السريع | Quick setup
@@ -242,30 +242,30 @@ docker run --env-file .env -p 3000:3000 al-ahlam-system:latest
 
 ### استخدام Docker Compose (موصى به للاختبار المحلي) | Using Docker Compose (recommended for local prod-like)
 
-- ابدأ الخدمات المعينة في `docker-compose.yml` (تتضمن خدمة MySQL و الحاوية للتطبيق):
+- ابدأ الخدمات المعينة في `docker compose.yml` (تتضمن خدمة MySQL و الحاوية للتطبيق):
 
 ```bash
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 - عرض سجلات الحاوية:
 
 ```bash
-docker-compose logs -f app
+docker compose logs -f app
 ```
 
 - لتنفيذ الترحيلات يُفضَّل تشغيل الخدمة المخصصة `migrate` (تستخدم مرحلة البناء وتضمن توفر Prisma CLI):
 
 ```bash
-docker-compose run --rm migrate
+docker compose run --rm migrate
 ```
 
 - بديل: تنفيذ الترحيلات داخل حاوية التطبيق (قد لا تتوفر Prisma CLI في صورة التشغيل الأساسية):
 
 ```bash
-docker-compose exec app npx prisma migrate deploy
+docker compose exec app npx prisma migrate deploy
 # لتشغيل السِيد (إذا كانت الإعدادات متوافرة):
-docker-compose exec app npm run prisma:seed
+docker compose exec app npm run prisma:seed
 ```
 
 
