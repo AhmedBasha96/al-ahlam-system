@@ -142,13 +142,10 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                             <thead className="bg-emerald-50 text-emerald-900 border-b border-emerald-100">
                                 <tr>
                                     <th className="p-4 font-semibold text-right">الصنف</th>
-                                    <th className="p-4 font-semibold text-center">سعر المصنع</th>
                                     <th className="p-4 font-semibold text-center">سعر الجمله</th>
                                     <th className="p-4 font-semibold text-center">سعر القطاعي</th>
                                     <th className="p-4 font-semibold text-center">الكميه المتاحه</th>
-                                    <th className="p-4 font-semibold text-center">الإجراءات</th>
                                     <th className="p-4 font-semibold text-center">تاريخ اخر تحديث للسعر</th>
-                                    <th className="p-4 font-semibold text-center">القيمة الاجماليه</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -173,110 +170,12 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                                     <div className="font-medium text-gray-800">{product.name}</div>
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-gray-600 text-center font-mono">{(product.factoryPrice || 0).toLocaleString('en-US')} ج.م</td>
                                             <td className="p-4 text-gray-600 text-center font-mono">{product.wholesalePrice.toLocaleString('en-US')} ج.م</td>
                                             <td className="p-4 text-gray-600 text-center font-mono">{product.retailPrice.toLocaleString('en-US')} ج.م</td>
                                             <td className="p-4 text-center">
                                                 <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-sm">
                                                     {currentStock}
                                                 </span>
-                                            </td>
-                                            <td className="p-4">
-                                                {!isSupplying ? (
-                                                    <div className="flex justify-center gap-2">
-                                                        <button
-                                                            onClick={() => setSupplyModeProductId(product.id)}
-                                                            className="bg-emerald-600 text-white px-4 py-1.5 rounded-lg hover:bg-emerald-700 transition shadow-sm font-bold text-sm flex items-center gap-2"
-                                                        >
-                                                            <span>توريد بضاعة</span>
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <form action={async (formData) => {
-                                                        const addedQty = Number(formData.get('addedQty'));
-                                                        const factory = Number(formData.get('factoryPrice'));
-                                                        const wholesale = Number(formData.get('wholesalePrice'));
-                                                        const retail = Number(formData.get('retailPrice'));
-                                                        const updateBase = formData.get('updateBasePrice') === 'on';
-
-                                                        if (addedQty > 0) {
-                                                            await supplyStock(warehouseId, product.id, addedQty, factory || undefined, updateBase, wholesale || undefined, retail || undefined);
-                                                            setSupplyModeProductId(null);
-                                                            router.refresh();
-                                                        }
-                                                    }} className="bg-emerald-50 p-3 rounded-xl border border-emerald-100 shadow-sm animate-in zoom-in-95 duration-200">
-                                                        <div className="flex flex-col gap-3">
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <div className="col-span-2">
-                                                                    <label className="block text-[10px] text-emerald-700 font-bold mb-1">الكمية المضافة (+)</label>
-                                                                    <input
-                                                                        name="addedQty"
-                                                                        type="number"
-                                                                        autoFocus
-                                                                        placeholder="0"
-                                                                        min="1"
-                                                                        required
-                                                                        className="w-full border-emerald-200 rounded-lg p-2 text-center focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-emerald-800 bg-white"
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[10px] text-gray-500 font-bold mb-1">سعر التوريد</label>
-                                                                    <input
-                                                                        name="factoryPrice"
-                                                                        type="number"
-                                                                        step="0.01"
-                                                                        placeholder={product.factoryPrice.toString()}
-                                                                        className="w-full border-gray-200 rounded-lg p-2 text-center text-xs focus:ring-1 focus:ring-emerald-500 outline-none bg-white font-mono"
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[10px] text-gray-500 font-bold mb-1">سعر الجملة</label>
-                                                                    <input
-                                                                        name="wholesalePrice"
-                                                                        type="number"
-                                                                        step="0.01"
-                                                                        placeholder={product.wholesalePrice.toString()}
-                                                                        className="w-full border-gray-200 rounded-lg p-2 text-center text-xs focus:ring-1 focus:ring-emerald-500 outline-none bg-white font-mono"
-                                                                    />
-                                                                </div>
-                                                                <div className="col-span-2">
-                                                                    <label className="block text-[10px] text-gray-500 font-bold mb-1">سعر القطاعي</label>
-                                                                    <input
-                                                                        name="retailPrice"
-                                                                        type="number"
-                                                                        step="0.01"
-                                                                        placeholder={product.retailPrice.toString()}
-                                                                        className="w-full border-gray-200 rounded-lg p-2 text-center text-xs focus:ring-1 focus:ring-emerald-500 outline-none bg-white font-mono"
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex items-center justify-between border-t border-emerald-100 pt-2">
-                                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                                    <input
-                                                                        name="updateBasePrice"
-                                                                        type="checkbox"
-                                                                        className="w-4 h-4 accent-emerald-600 rounded"
-                                                                    />
-                                                                    <span className="text-[10px] text-gray-600">تحديث السعر الأساسي؟</span>
-                                                                </label>
-                                                                <div className="flex gap-1">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setSupplyModeProductId(null)}
-                                                                        className="text-gray-400 hover:text-gray-600 p-1"
-                                                                    >
-                                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                                                    </button>
-                                                                    <button type="submit" className="bg-emerald-600 text-white px-3 py-1 rounded-lg hover:bg-emerald-700 transition shadow-sm text-xs font-bold">
-                                                                        تأكيد التوريد
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </form>
-                                                )}
                                             </td>
                                             <td className="p-4 text-center text-xs text-gray-500 font-medium">
                                                 {product.priceUpdatedAt ? (
@@ -286,9 +185,6 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                                 ) : (
                                                     <span className="text-gray-300 italic">غير محدد</span>
                                                 )}
-                                            </td>
-                                            <td className="p-4 font-bold text-gray-900 text-center font-mono">
-                                                {(currentStock * product.factoryPrice).toLocaleString('en-US')} ج.م
                                             </td>
                                         </tr>
                                     );

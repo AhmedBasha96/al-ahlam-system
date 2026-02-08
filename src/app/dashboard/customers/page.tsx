@@ -14,6 +14,7 @@ export default async function CustomersPage() {
         customers = rawCustomers.map((c: any) => ({
             ...c,
             representativeId: c.representativeId || undefined,
+            representativeIds: c.representativeIds || (c.representativeId ? [c.representativeId] : []),
             agencyId: c.agencyId || undefined
         }));
         users = await getUsers();

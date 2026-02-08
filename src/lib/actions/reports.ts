@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/db";
 import { AccountRecordType } from "@prisma/client";
+import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 
 // Helper function to get date range
 function getDateRange(startDate?: Date, endDate?: Date) {
@@ -20,10 +21,10 @@ export async function getProfitLossReport(
     const dateRange = getDateRange(startDate, endDate);
     const agencyFilter = agencyId && agencyId !== 'ALL' ? { agencyId } : {};
 
-    // 1. Get Sales Revenue
-    const sales = await prisma.transaction.findMany({
+    // 1. Get Sales Revenue AND Returns matched by date
+    const transactions = await prisma.transaction.findMany({
         where: {
-            type: 'SALE',
+            type: { in: ['SALE', 'RETURN_IN'] },
             createdAt: dateRange,
             NOT: {
                 note: {
@@ -98,36 +99,40 @@ export async function getProfitLossReport(
         return breakdownMap.get(agencyId)!;
     };
 
-    // Process Sales
-    sales.forEach(sale => {
-        let saleRevenue = 0;
-        let saleCost = 0;
+    // Process Transactions (Sales & Returns)
+    transactions.forEach(tx => {
+        // SKIP Internal Transfers: If Sale has 0 amount, it's likely a load-to-rep or stock transfer
+        if (tx.type === 'SALE' && Number(tx.totalAmount) === 0) return;
 
-        sale.items.forEach(item => {
+        let txRevenue = 0;
+        let txCost = 0;
+
+        tx.items.forEach(item => {
             const revenue = Number(item.price) * item.quantity;
             // Fallback: If item.cost is 0, use current factoryPrice from product
             const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.factoryPrice);
             const cost = unitCost * item.quantity;
 
-            saleRevenue += revenue;
-            saleCost += cost;
+            txRevenue += revenue;
+            txCost += cost;
         });
 
-        totalRevenue += saleRevenue;
-        totalCost += saleCost;
+        // Determine multiplier: Sales add, Returns subtract
+        const multiplier = tx.type === 'SALE' ? 1 : -1;
+
+        totalRevenue += txRevenue * multiplier;
+        totalCost += txCost * multiplier;
 
         // Add to agency breakdown
-        if (sale.agencyId) {
-            const bucket = getBucket(sale.agencyId, sale.agency?.name || 'Unknown Agency');
-            bucket.salesRevenue += saleRevenue;
-            bucket.costOfGoodsSold += saleCost;
-            bucket.salesCount++;
-        } else {
-            const bucket = getBucket('GENERAL', 'عام (غير محدد)');
-            bucket.salesRevenue += saleRevenue;
-            bucket.costOfGoodsSold += saleCost;
-            bucket.salesCount++;
-        }
+        const bucket = tx.agencyId
+            ? getBucket(tx.agencyId, tx.agency?.name || 'Unknown Agency')
+            : getBucket('GENERAL', 'عام (غير محدد)');
+
+        bucket.salesRevenue += txRevenue * multiplier;
+        bucket.costOfGoodsSold += txCost * multiplier;
+
+        // Update count only for Sales
+        if (tx.type === 'SALE') bucket.salesCount++;
     });
 
     salesProfit = totalRevenue - totalCost;
@@ -172,6 +177,16 @@ export async function getProfitLossReport(
     const totalIncome = salesProfit + otherIncomeTotal;
     const netProfit = totalIncome - totalExpenses;
 
+    console.log("--- PROFIT REPORT DEBUG ---");
+    console.log(`Total Revenue: ${totalRevenue}`);
+    console.log(`Total Cost: ${totalCost}`);
+    console.log(`Sales Profit: ${salesProfit}`);
+    console.log(`Other Income: ${otherIncomeTotal}`);
+    console.log(`Total Expenses: ${totalExpenses}`);
+    console.log(`Net Profit: ${netProfit}`);
+    console.log("Expenses Breakdown:", expenses.map(e => `${e.category}: ${e.amount}`));
+    console.log("---------------------------");
+
     return {
         salesRevenue: totalRevenue,
         costOfGoodsSold: totalCost,
@@ -180,7 +195,7 @@ export async function getProfitLossReport(
         totalIncome,
         totalExpenses,
         netProfit,
-        salesCount: sales.length,
+        salesCount: transactions.filter(t => t.type === 'SALE').length,
         expensesCount: expenses.length,
         breakdown // Include the breakdown in the response
     };
@@ -532,20 +547,28 @@ export async function getFinancialSummary(
 
 // ============= تقرير المخزون =============
 export async function getInventoryReport(warehouseId?: string) {
-    const warehouseFilter = warehouseId && warehouseId !== 'ALL' ? { warehouseId } : {};
+    const warehouseFilter: any = warehouseId && warehouseId !== 'ALL'
+        ? { id: warehouseId }
+        : { NOT: { name: { startsWith: 'عهدة المندوب:' } } };
 
-    const stockItems = await prisma.stock.findMany({
-        where: warehouseFilter,
+    // Get all products to ensure we don't miss those with 0 stock records
+    const products = await prisma.product.findMany({
         include: {
-            product: true,
-            warehouse: {
+            stocks: {
+                where: {
+                    warehouse: warehouseFilter
+                },
                 include: {
-                    agency: true
+                    warehouse: {
+                        include: {
+                            agency: true
+                        }
+                    }
                 }
             }
         },
         orderBy: {
-            quantity: 'desc'
+            name: 'asc'
         }
     });
 
@@ -562,40 +585,54 @@ export async function getInventoryReport(warehouseId?: string) {
         items: any[];
     }>();
 
-    stockItems.forEach(item => {
-        totalItems += item.quantity;
-        const itemValue = item.quantity * Number(item.product.factoryPrice);
-        totalValue += itemValue;
+    products.forEach((product: any) => {
+        const totalProductQuantity = product.stocks.reduce((sum: number, s: any) => sum + s.quantity, 0);
 
-        if (item.quantity === 0) outOfStockItems++;
-        else if (item.quantity < 10) lowStockItems++; // Consider low stock if less than 10
-
-        if (item.warehouse) {
-            const whKey = item.warehouse.id;
-            const current = byWarehouse.get(whKey) || {
-                name: item.warehouse.name,
-                agencyName: item.warehouse.agency.name,
-                itemsCount: 0,
-                totalValue: 0,
-                items: []
-            };
-
-            current.itemsCount += item.quantity;
-            current.totalValue += itemValue;
-            current.items.push({
-                productId: item.product.id,
-                productName: item.product.name,
-                barcode: item.product.barcode,
-                quantity: item.quantity,
-                factoryPrice: Number(item.product.factoryPrice),
-                wholesalePrice: Number(item.product.wholesalePrice),
-                retailPrice: Number(item.product.retailPrice),
-                totalValue: itemValue,
-                stockStatus: item.quantity === 0 ? 'OUT_OF_STOCK' : item.quantity < 10 ? 'LOW_STOCK' : 'IN_STOCK'
-            });
-
-            byWarehouse.set(whKey, current);
+        if (totalProductQuantity === 0) {
+            outOfStockItems++;
+        } else if (totalProductQuantity < LOW_STOCK_THRESHOLD) {
+            lowStockItems++;
         }
+
+        product.stocks.forEach((stock: any) => {
+            totalItems += stock.quantity;
+            const itemValue = stock.quantity * Number(product.factoryPrice);
+            totalValue += itemValue;
+
+            if (stock.warehouse) {
+                const whKey = stock.warehouse.id;
+                const current: any = byWarehouse.get(whKey) || {
+                    name: stock.warehouse.name,
+                    agencyName: stock.warehouse.agency.name,
+                    itemsCount: 0,
+                    totalValue: 0,
+                    items: []
+                };
+
+                current.itemsCount += stock.quantity;
+                current.totalValue += itemValue;
+                current.items.push({
+                    productId: product.id,
+                    productName: product.name,
+                    barcode: product.barcode,
+                    quantity: stock.quantity,
+                    factoryPrice: Number(product.factoryPrice),
+                    wholesalePrice: Number(product.wholesalePrice),
+                    retailPrice: Number(product.retailPrice),
+                    totalValue: itemValue,
+                    stockStatus: stock.quantity === 0 ? 'OUT_OF_STOCK' : stock.quantity < LOW_STOCK_THRESHOLD ? 'LOW_STOCK' : 'IN_STOCK'
+                });
+
+                byWarehouse.set(whKey, current);
+            }
+        });
+
+        // If a product has NO stock records and we are looking at all warehouses, 
+        // it won't appear in 'byWarehouse' but it's still out of stock.
+        // However, the Inventory Report usually shows products grouped by warehouse.
+        // If it's not in any warehouse, where should it show?
+        // Let's add it to a "Products with no stock" section if needed, 
+        // but for now, the user wants alerts.
     });
 
     return {
@@ -603,7 +640,7 @@ export async function getInventoryReport(warehouseId?: string) {
         totalValue,
         lowStockItems,
         outOfStockItems,
-        totalProducts: stockItems.length,
+        totalProducts: products.length,
         warehouses: Array.from(byWarehouse.values())
     };
 }

@@ -8,6 +8,7 @@ type User = {
     name: string;
     role: string;
     agencyId?: string;
+    agencyIds?: string[];
     pricingType?: 'WHOLESALE' | 'RETAIL';
     image: string | null;
 };
@@ -99,19 +100,31 @@ export default function EditUserModal({ user, agencies, updateUserAction, closeM
 
                         {/* Dynamic Fields */}
                         {showAgencySelect && (
-                            <div className="pt-2 border-t mt-2 bg-yellow-50 p-2 rounded-lg border-yellow-100 transition-all">
+                            <div className="pt-2 border-t mt-2 bg-yellow-50 p-3 rounded-lg border-yellow-100 transition-all">
                                 <label className="block text-xs font-semibold text-yellow-700 mb-2">
-                                    تخصيص التوكيل
+                                    تخصيص التوكيلات
+                                    <span className="mr-1 text-[10px] font-normal">(يمكن اختيار أكثر من توكيل)</span>
                                 </label>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">اختر التوكيل</label>
-                                    <select name="agencyId" defaultValue={user.agencyId} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" required>
-                                        <option value="">اختر التوكيل...</option>
-                                        {agencies.map(agency => (
-                                            <option key={agency.id} value={agency.id}>{agency.name}</option>
-                                        ))}
-                                    </select>
+                                <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                                    {agencies.map(agency => {
+                                        const isChecked = user.agencyIds?.includes(agency.id) || user.agencyId === agency.id;
+                                        return (
+                                            <label key={agency.id} className="flex items-center gap-2 p-2 rounded hover:bg-yellow-100 cursor-pointer transition">
+                                                <input
+                                                    type="checkbox"
+                                                    name="agencyId"
+                                                    value={agency.id}
+                                                    defaultChecked={isChecked}
+                                                    className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+                                                />
+                                                <span className="text-sm text-gray-700">{agency.name}</span>
+                                            </label>
+                                        );
+                                    })}
+                                    {agencies.length === 0 && (
+                                        <p className="text-xs text-gray-400 text-center py-2">لا توجد توكيلات متاحة</p>
+                                    )}
                                 </div>
                             </div>
                         )}

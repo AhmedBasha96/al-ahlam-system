@@ -12,10 +12,15 @@ import {
     Clock
 } from 'lucide-react';
 
+import { getCurrentUser } from '@/lib/actions';
+import ResetDataButton from './reset-button';
+
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
     const stats = await getDashboardStats();
+    const user = await getCurrentUser();
+    const isAdmin = user.role === 'ADMIN';
 
     const formatDate = (date: Date) => {
         return new Intl.DateTimeFormat('ar-EG', {
@@ -41,13 +46,16 @@ export default async function DashboardPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-gray-800">لوحة التحكم</h1>
-                <div className="text-gray-500 text-sm">
-                    {new Date().toLocaleDateString('ar-EG', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    })}
+                <div className="flex items-center gap-4">
+                    {isAdmin && <ResetDataButton />}
+                    <div className="text-gray-500 text-sm">
+                        {new Date().toLocaleDateString('ar-EG', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        })}
+                    </div>
                 </div>
             </div>
 
@@ -267,36 +275,53 @@ export default async function DashboardPage() {
                     </div>
 
                     {stats.recentTransactions.length > 0 ? (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {stats.recentTransactions.map((tx) => (
                                 <div
                                     key={tx.id}
-                                    className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition"
+                                    className="flex flex-col gap-2 p-4 rounded-lg border border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition"
                                 >
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${tx.type === 'SALE' ? 'bg-emerald-100' :
-                                        tx.type === 'PURCHASE' ? 'bg-blue-100' :
-                                            'bg-gray-100'
-                                        }`}>
-                                        <ShoppingCart className={`w-5 h-5 ${tx.type === 'SALE' ? 'text-emerald-600' :
-                                            tx.type === 'PURCHASE' ? 'text-blue-600' :
-                                                'text-gray-600'
-                                            }`} />
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${tx.type === 'SALE' ? 'bg-emerald-100' :
+                                            tx.type === 'PURCHASE' ? 'bg-blue-100' :
+                                                'bg-gray-100'
+                                            }`}>
+                                            <ShoppingCart className={`w-5 h-5 ${tx.type === 'SALE' ? 'text-emerald-600' :
+                                                tx.type === 'PURCHASE' ? 'text-blue-600' :
+                                                    'text-gray-600'
+                                                }`} />
+                                        </div>
+
+                                        <div className="flex-1 text-right">
+                                            <div className="font-bold text-gray-800">
+                                                {tx.type === 'SALE' && tx.totalAmount === 0
+                                                    ? 'تحميل للمندوب'
+                                                    : getTransactionTypeLabel(tx.type)}
+                                                {tx.customer && ` - ${tx.customer.name}`}
+                                            </div>
+                                            <div className="text-sm text-gray-600 font-medium">
+                                                المندوب: {tx.user.name}
+                                            </div>
+                                            <div className="text-xs text-gray-400 flex items-center justify-end gap-1 mt-1">
+                                                <Clock className="w-3 h-3" />
+                                                {formatDate(tx.createdAt)}
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div className="flex-1 text-right">
-                                        <div className="font-medium text-gray-800">
-                                            {getTransactionTypeLabel(tx.type)}
-                                            {tx.customer && ` - ${tx.customer.name}`}
+                                    {/* Sale Details (Items) */}
+                                    {tx.items && tx.items.length > 0 && (
+                                        <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
+                                            <div className="text-xs font-bold text-gray-500 mb-1">تفاصيل العملية:</div>
+                                            <div className="flex flex-wrap gap-2 text-xs">
+                                                {tx.items.map((item, idx) => (
+                                                    <span key={idx} className="bg-gray-100 text-gray-700 px-2 py-1 rounded border border-gray-200">
+                                                        {item.product.name} ({item.quantity})
+                                                    </span>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div className="text-xs text-gray-500 flex items-center justify-end gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            {formatDate(tx.createdAt)}
-                                        </div>
-                                    </div>
-
-                                    <div className="text-left">
-                                        <div className="text-xs text-gray-500">{tx.user.name}</div>
-                                    </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

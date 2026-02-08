@@ -1,151 +1,161 @@
 import { getPurchaseInvoices } from "@/lib/actions/accounts";
+import { getAgencyPurchases } from "@/lib/actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Plus, Package, Calendar, Warehouse, FileText, CheckCircle, Clock } from "lucide-react";
+import {
+    Plus, Package, Calendar, Warehouse, FileText,
+    CheckCircle, Clock, Building2, TrendingUp,
+    Wallet, ArrowLeft, ArrowRight, LayoutGrid
+} from "lucide-react";
 
 const formatMoney = (amount: number) => {
     return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(amount);
 };
 
 export default async function PurchasesPage() {
-    const purchases = await getPurchaseInvoices();
-
-    const totalPurchases = purchases.reduce((sum, p) => sum + Number(p.totalAmount), 0);
-    const totalPending = purchases.reduce((sum, p) => sum + Number(p.remainingAmount), 0);
-    const fullyPaid = purchases.filter(p => Number(p.remainingAmount) <= 0).length;
+    // We fetch agency-focused data which now includes all TRANSACTION history (PURCHASE + PAYMENT)
+    const reportData = await getAgencyPurchases();
+    const totalOwed = reportData.reduce((sum, agency) => sum + agency.totalRemaining, 0);
 
     return (
         <div className="relative min-h-screen -m-6 p-8 bg-gradient-to-br from-indigo-50 via-slate-50 to-blue-50 overflow-hidden text-slate-800">
             {/* Ambient Background */}
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-200/20 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-200/10 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3 pointer-events-none" />
 
             {/* Header */}
             <div className="relative z-10 flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
                 <div>
                     <h1 className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-indigo-800 pb-2">
-                        فواتير المشتريات
+                        إدارة المشتريات والوكلاء
                     </h1>
                     <p className="text-slate-500 font-medium ml-1">
-                        إرشيف التوريدات والمدفوعات الآجلة
+                        متابعة فواتير التوريد، المديونيات، وسداد المستحقات للتوكيلات
                     </p>
                 </div>
 
                 <Link href="/dashboard/accounts/purchases/new">
-                    <Button className="bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-900/20 px-8 py-6 rounded-2xl font-bold text-lg transition-all hover:-translate-y-1">
+                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-900/20 px-8 py-6 rounded-2xl font-bold text-lg transition-all hover:-translate-y-1">
                         <Plus className="ml-2 h-5 w-5" />
-                        فاتورة جديدة
+                        تسجيل فاتورة توريد جديدة
                     </Button>
                 </Link>
             </div>
 
-            {/* KPIs */}
-            <div className="relative z-10 grid gap-6 md:grid-cols-3 mb-8">
-                <div className="glass-card p-6 rounded-3xl shadow-lg border-l-4 border-l-slate-800 flex items-center justify-between group hover:translate-y-1 transition-transform">
+            {/* Global Summary Stats */}
+            <div className="relative z-10 grid gap-6 md:grid-cols-4 mb-12">
+                <div className="bg-white p-6 rounded-3xl shadow-lg border border-white/60 flex items-center justify-between group hover:shadow-xl transition-all">
                     <div>
-                        <p className="text-slate-400 text-xs font-bold uppercase mb-1">إجمالي المشتريات</p>
-                        <div className="text-3xl font-black text-slate-800">{formatMoney(totalPurchases)}</div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase mb-1">إجمالي المديونية الحالية</p>
+                        <div className="text-2xl font-black text-red-600 font-mono">{formatMoney(totalOwed)}</div>
                     </div>
-                    <div className="h-12 w-12 bg-slate-100 rounded-2xl flex items-center justify-center">
-                        <Package className="w-6 h-6 text-slate-600" />
+                    <div className="h-12 w-12 bg-red-50 rounded-2xl flex items-center justify-center">
+                        <Clock className="w-6 h-6 text-red-600" />
                     </div>
                 </div>
 
-                <div className="glass-card p-6 rounded-3xl shadow-lg border-l-4 border-l-amber-500 flex items-center justify-between group hover:translate-y-1 transition-transform">
+                <div className="bg-white p-6 rounded-3xl shadow-lg border border-white/60 flex items-center justify-between group hover:shadow-xl transition-all">
                     <div>
-                        <p className="text-amber-500 text-xs font-bold uppercase mb-1">مبالغ مستحقة (آجل)</p>
-                        <div className="text-3xl font-black text-amber-600">{formatMoney(totalPending)}</div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase mb-1">إجمالي التوريدات</p>
+                        <div className="text-2xl font-black text-slate-800 font-mono">
+                            {formatMoney(reportData.reduce((sum, a) => sum + a.totalPurchases, 0))}
+                        </div>
                     </div>
-                    <div className="h-12 w-12 bg-amber-50 rounded-2xl flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-amber-600" />
+                    <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center">
+                        <TrendingUp className="w-6 h-6 text-blue-600" />
                     </div>
                 </div>
 
-                <div className="glass-card p-6 rounded-3xl shadow-lg border-l-4 border-l-emerald-500 flex items-center justify-between group hover:translate-y-1 transition-transform">
+                <div className="bg-white p-6 rounded-3xl shadow-lg border border-white/60 flex items-center justify-between group hover:shadow-xl transition-all">
                     <div>
-                        <p className="text-emerald-500 text-xs font-bold uppercase mb-1">فواتير مدفوعة</p>
-                        <div className="text-3xl font-black text-emerald-600">{fullyPaid} / {purchases.length}</div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase mb-1">المبالغ المسددة</p>
+                        <div className="text-2xl font-black text-emerald-600 font-mono">
+                            {formatMoney(reportData.reduce((sum, a) => sum + a.totalPaid, 0))}
+                        </div>
                     </div>
                     <div className="h-12 w-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
-                        <CheckCircle className="w-6 h-6 text-emerald-600" />
+                        <Wallet className="w-6 h-6 text-emerald-600" />
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl shadow-lg border border-white/60 flex items-center justify-between group hover:shadow-xl transition-all">
+                    <div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase mb-1">عدد التوكيلات</p>
+                        <div className="text-2xl font-black text-slate-800">{reportData.length}</div>
+                    </div>
+                    <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center">
+                        <Building2 className="w-6 h-6 text-slate-600" />
                     </div>
                 </div>
             </div>
 
-
-            {/* Table */}
-            <div className="relative z-10">
-                <div className="glass-card rounded-3xl shadow-xl border border-white/60 overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-indigo-500" />
-                        <h3 className="text-xl font-bold text-slate-800">سجل الفواتير وارشيف التوريد</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50/50">
-                                <TableRow className="hover:bg-transparent">
-                                    <TableHead className="w-[150px] font-bold text-slate-500">التاريخ</TableHead>
-                                    <TableHead className="font-bold text-slate-500">مخزن الاستلام</TableHead>
-                                    <TableHead className="font-bold text-slate-500">ملاحظات والتفاصيل</TableHead>
-                                    <TableHead className="text-right font-bold text-indigo-600/80">القيمة الإجمالية</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500">حالة السداد</TableHead>
-                                    <TableHead className="text-right font-bold text-slate-500">أصناف الفاتورة</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {purchases.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-64 text-center text-muted-foreground">
-                                            <div className="flex flex-col items-center justify-center gap-4">
-                                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
-                                                    <FileText className="w-8 h-8 text-slate-300" />
-                                                </div>
-                                                <p className="text-lg font-medium text-slate-400">لا يوجد أي فواتير مسجلة</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    purchases.map((tx) => (
-                                        <TableRow key={tx.id} className="group hover:bg-white/50 transition-colors border-0 border-b border-slate-50">
-                                            <TableCell className="font-medium text-slate-600 font-mono text-xs py-5">
-                                                {new Date(tx.createdAt).toLocaleDateString('ar-EG')}
-                                            </TableCell>
-                                            <TableCell className="py-5">
-                                                <div className="flex items-center gap-2">
-                                                    <Warehouse className="w-4 h-4 text-slate-400" />
-                                                    <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 shadow-sm">
-                                                        {tx.warehouse?.name || 'مخزن افتراضي'}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="max-w-[200px] truncate text-slate-500 py-5 font-medium">{tx.note || '-'}</TableCell>
-                                            <TableCell className="text-right font-black text-indigo-900 font-mono text-base py-5">{formatMoney(Number(tx.totalAmount))}</TableCell>
-                                            <TableCell className="text-center py-5">
-                                                {Number(tx.remainingAmount) > 0 ? (
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 shadow-sm">
-                                                        متبقي {formatMoney(Number(tx.remainingAmount))}
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 shadow-sm">
-                                                        <CheckCircle className="w-3 h-3 mr-1" />
-                                                        خالص الثمن
-                                                    </span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right py-5 pr-8">
-                                                <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 border-2 border-white shadow-sm ml-auto">
-                                                    {tx.items.length}
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+            <div className="relative z-10 space-y-4 mb-8">
+                <div className="flex items-center gap-2">
+                    <LayoutGrid className="w-5 h-5 text-indigo-500" />
+                    <h2 className="text-xl font-black text-slate-800">سجلات المشتريات مجمعة حسب التوكيل</h2>
                 </div>
+                <p className="text-xs text-slate-500 font-bold">اختر التوكيل لعرض كشف حساب تفصيلي وتسجيل عمليات السداد</p>
+            </div>
+
+            {/* Agency Selection Hub - The main request */}
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {reportData.map((agency) => (
+                    <Link
+                        key={agency.id}
+                        href={`/dashboard/accounts/reports/purchases/${agency.id}`}
+                        className="group relative bg-white p-6 rounded-[2.5rem] border border-white/60 shadow-md hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 cursor-pointer overflow-hidden border-b-4 border-b-slate-100"
+                    >
+                        <div className="absolute inset-0 bg-indigo-600 opacity-0 group-hover:opacity-[0.03] transition-opacity duration-500" />
+
+                        <div className="relative z-10 flex flex-col h-full">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="bg-indigo-50 p-4 rounded-3xl shadow-sm border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
+                                    <Building2 className="w-6 h-6" />
+                                </div>
+                                <div className={`text-right ${agency.totalRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'} font-black text-[10px] uppercase tracking-wider`}>
+                                    {agency.totalRemaining > 0 ? (
+                                        <span className="bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 shadow-sm">مديونية قائمة</span>
+                                    ) : (
+                                        <span className="bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 shadow-sm text-emerald-600">الحساب خالص ✅</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <h2 className="text-2xl font-black text-slate-800 mb-2 group-hover:text-indigo-600 transition-colors duration-500">{agency.name}</h2>
+                            <p className="text-[10px] text-slate-400 font-black mb-8 italic opacity-0 group-hover:opacity-100 transition-opacity">كشف حساب، مديونيات، وفواتير التوريد...</p>
+
+                            <div className="mt-auto space-y-3 pt-6 border-t border-slate-50">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المتبقي علينا كمديونية</span>
+                                    <span className={`text-xl font-black ${agency.totalRemaining > 0 ? 'text-rose-600' : 'text-slate-300'} font-mono`}>
+                                        {formatMoney(agency.totalRemaining)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-baseline opacity-50 text-[10px]">
+                                    <span className="font-black text-slate-400">إجمالي المشتريات</span>
+                                    <span className="font-black text-slate-600 font-mono">
+                                        {formatMoney(agency.totalPurchases)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 py-4 bg-slate-50 text-slate-500 group-hover:bg-indigo-600 group-hover:text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all duration-500 shadow-sm">
+                                عرض فواتير التوكيل والسداد
+                                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                            </div>
+                        </div>
+                    </Link>
+                ))}
+
+                {reportData.length === 0 && (
+                    <div className="col-span-full bg-white p-20 rounded-[3rem] border border-dashed border-slate-200 shadow-inner text-center">
+                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Package className="w-10 h-10 text-slate-200" />
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-300">لا توجد سجلات مشتريات حالياً</h3>
+                    </div>
+                )}
             </div>
         </div>
     );

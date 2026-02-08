@@ -7,7 +7,7 @@ const prismaClientSingleton = () => {
     return new PrismaClient({
         datasources: {
             db: {
-                url: `${url}?connection_limit=3&pool_timeout=10`,
+                url: `${url}?connection_limit=2&pool_timeout=20`,
             },
         },
     });

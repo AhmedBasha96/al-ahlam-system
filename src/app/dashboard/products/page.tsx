@@ -14,12 +14,23 @@ export default async function ProductsPage() {
             ...p,
             factoryPrice: Number(p.factoryPrice),
             wholesalePrice: Number(p.wholesalePrice),
-            retailPrice: Number(p.retailPrice)
+            retailPrice: Number(p.retailPrice),
+            createdAt: p.createdAt ? p.createdAt.toISOString() : undefined,
+            updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
+            priceUpdatedAt: p.priceUpdatedAt ? p.priceUpdatedAt.toISOString() : undefined,
+        }));
+
+        // Sanitize agencies as well to ensure no Date objects are passed
+        agencies = agencies.map((a: any) => ({
+            ...a,
+            createdAt: a.createdAt ? a.createdAt.toISOString() : undefined,
+            updatedAt: a.updatedAt ? a.updatedAt.toISOString() : undefined,
         }));
     } catch (e) { console.error("Products fetch error:", e); }
     const user = await getCurrentUser();
 
-    const canManageProducts = user.role !== 'SALES_REPRESENTATIVE';
+    // Only Admin and Manager can create/edit/delete products
+    const canManageProducts = user.role === 'ADMIN' || user.role === 'MANAGER';
 
     return (
         <div className="space-y-6">

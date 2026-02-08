@@ -13,6 +13,7 @@ type Customer = {
     address?: string;
     representativeIds: string[];
     agencyId: string;
+    totalDebt: number;
 };
 
 type Props = {
@@ -81,6 +82,7 @@ export default function CustomersList({ customers, representatives, agencies, us
                             <th className="px-6 py-4">الهاتف</th>
                             <th className="px-6 py-4">المندوب</th>
                             <th className="px-6 py-4">التوكيل</th>
+                            <th className="px-6 py-4 text-emerald-800">المديونية (ج.م)</th>
                             <th className="px-6 py-4 text-center">إجراءات</th>
                         </tr>
                     </thead>
@@ -110,11 +112,17 @@ export default function CustomersList({ customers, representatives, agencies, us
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-sm text-gray-600 font-medium">
-                                            {agency?.name || 'غير محدد'}
+                                        <span className="text-sm font-black text-red-600">
+                                            {(customer.totalDebt || 0).toLocaleString()}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center flex items-center justify-center gap-2">
+                                        <Link
+                                            href={`/dashboard/customers/${customer.id}`}
+                                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-sm whitespace-nowrap"
+                                        >
+                                            كشف حساب 📊
+                                        </Link>
                                         <Link
                                             href={`/dashboard/reps/${(customer?.representativeIds && customer?.representativeIds[0]) || 'unknown'}?customerId=${customer.id}`}
                                             className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition shadow-sm whitespace-nowrap"

@@ -26,7 +26,7 @@ type Props = {
 }
 
 export default function ProductsList({ products, agencies, userRole }: Props) {
-    const isRep = userRole === 'SALES_REPRESENTATIVE';
+    const canEditOrDelete = userRole === 'ADMIN' || userRole === 'MANAGER';
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const router = useRouter();
 
@@ -76,10 +76,12 @@ export default function ProductsList({ products, agencies, userRole }: Props) {
                             )}
 
                             <div className="space-y-1 my-3 text-sm">
-                                <div className="flex justify-between text-gray-600">
-                                    <span>سعر المصنع:</span>
-                                    <span className="font-semibold">{product.factoryPrice.toLocaleString('en-US')}</span>
-                                </div>
+                                {canEditOrDelete && (
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>سعر المصنع:</span>
+                                        <span className="font-semibold">{product.factoryPrice.toLocaleString('en-US')}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-gray-600">
                                     <span>سعر الجملة:</span>
                                     <span className="font-semibold">{product.wholesalePrice.toLocaleString('en-US')}</span>
@@ -90,7 +92,7 @@ export default function ProductsList({ products, agencies, userRole }: Props) {
                                 </div>
                             </div>
 
-                            {!isRep && (
+                            {canEditOrDelete && (
                                 <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
                                     <button
                                         onClick={() => setEditingProduct(product)}

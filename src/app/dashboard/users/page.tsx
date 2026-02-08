@@ -14,6 +14,7 @@ export default async function UsersPage() {
         users = rawUsers.map((u: any) => ({
             ...u,
             agencyId: u.agencyId || undefined,
+            agencyIds: u.agencies?.map((a: any) => a.id) || [],
             pricingType: u.pricingType || undefined,
             warehouseId: u.warehouseId || undefined
         }));

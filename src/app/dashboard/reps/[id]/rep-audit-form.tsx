@@ -67,6 +67,8 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
         let totalSoldAmount = 0;
         let totalItemsSold = 0;
         let totalItemsReturned = 0;
+        let totalCustodyValue = 0;
+        let totalRemainingValue = 0;
 
         repStocks.forEach(stock => {
             const product = products.find(p => p.id === stock.productId);
@@ -78,12 +80,14 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
             totalSoldAmount += sold * price;
             totalItemsSold += sold;
             totalItemsReturned += actual;
+            totalCustodyValue += stock.quantity * price;
+            totalRemainingValue += actual * price;
         });
 
-        return { totalSoldAmount, totalItemsSold, totalItemsReturned };
+        return { totalSoldAmount, totalItemsSold, totalItemsReturned, totalCustodyValue, totalRemainingValue };
     };
 
-    const { totalSoldAmount, totalItemsSold, totalItemsReturned } = calculateTotals();
+    const { totalSoldAmount, totalItemsSold, totalItemsReturned, totalCustodyValue, totalRemainingValue } = calculateTotals();
 
     const handleFinalize = async () => {
         const targetWarehouseId = defaultWarehouseId || selectedWarehouseId;
@@ -218,7 +222,9 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                         <tr>
                             <th className="p-4 font-semibold">الصنف</th>
                             <th className="p-4 font-semibold text-center">العهدة (المسلم)</th>
+                            <th className="p-4 font-semibold text-center">قيمة العهدة</th>
                             <th className="p-4 font-semibold text-center w-48">الفعلي (المتبقي)</th>
+                            <th className="p-4 font-semibold text-center text-blue-600">قيمة المتبقي</th>
                             <th className="p-4 font-semibold text-center text-red-600">المباع (الفرق)</th>
                             <th className="p-4 font-semibold text-center">
                                 سعر الوحدة
@@ -243,6 +249,9 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                                 <tr key={stock.productId} className="hover:bg-gray-50 transition-colors">
                                     <td className="p-4 font-medium text-gray-800">{product.name}</td>
                                     <td className="p-4 text-center font-bold text-gray-600">{stock.quantity}</td>
+                                    <td className="p-4 text-center text-gray-400 font-mono text-xs">
+                                        {(stock.quantity * price).toLocaleString('en-US')}
+                                    </td>
                                     <td className="p-4">
                                         <input
                                             type="number"
@@ -253,6 +262,9 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                                             max={stock.quantity}
                                             className={`w-full border rounded-lg p-2 text-center focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-emerald-700 ${isRep ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                                         />
+                                    </td>
+                                    <td className="p-4 text-center font-black text-blue-600 font-mono">
+                                        {(actual * price).toLocaleString('en-US')}
                                     </td>
                                     <td className={`p-4 text-center font-black ${sold > 0 ? 'text-red-600' : 'text-gray-300'}`}>
                                         {sold}
@@ -271,9 +283,11 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                         <tr>
                             <td className="p-4">الإجمالي</td>
                             <td className="p-4 text-center">{repStocks.reduce((a, b) => a + b.quantity, 0)}</td>
+                            <td className="p-4 text-center text-gray-400 font-mono italic">{totalCustodyValue.toLocaleString('en-US')}</td>
                             <td className="p-4 text-center">{totalItemsReturned}</td>
+                            <td className="p-4 text-center text-blue-700 font-mono">{totalRemainingValue.toLocaleString('en-US')}</td>
                             <td className="p-4 text-center text-red-600">{totalItemsSold}</td>
-                            <td className="p-4 text-center text-emerald-700">{totalSoldAmount.toLocaleString('en-US')} ج.م</td>
+                            <td colSpan={2} className="p-4 text-center text-emerald-700">{totalSoldAmount.toLocaleString('en-US')} ج.م</td>
                         </tr>
                     </tfoot>
                 </table>

@@ -116,11 +116,7 @@ export default function LoadStockForm({ warehouseId, products, reps }: Props) {
                                             <option key={product.id} value={product.id}>{product.name}</option>
                                         ))}
                                     </select>
-                                    {item.productId && (
-                                        <p className="text-xs text-gray-600 mt-1">
-                                            سعر المصنع: {products.find(p => p.id === item.productId)?.factoryPrice?.toLocaleString('en-US') || '-'}
-                                        </p>
-                                    )}
+
                                 </div>
                             </div>
 

@@ -33,15 +33,31 @@ function safeStringify(obj: any) {
 }
 
 export async function getCurrentUser() {
-    const currentUser = g.mockAuthUser || {
+    const mock = g.mockAuthUser || {
         id: 'admin-id',
         role: 'ADMIN'
     };
 
+    const dbUser = await prisma.user.findUnique({
+        where: { id: mock.id },
+        include: { agencies: true }
+    });
+
+    if (!dbUser) {
+        return {
+            id: mock.id as string,
+            role: mock.role as string,
+            agencyId: mock.agencyId as string | undefined,
+            agencyIds: mock.agencyId ? [mock.agencyId] : []
+        };
+    }
+
     return {
-        id: currentUser.id as string,
-        role: currentUser.role as string,
-        agencyId: currentUser.agencyId as string | undefined
+        id: dbUser.id,
+        role: dbUser.role,
+        agencyId: dbUser.agencyId || undefined,
+        agencyIds: dbUser.agencies.map(a => a.id),
+        warehouseId: dbUser.warehouseId || undefined
     };
 }
 
@@ -72,7 +88,16 @@ async function fileToBase64(file: File | null): Promise<string | null> {
 // --- Agency Actions ---
 
 export async function getAgencies() {
+    const user = await getCurrentUser();
+
+    if (user.role === 'ADMIN' || user.role === 'MANAGER') {
+        return await prisma.agency.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
     return await prisma.agency.findMany({
+        where: { id: user.agencyId },
         orderBy: { createdAt: 'desc' }
     });
 }
@@ -123,11 +148,82 @@ export async function deleteAgency(id: string) {
     const user = await getCurrentUser();
     if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error(`Unauthorized`);
 
-    const productCount = await prisma.product.count({ where: { agencyId: id } });
-    if (productCount > 0) throw new Error('لا يمكن حذف التوكيل لوجود منتجات مرتبطة به');
+    await prisma.$transaction(async (tx) => {
+        // 1. Delete Stock (linked to products of this agency)
+        await tx.stock.deleteMany({
+            where: { product: { agencyId: id } }
+        });
 
-    await prisma.agency.delete({ where: { id } });
+        // 2. Delete TransactionItems (linked to transactions of this agency)
+        await tx.transactionItem.deleteMany({
+            where: { transaction: { agencyId: id } }
+        });
+
+        // 3. Delete Transactions
+        await tx.transaction.deleteMany({
+            where: { agencyId: id }
+        });
+
+        // 4. Delete Products
+        await tx.product.deleteMany({
+            where: { agencyId: id }
+        });
+
+        // 5. Delete Customers
+        await tx.customer.deleteMany({
+            where: { agencyId: id }
+        });
+
+        // 6. Delete AccountRecords
+        await tx.accountRecord.deleteMany({
+            where: { agencyId: id }
+        });
+
+        // 7. Unlink Users (Set agencyId to null if this was their primary agency)
+        await tx.user.updateMany({
+            where: { agencyId: id },
+            data: { agencyId: null }
+        });
+
+        // Also remove from UserAgencies implicit table if applicable (many-to-many)
+        // Note: For many-to-many relations, disconnect is handled by deleting the Agency.
+
+        // 8. Delete Warehouses
+        await tx.warehouse.deleteMany({
+            where: { agencyId: id }
+        });
+
+        // 9. Finally delete the Agency
+        await tx.agency.delete({
+            where: { id }
+        });
+    });
+
     revalidatePath('/dashboard', 'layout');
+}
+
+export async function resetAllData() {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error('Unauthorized');
+
+    await prisma.$transaction([
+        prisma.transactionItem.deleteMany(),
+        prisma.transaction.deleteMany(),
+        prisma.stock.deleteMany(),
+        prisma.product.deleteMany(),
+        prisma.customer.deleteMany(),
+        prisma.accountRecord.deleteMany(),
+        prisma.bankTransaction.deleteMany(),
+        prisma.installment.deleteMany(),
+        prisma.loan.deleteMany(),
+        prisma.warehouse.deleteMany(),
+        prisma.user.updateMany({
+            data: { agencyId: null, warehouseId: null }
+        })
+    ]);
+
+    revalidatePath('/dashboard', 'layout');
+    return { success: true };
 }
 
 // --- Warehouse Actions ---
@@ -143,10 +239,18 @@ export async function getWarehouses() {
     } else {
         const fullUser = await prisma.user.findUnique({ where: { id: user.id } });
         if (fullUser?.agencyId) {
-            warehouses = await prisma.warehouse.findMany({
-                where: { agencyId: fullUser.agencyId },
-                include: { agency: true }
-            });
+            // If it's a warehouse keeper with a specific assigned warehouse, only show that one
+            if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouseId) {
+                warehouses = await prisma.warehouse.findMany({
+                    where: { id: fullUser.warehouseId },
+                    include: { agency: true }
+                });
+            } else {
+                warehouses = await prisma.warehouse.findMany({
+                    where: { agencyId: fullUser.agencyId },
+                    include: { agency: true }
+                });
+            }
         } else {
             warehouses = [];
         }
@@ -220,13 +324,14 @@ export async function getUsers() {
 
     if (user.role === 'ADMIN' || user.role === 'MANAGER') {
         return await prisma.user.findMany({
-            include: { agency: true }
+            include: { agency: true, agencies: true }
         });
     }
-    // Non-managers only see themselves
+
+    // Restricted roles see users in their agencies
     return await prisma.user.findMany({
-        where: { id: user.id },
-        include: { agency: true }
+        where: { agencies: { some: { id: { in: (user as any).agencyIds } } } },
+        include: { agency: true, agencies: true }
     });
 }
 
@@ -240,7 +345,7 @@ export async function createUser(formData: FormData) {
     const username = formData.get('username') as string;
     const password = formData.get('password') as string;
     const role = formData.get('role') as Role;
-    const agencyId = formData.get('agencyId') as string;
+    const agencyIds = formData.getAll('agencyId') as string[];
     const name = formData.get('name') as string;
     const pricingType = formData.get('pricingType') as string;
     const imageFile = formData.get('image') as File | null;
@@ -258,9 +363,12 @@ export async function createUser(formData: FormData) {
                 password,
                 role,
                 name,
-                agencyId: agencyId && agencyId !== '' ? agencyId : undefined,
+                agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
                 pricingType,
-                image: imageBase64
+                image: imageBase64,
+                agencies: {
+                    connect: agencyIds.filter(id => id !== '').map(id => ({ id }))
+                }
             }
         });
 
@@ -270,7 +378,7 @@ export async function createUser(formData: FormData) {
                 data: {
                     id: user.id,
                     name: `عهدة المندوب: ${name}`,
-                    agencyId: user.agencyId!,
+                    agencyId: agencyIds.length > 0 ? agencyIds[0] : '',
                 }
             });
         }
@@ -283,7 +391,7 @@ export async function updateUser(id: string, formData: FormData) {
     const username = formData.get('username') as string;
     const name = formData.get('name') as string;
     const role = formData.get('role') as Role;
-    const agencyId = formData.get('agencyId') as string;
+    const agencyIds = formData.getAll('agencyId') as string[];
     const pricingType = formData.get('pricingType') as string;
     const imageFile = formData.get('image') as File | null;
 
@@ -295,9 +403,12 @@ export async function updateUser(id: string, formData: FormData) {
             username,
             name,
             role,
-            agencyId: agencyId && agencyId !== '' ? agencyId : null,
+            agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
             pricingType,
-            ...(imageBase64 ? { image: imageBase64 } : {})
+            ...(imageBase64 ? { image: imageBase64 } : {}),
+            agencies: {
+                set: agencyIds.filter(id => id !== '').map(id => ({ id }))
+            }
         }
     });
 
@@ -345,16 +456,87 @@ export async function toggleRepPricing(id: string) {
 
 export async function getCustomers() {
     const user = await getCurrentUser();
+    const isAdminOrManager = user.role === 'ADMIN' || user.role === 'MANAGER';
+    const isRestricted = !isAdminOrManager || user.role === 'SALES_RECORDER';
+
+    let where: any = {};
 
     if (user.role === 'SALES_REPRESENTATIVE') {
-        return await prisma.customer.findMany({
-            where: { representativeId: user.id },
-            include: { representative: true, agency: true }
-        });
+        where = { representativeId: user.id };
+    } else if (isRestricted) {
+        where = { agencyId: { in: (user as any).agencyIds } };
     }
-    return await prisma.customer.findMany({
-        include: { representative: true, agency: true }
+
+    const customers = await prisma.customer.findMany({
+        where,
+        include: {
+            representative: true,
+            agency: true,
+            transactions: {
+                select: {
+                    remainingAmount: true
+                }
+            }
+        }
     });
+
+    // Calculate total debt for each customer
+    return customers.map(customer => {
+        const totalDebt = customer.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+
+        // Remove transactions to avoid serialization issues with Decimal objects
+        const { transactions, ...customerData } = customer;
+
+        return {
+            ...customerData,
+            representativeIds: customer.representativeId ? [customer.representativeId] : [],
+            totalDebt
+        };
+    });
+}
+
+export async function getCustomerDetails(id: string) {
+    if (!id) return null;
+    const customer = await prisma.customer.findUnique({
+        where: { id },
+        include: {
+            representative: true,
+            agency: true,
+            transactions: {
+                include: {
+                    user: true,
+                    items: {
+                        include: {
+                            product: true
+                        }
+                    }
+                },
+                orderBy: {
+                    createdAt: 'desc'
+                }
+            }
+        }
+    });
+
+    if (!customer) return null;
+
+    const totalDebt = customer.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+
+    return {
+        ...customer,
+        totalDebt,
+        transactions: customer.transactions.map(t => ({
+            ...t,
+            totalAmount: Number(t.totalAmount),
+            paidAmount: Number(t.paidAmount || 0),
+            remainingAmount: Number(t.remainingAmount || 0),
+            items: t.items.map(item => ({
+                ...item,
+                price: Number(item.price),
+                cost: Number(item.cost || 0)
+            }))
+        }))
+    };
 }
 
 export async function getRepCustomers(repId: string) {
@@ -416,7 +598,17 @@ export async function deleteCustomer(id: string) {
 // --- Product Actions ---
 
 export async function getProducts() {
+    const user = await getCurrentUser();
+
+    if (user.role === 'ADMIN' || user.role === 'MANAGER') {
+        return await prisma.product.findMany({
+            include: { agency: true },
+            orderBy: { name: 'asc' }
+        });
+    }
+
     return await prisma.product.findMany({
+        where: { agencyId: user.agencyId },
         include: { agency: true },
         orderBy: { name: 'asc' }
     });
@@ -773,21 +965,28 @@ export async function finalizeRepAudit(
                         quantity: item.actualQuantity
                     });
 
+                    // Upsert to Warehouse (Target)
                     await tx.stock.upsert({
                         where: { warehouseId_productId: { warehouseId, productId: item.productId } },
                         update: { quantity: { increment: item.actualQuantity } },
                         create: { warehouseId, productId: item.productId, quantity: item.actualQuantity }
                     });
 
-                    await tx.stock.update({
-                        where: { warehouseId_productId: { warehouseId: repId, productId: item.productId } },
-                        data: { quantity: 0 }
-                    });
+                    // Update Rep Stock (Source) - Only if record exists (currentQty > 0)
+                    if (currentQty > 0) {
+                        await tx.stock.update({
+                            where: { warehouseId_productId: { warehouseId: repId, productId: item.productId } },
+                            data: { quantity: 0 }
+                        });
+                    }
                 } else if (item.actualQuantity === 0) {
-                    await tx.stock.update({
-                        where: { warehouseId_productId: { warehouseId: repId, productId: item.productId } },
-                        data: { quantity: 0 }
-                    });
+                    // Only update if record actually exists
+                    if (currentQty > 0) {
+                        await tx.stock.update({
+                            where: { warehouseId_productId: { warehouseId: repId, productId: item.productId } },
+                            data: { quantity: 0 }
+                        });
+                    }
                 }
             }
 
@@ -874,8 +1073,8 @@ export async function recordSalesSession(
                 agencyId: user.agencyId!,
                 customerId: customerData?.id,
                 paymentType: paymentInfo?.type || 'CASH',
-                paidAmount: paymentInfo?.paidAmount || 0,
-                remainingAmount: totalAmount - (paymentInfo?.paidAmount || 0),
+                paidAmount: (paymentInfo?.type === 'CASH' ? totalAmount : (paymentInfo?.type === 'CREDIT' ? 0 : (paymentInfo?.paidAmount || 0))),
+                remainingAmount: (paymentInfo?.type === 'CASH' ? 0 : (paymentInfo?.type === 'CREDIT' ? totalAmount : (totalAmount - (paymentInfo?.paidAmount || 0)))),
                 items: {
                     create: await Promise.all(items.map(async item => {
                         const product = await prisma.product.findUnique({ where: { id: item.productId } });
@@ -929,8 +1128,8 @@ export async function recordDirectSale(
                     agencyId: user.agencyId!,
                     customerId: customerId,
                     paymentType: paymentInfo.type,
-                    paidAmount: paymentInfo.paidAmount || 0,
-                    remainingAmount: totalAmount - (paymentInfo.paidAmount || 0),
+                    paidAmount: (paymentInfo.type === 'CASH' ? totalAmount : (paymentInfo.type === 'CREDIT' ? 0 : (paymentInfo.paidAmount || 0))),
+                    remainingAmount: (paymentInfo.type === 'CASH' ? 0 : (paymentInfo.type === 'CREDIT' ? totalAmount : (totalAmount - (paymentInfo.paidAmount || 0)))),
                     items: {
                         create: await Promise.all(items.map(async item => {
                             const product = await prisma.product.findUnique({ where: { id: item.productId } });
@@ -972,7 +1171,119 @@ export async function getSalesSessions(filters?: { repId?: string; startDate?: s
     });
 }
 
-export async function updateSalesSession(id: string, updates: any) {
+export async function recordDebtCollection(
+    customerId: string,
+    amount: number,
+    note?: string
+) {
+    try {
+        const user = await getCurrentUser();
+        const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+        if (!customer) throw new Error("Customer not found");
+
+        const transaction = await prisma.transaction.create({
+            data: {
+                type: 'COLLECTION',
+                totalAmount: 0,
+                userId: user.id,
+                agencyId: customer.agencyId,
+                customerId: customerId,
+                paymentType: 'CASH',
+                paidAmount: amount,
+                remainingAmount: -amount,
+                note: note || "تحصيل مديونية"
+            }
+        });
+
+        revalidatePath('/dashboard', 'layout');
+        revalidatePath(`/dashboard/customers/${customerId}`);
+        return { success: true, sessionId: transaction.id };
+    } catch (error) {
+        console.error("recordDebtCollection error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+export async function recordAgencyPayment(
+    agencyId: string,
+    amount: number,
+    note?: string
+) {
+    try {
+        const user = await getCurrentUser();
+        const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
+        if (!agency) throw new Error("Agency not found");
+
+        const transaction = await prisma.transaction.create({
+            data: {
+                type: 'SUPPLY_PAYMENT',
+                totalAmount: 0,
+                userId: user.id,
+                agencyId: agencyId,
+                paymentType: 'CASH',
+                paidAmount: amount,
+                remainingAmount: -amount,
+                note: note || "سداد مديونية توريد"
+            }
+        });
+
+        revalidatePath('/dashboard', 'layout');
+        revalidatePath('/dashboard/accounts/reports/purchases');
+        return { success: true, sessionId: transaction.id };
+    } catch (error) {
+        console.error("recordAgencyPayment error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+export async function getAgencyPurchases() {
+    const user = await getCurrentUser();
+    const isAdminOrManager = user.role === 'ADMIN' || user.role === 'MANAGER';
+
+    const agencies = await prisma.agency.findMany({
+        where: isAdminOrManager ? {} : { id: user.agencyId || undefined },
+        include: {
+            transactions: {
+                where: { type: { in: ['PURCHASE', 'SUPPLY_PAYMENT'] } },
+                include: {
+                    user: true,
+                    items: { include: { product: true } }
+                },
+                orderBy: { createdAt: 'desc' }
+            }
+        }
+    });
+
+    return agencies.map(agency => {
+        const transactions = agency.transactions.map(t => ({
+            ...t,
+            totalAmount: Number(t.totalAmount || 0),
+            paidAmount: Number(t.paidAmount || 0),
+            remainingAmount: Number(t.remainingAmount || 0),
+            items: t.items.map(item => ({
+                ...item,
+                price: Number(item.price),
+                cost: Number(item.cost || 0)
+            }))
+        }));
+
+        const totalPurchases = transactions.reduce((sum, t) => sum + t.totalAmount, 0);
+        const totalPaid = transactions.reduce((sum, t) => sum + t.paidAmount, 0);
+        const totalRemaining = transactions.reduce((sum, t) => sum + t.remainingAmount, 0);
+
+        return {
+            id: agency.id,
+            name: agency.name,
+            totalPurchases,
+            totalPaid,
+            totalRemaining,
+            transactions
+        };
+    });
+}
+
+export async function updateSalesSession(
+    id: string, updates: any) {
     try {
         await prisma.$transaction(async (tx) => {
             if (updates.items) {

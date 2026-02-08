@@ -22,8 +22,12 @@ model User {
   createdRecords AccountRecord[]
   customers      Customer[]      @relation("RepCustomers")
   transactions   Transaction[]
-  warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id])
   agency         Agency?         @relation(fields: [agencyId], references: [id])
+  warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id])
+  agencies       Agency[]        @relation("UserAgencies")
+
+  @@index([agencyId], map: "User_agencyId_fkey")
+  @@index([warehouseId], map: "User_warehouseId_fkey")
 }
 
 model Agency {
@@ -38,8 +42,9 @@ model Agency {
   customers    Customer[]
   products     Product[]
   transactions Transaction[]
-  users        User[]
+  directUsers  User[]
   warehouses   Warehouse[]
+  users        User[]          @relation("UserAgencies")
 }
 
 model Warehouse {
@@ -52,6 +57,8 @@ model Warehouse {
   transactions Transaction[]
   users        User[]
   agency       Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId], map: "Warehouse_agencyId_fkey")
 }
 
 model Product {
@@ -69,6 +76,8 @@ model Product {
   agency           Agency            @relation(fields: [agencyId], references: [id])
   stocks           Stock[]
   transactionItems TransactionItem[]
+
+  @@index([agencyId], map: "Product_agencyId_fkey")
 }
 
 model Stock {
@@ -80,6 +89,7 @@ model Stock {
   warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
 
   @@unique([warehouseId, productId])
+  @@index([productId], map: "Stock_productId_fkey")
 }
 
 model Transaction {
@@ -95,12 +105,17 @@ model Transaction {
   remainingAmount Decimal?
   note            String?
   createdAt       DateTime          @default(now())
-  customer        Customer?         @relation(fields: [customerId], references: [id])
-  warehouse       Warehouse?        @relation(fields: [warehouseId], references: [id])
-  agency          Agency            @relation(fields: [agencyId], references: [id])
-  user            User              @relation(fields: [userId], references: [id])
-  items           TransactionItem[]
   imageUrl        String?           @db.LongText
+  agency          Agency            @relation(fields: [agencyId], references: [id])
+  customer        Customer?         @relation(fields: [customerId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+  warehouse       Warehouse?        @relation(fields: [warehouseId], references: [id])
+  items           TransactionItem[]
+
+  @@index([agencyId], map: "Transaction_agencyId_fkey")
+  @@index([customerId], map: "Transaction_customerId_fkey")
+  @@index([userId], map: "Transaction_userId_fkey")
+  @@index([warehouseId], map: "Transaction_warehouseId_fkey")
 }
 
 model Customer {
@@ -115,6 +130,9 @@ model Customer {
   agency           Agency        @relation(fields: [agencyId], references: [id])
   representative   User          @relation("RepCustomers", fields: [representativeId], references: [id])
   transactions     Transaction[]
+
+  @@index([agencyId], map: "Customer_agencyId_fkey")
+  @@index([representativeId], map: "Customer_representativeId_fkey")
 }
 
 model TransactionItem {
@@ -123,10 +141,13 @@ model TransactionItem {
   productId     String
   quantity      Int
   price         Decimal
-  cost          Decimal     @default(0)
   createdAt     DateTime    @default(now())
+  cost          Decimal     @default(0.000000000000000000000000000000)
   product       Product     @relation(fields: [productId], references: [id])
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([productId], map: "TransactionItem_productId_fkey")
+  @@index([transactionId], map: "TransactionItem_transactionId_fkey")
 }
 
 model AccountRecord {
@@ -134,46 +155,23 @@ model AccountRecord {
   type        AccountRecordType
   amount      Decimal
   description String
-  category    String?
   agencyId    String?
   userId      String
   createdAt   DateTime          @default(now())
-  createdBy   User              @relation(fields: [userId], references: [id])
-  agency      Agency?           @relation(fields: [agencyId], references: [id])
+  category    String?
   imageUrl    String?           @db.LongText
-}
+  agency      Agency?           @relation(fields: [agencyId], references: [id])
+  createdBy   User              @relation(fields: [userId], references: [id])
 
-enum Role {
-  ADMIN
-  MANAGER
-  ACCOUNTANT
-  WAREHOUSE_KEEPER
-  SALES_REPRESENTATIVE
-}
-
-enum PaymentType {
-  CASH
-  CREDIT
-  PARTIAL
-}
-
-enum TransactionType {
-  SALE
-  PURCHASE
-  RETURN_IN
-  RETURN_OUT
-}
-
-enum AccountRecordType {
-  INCOME
-  EXPENSE
+  @@index([agencyId], map: "AccountRecord_agencyId_fkey")
+  @@index([userId], map: "AccountRecord_userId_fkey")
 }
 
 model Bank {
   id            String            @id @default(uuid())
   name          String
   accountNumber String?
-  balance       Decimal           @default(0)
+  balance       Decimal           @default(0.000000000000000000000000000000)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   transactions  BankTransaction[]
@@ -187,33 +185,68 @@ model BankTransaction {
   description String
   date        DateTime            @default(now())
   bankId      String
-  bank        Bank                @relation(fields: [bankId], references: [id])
   imageUrl    String?             @db.LongText
+  bank        Bank                @relation(fields: [bankId], references: [id])
+
+  @@index([bankId], map: "BankTransaction_bankId_fkey")
 }
 
 model Loan {
   id           String        @id @default(uuid())
   bankId       String
-  bank         Bank          @relation(fields: [bankId], references: [id])
   principal    Decimal
-  interest     Decimal       @default(0)
+  interest     Decimal       @default(0.000000000000000000000000000000)
   totalAmount  Decimal
   startDate    DateTime
   endDate      DateTime?
   status       LoanStatus    @default(ACTIVE)
   notes        String?
-  installments Installment[]
   createdAt    DateTime      @default(now())
+  installments Installment[]
+  bank         Bank          @relation(fields: [bankId], references: [id])
+
+  @@index([bankId], map: "Loan_bankId_fkey")
 }
 
 model Installment {
-  id        String            @id @default(uuid())
-  loanId    String
-  loan      Loan              @relation(fields: [loanId], references: [id])
-  dueDate   DateTime
-  amount    Decimal
-  status    InstallmentStatus @default(PENDING)
-  paidDate  DateTime?
+  id       String            @id @default(uuid())
+  loanId   String
+  dueDate  DateTime
+  amount   Decimal
+  status   InstallmentStatus @default(PENDING)
+  paidDate DateTime?
+  loan     Loan              @relation(fields: [loanId], references: [id])
+
+  @@index([loanId], map: "Installment_loanId_fkey")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  ACCOUNTANT
+  WAREHOUSE_KEEPER
+  SALES_REPRESENTATIVE
+  SALES_RECORDER
+}
+
+enum PaymentType {
+  CASH
+  CREDIT
+  PARTIAL
+}
+
+enum TransactionType {
+  SALE
+  PURCHASE
+  RETURN_IN
+  RETURN_OUT
+  COLLECTION
+  SUPPLY_PAYMENT
+}
+
+enum AccountRecordType {
+  INCOME
+  EXPENSE
 }
 
 enum BankTransactionType {

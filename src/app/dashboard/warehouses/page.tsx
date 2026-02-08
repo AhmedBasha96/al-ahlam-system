@@ -1,4 +1,4 @@
-import { createWarehouse, getAgencies, getWarehouses, deleteWarehouse } from "@/lib/actions";
+import { createWarehouse, getAgencies, getWarehouses, deleteWarehouse, getCurrentUser } from "@/lib/actions";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +12,9 @@ export default async function WarehousesPage() {
         agencies = await getAgencies();
     } catch (e) { console.error("Warehouses fetch error:", e); }
 
-    // Mock Permission Check (In real app, use session)
-    // For now, assume we show Create Form only if Admin/Manager
-    const isAdminOrManager = true;
+    // Role-based Permission Check
+    const currentUser = await getCurrentUser();
+    const isAdminOrManager = currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER';
 
     return (
         <div className="space-y-6">
@@ -51,7 +51,7 @@ export default async function WarehousesPage() {
                 )}
 
                 {/* Warehouses List */}
-                <div className={isAdminOrManager ? "lg:col-span-2" : "col-span-3"}>
+                <div className={isAdminOrManager ? "lg:col-span-2" : "lg:col-span-3 col-span-1"}>
                     <div className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
                         <table className="w-full text-right">
                             <thead className="bg-emerald-50 text-emerald-900">
@@ -59,13 +59,19 @@ export default async function WarehousesPage() {
                                     <th className="p-4 font-semibold">اسم المخزن</th>
                                     <th className="p-4 font-semibold">التوكيل</th>
                                     <th className="p-4 font-semibold">تاريخ الإنشاء</th>
-                                    <th className="p-4 font-semibold">إجراءات</th>
+                                    <th className="p-4 font-semibold text-center">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {warehouses.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="p-8 text-center text-gray-400">لا توجد مخازن متاحة للعرض.</td>
+                                        <td colSpan={4} className="p-12 text-center">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <span className="text-4xl">📂</span>
+                                                <p className="text-gray-500 font-medium">لا توجد مخازن متاحة للعرض.</p>
+                                                <p className="text-xs text-gray-400">تأكد من أن حسابك مرتبط بتوكيل معين لعرض مخازنه.</p>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ) : warehouses.map((warehouse: any) => {
                                     const agency = agencies.find((a: any) => a.id === warehouse.agencyId);

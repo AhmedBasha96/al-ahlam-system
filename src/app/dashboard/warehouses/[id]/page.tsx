@@ -1,6 +1,8 @@
-import { getProducts, getStocks, getAgencies, getUsers, getWarehouse, getTransactions, getAllRepStocks, getCustomers, getWarehouses } from "@/lib/actions";
+import { getProducts, getStocks, getAgencies, getUsers, getWarehouse, getTransactions, getAllRepStocks, getCustomers, getWarehouses, getCurrentUser } from "@/lib/actions";
 import Link from 'next/link';
 import WarehouseOperations from "./warehouse-operations";
+
+export const dynamic = 'force-dynamic';
 
 export default async function WarehouseDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: warehouseId } = await params;
@@ -16,38 +18,70 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
 
     try {
         warehouse = await getWarehouse(warehouseId);
-        // Only fetch others if warehouse exists? No, keep parallelish for simplicity or sequential inside try
         if (warehouse) {
-            allProducts = await getProducts();
-            allStocks = await getStocks();
-            allUsers = await getUsers();
-            transactions = await getTransactions(warehouseId);
-            allRepStocks = await getAllRepStocks();
-            allCustomers = await getCustomers();
-            allWarehouses = await getWarehouses();
+            // Fetch everything else only if warehouse exists
+            const [
+                productsData,
+                stocksData,
+                usersData,
+                transactionsData,
+                repStocksData,
+                customersData,
+                warehousesData
+            ] = await Promise.all([
+                getProducts(),
+                getStocks(),
+                getUsers(),
+                getTransactions(warehouseId),
+                getAllRepStocks(),
+                getCustomers(),
+                getWarehouses()
+            ]);
+
+            allProducts = productsData || [];
+            allStocks = stocksData || [];
+            allUsers = usersData || [];
+            transactions = transactionsData || [];
+            allRepStocks = repStocksData || [];
+            allCustomers = customersData || [];
+            allWarehouses = warehousesData || [];
         }
-    } catch (e) { console.error("Warehouse details fetch error:", e); }
+    } catch (e) {
+        console.error("Warehouse details fetch error:", e);
+    }
+
+    if (!warehouse) {
+        return (
+            <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300 m-8">
+                <div className="text-5xl mb-4">🔍</div>
+                <p className="text-gray-500 text-lg font-medium">المخزن غير موجود أو لا تملك صلاحية الوصول إليه</p>
+                <Link href="/dashboard/warehouses" className="text-emerald-600 hover:underline mt-4 inline-block font-bold">
+                    العودة لقائمة المخازن
+                </Link>
+            </div>
+        );
+    }
 
     // Map products to convert Decimal to number
     const agencyProducts = allProducts
-        .filter((p: any) => p.agencyId === warehouse.agencyId)
+        .filter((p: any) => p && p.agencyId === warehouse.agencyId)
         .map((p: any) => ({
             ...p,
-            factoryPrice: Number(p.factoryPrice),
-            wholesalePrice: Number(p.wholesalePrice),
-            retailPrice: Number(p.retailPrice)
+            factoryPrice: Number(p.factoryPrice || 0),
+            wholesalePrice: Number(p.wholesalePrice || 0),
+            retailPrice: Number(p.retailPrice || 0)
         }));
 
     // Sanitize Stocks to remove Prisma objects/Decimals
     const sanitizedStocks = allStocks.map((s: any) => ({
         warehouseId: s.warehouseId,
         productId: s.productId,
-        quantity: s.quantity
+        quantity: s.quantity || 0
     }));
 
     // Map reps to handle nulls
     const agencyReps = allUsers
-        .filter((u: any) => u.role === 'SALES_REPRESENTATIVE' && u.agencyId === warehouse.agencyId)
+        .filter((u: any) => u && u.role === 'SALES_REPRESENTATIVE' && u.agencyId === warehouse.agencyId)
         .map((u: any) => ({
             ...u,
             agencyId: u.agencyId || undefined,
@@ -55,24 +89,17 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
             warehouseId: u.warehouseId || undefined
         }));
 
-    // Map transactions to the UI format (flattening multi-item transactions if necessary)
+    // Map transactions to the UI format
     const uiTransactions: any[] = [];
     transactions.forEach((t: any) => {
-        if (t.items && t.items.length > 0) {
+        if (t && t.items && t.items.length > 0) {
             t.items.forEach((item: any) => {
-                // Determine the correct type based on transaction type and note
                 let displayType = t.type;
-
                 if (t.type === 'SALE') {
-                    if (t.note && t.note.includes('تحميل للمندوب')) {
-                        displayType = 'LOAD_TO_REP';
-                    }
+                    if (t.note && t.note.includes('تحميل للمندوب')) displayType = 'LOAD_TO_REP';
                 } else if (t.type === 'PURCHASE') {
-                    if (t.note && t.note.includes('مرتجع')) {
-                        displayType = 'RETURN';
-                    } else {
-                        displayType = 'SUPPLY';
-                    }
+                    if (t.note && t.note.includes('مرتجع')) displayType = 'RETURN';
+                    else displayType = 'SUPPLY';
                 }
 
                 uiTransactions.push({
@@ -81,19 +108,19 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                     type: displayType,
                     quantityChange: t.type === 'SALE' ? -item.quantity : item.quantity,
                     newQuantity: item.quantity,
-                    date: t.createdAt.toISOString(),
-                    price: Number(item.price),
+                    date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
+                    price: Number(item.price || 0),
                     note: t.note || ''
                 });
             });
         }
     });
 
-    // Map Rep Stocks (Sanitized)
+    // Map Rep Stocks
     const mappedRepStocks = allRepStocks.map((s: any) => ({
         repId: s.warehouseId,
         productId: s.productId,
-        quantity: s.quantity
+        quantity: s.quantity || 0
     }));
 
     // Map Customers
@@ -105,16 +132,13 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
 
     // Stats Calculations
     const totalItems = agencyProducts.length;
-    const totalInventoryValue = agencyProducts.reduce((sum: number, p: any) => {
-        const qty = allStocks.find((s: any) => s.warehouseId === warehouseId && s.productId === p.id)?.quantity || 0;
-        return sum + (qty * p.factoryPrice);
-    }, 0);
-    const itemsWithStock = agencyProducts.filter((p: any) =>
-        (allStocks.find((s: any) => s.warehouseId === warehouseId && s.productId === p.id)?.quantity || 0) > 0
-    ).length;
+    const itemsWithStock = agencyProducts.filter((p: any) => {
+        const stock = allStocks.find((s: any) => s.warehouseId === warehouseId && s.productId === p.id);
+        return (stock?.quantity || 0) > 0;
+    }).length;
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -124,32 +148,25 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                             مستودع نشط
                         </span>
                         <Link href="/dashboard/warehouses" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium group">
-                            <span className="transition-transform group-hover:-translate-x-1">&rarr;</span> القائمة الرئيسية للنماذج
+                            <span className="transition-transform group-hover:-translate-x-1">&rarr;</span> القائمة الرئيسية للمخازن
                         </Link>
                     </div>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
                     <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl shadow-inner">📦</div>
                     <div>
-                        <p className="text-sm text-gray-500 font-medium">إجمالي الأصناف</p>
+                        <p className="text-sm text-gray-500 font-medium font-arabic">إجمالي الأصناف</p>
                         <p className="text-2xl font-black text-gray-900">{totalItems}</p>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl shadow-inner">💰</div>
-                    <div>
-                        <p className="text-sm text-gray-500 font-medium">قيمة المخزون الإجمالية</p>
-                        <p className="text-2xl font-black text-emerald-700">{totalInventoryValue.toLocaleString('en-US')} <span className="text-sm font-normal text-gray-400">ج.م</span></p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
                     <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-2xl shadow-inner">📊</div>
                     <div>
-                        <p className="text-sm text-gray-500 font-medium">أصناف متوفرة رصيد</p>
+                        <p className="text-sm text-gray-500 font-medium font-arabic">أصناف متوفرة رصيد</p>
                         <p className="text-2xl font-black text-gray-900">{itemsWithStock} <span className="text-sm font-normal text-gray-400">/ {totalItems}</span></p>
                     </div>
                 </div>

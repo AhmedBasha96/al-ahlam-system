@@ -10,6 +10,7 @@ type User = {
     name: string;
     role: string;
     agencyId?: string;
+    agencyIds?: string[];
     image: string | null;
 };
 
@@ -27,9 +28,12 @@ export default function UsersList({ users, agencies }: Props) {
         }
     }
 
-    const getAgencyName = (id?: string) => {
-        if (!id) return 'الكل / غير محدد';
-        return agencies.find(a => a.id === id)?.name || 'غير معروف';
+    const getAgencyNames = (user: User) => {
+        const ids = user.agencyIds || (user.agencyId ? [user.agencyId] : []);
+        if (ids.length === 0) return 'الكل / غير محدد';
+
+        const names = ids.map(id => agencies.find(a => a.id === id)?.name || 'غير معروف');
+        return names.join('، ');
     }
 
     const getRoleLabel = (role: string) => {
@@ -91,7 +95,7 @@ export default function UsersList({ users, agencies }: Props) {
                                         {getRoleLabel(user.role)}
                                     </span>
                                 </td>
-                                <td className="p-4 text-gray-500 text-sm">{getAgencyName(user.agencyId)}</td>
+                                <td className="p-4 text-gray-500 text-sm whitespace-normal max-w-xs">{getAgencyNames(user)}</td>
                                 <td className="p-4">
                                     <button
                                         className="text-emerald-600 hover:text-emerald-800 font-medium ml-3"
