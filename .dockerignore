@@ -1,0 +1,24 @@
+# Ignore node & build artifacts
+node_modules
+.next
+out
+dist
+build
+
+# Ignore git files
+.git
+.gitignore
+
+# Avoid sending env files with secrets
+.env*
+
+# Editor and system files
+.vscode
+.idea
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
