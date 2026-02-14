@@ -3,6 +3,7 @@ version: "3.8"
 services:
   db:
     image: mysql:8.0
+    container_name: db
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: al_ahlam_db
@@ -29,6 +30,7 @@ services:
       - db
     command: ["sh", "-c", "npx prisma migrate deploy"]
     restart: 'no'
+    container_name: migrate
 
   app:
     build:
@@ -45,6 +47,7 @@ services:
     depends_on:
       - db
     restart: unless-stopped
+    container_name: app
 
   nginx:
     image: nginx:latest
