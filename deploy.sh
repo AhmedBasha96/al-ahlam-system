@@ -94,6 +94,14 @@ main() {
     log_info "Starting services..."
     docker compose -f "$COMPOSE_FILE" up -d --no-build --remove-orphans
     
+    # Apply database migrations
+    log_info "Applying database migrations..."
+    docker compose -f "$COMPOSE_FILE" run --rm migrate
+
+    # Seed the database (optional)
+    log_info "Seeding the database..."
+    docker compose -f "$COMPOSE_FILE" exec app npm run prisma:seed
+    
     # Quick health check
     sleep 2
     local running=$(docker compose -f "$COMPOSE_FILE" ps --status running --quiet | wc -l)
