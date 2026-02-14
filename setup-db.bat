@@ -1,39 +1,26 @@
 @echo off
 setlocal
 
-:: Configuration
-:: Usage: setup-db.bat [env]
-:: where env is "prod" (default) or "test"
-
-:: Colors for Windows Terminal
+:: Colors
 set GREEN=[INFO] 
 set RED=[ERROR] 
 
-set ENV=%1
-if "%ENV%"=="" set ENV=prod
-set ENV_FILE=.env
+:: Configuration
+:: Uses .env file automatically
 
-:: Always use .env file but with environment-specific variable prefix
-if not exist %ENV_FILE% (
-    echo %RED% Environment file %ENV_FILE% not found!
+echo %GREEN% Using environment configuration from .env
+
+:: 0. Generate Client
+echo %GREEN% Generating Prisma Client...
+call npx prisma generate
+if %ERRORLEVEL% NEQ 0 (
+    echo %RED% Generate failed.
     exit /b 1
 )
 
-echo %GREEN% Using environment file: %ENV_FILE%
-echo %GREEN% Implementing setup for environment: %ENV%
-
-:: Set environment-specific DATABASE_URL based on ENV parameter
-if "%ENV%"=="test" (
-    echo %GREEN% Using TEST database configuration
-    set DB_ENV_VAR=DATABASE_URL_TEST
-) else (
-    echo %GREEN% Using PROD database configuration
-    set DB_ENV_VAR=DATABASE_URL
-)
-
 :: 1. Run Migrations
-echo %GREEN% Running database migrations...
-call npx dotenv-cli -e %ENV_FILE% -- npx cross-env DATABASE_URL=${%DB_ENV_VAR%} npx prisma migrate deploy
+echo %GREEN% Running database migrations (deploy)...
+call npx prisma migrate deploy
 if %ERRORLEVEL% NEQ 0 (
     echo %RED% Migration failed.
     exit /b 1
@@ -42,7 +29,7 @@ echo %GREEN% Migrations applied successfully.
 
 :: 2. Run Seeds
 echo %GREEN% Seeding database...
-call npx dotenv-cli -e %ENV_FILE% -- npx cross-env DATABASE_URL=${%DB_ENV_VAR%} npm run prisma:seed
+call npm run prisma:seed
 if %ERRORLEVEL% NEQ 0 (
     echo %RED% Seeding failed.
     exit /b 1
