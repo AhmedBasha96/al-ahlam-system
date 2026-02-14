@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
-BRANCH="master"
+BRANCH="main"
 ENABLE_CACHE_CLEANING=true  # Disable for dev (huge speedup)
 PARALLEL_BUILDS=true
 
