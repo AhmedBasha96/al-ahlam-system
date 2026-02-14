@@ -47,7 +47,7 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-gray-800">لوحة التحكم</h1>
                 <div className="flex items-center gap-4">
-                    {isAdmin && <ResetDataButton />}
+                    {/* {isAdmin && <ResetDataButton />} */}
                     <div className="text-gray-500 text-sm">
                         {new Date().toLocaleDateString('ar-EG', {
                             weekday: 'long',
