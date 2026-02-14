@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
 
+console.log("DB URL:", process.env.DATABASE_URL);
+
 const prisma = new PrismaClient({
     log: ['query', 'info', 'warn', 'error']
 })
