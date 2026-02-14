@@ -267,7 +267,9 @@ docker compose exec app npx prisma migrate deploy
 # لتشغيل السِيد (إذا كانت الإعدادات متوافرة):
 docker compose exec app npm run prisma:seed
 ```
-
+### re deploy
+cd src
+./deploy.sh
 
 ### تنفيذ الترحيلات تلقائيًا في بيئة CI/CD | Run migrations in CI/CD
 
