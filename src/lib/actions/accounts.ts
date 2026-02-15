@@ -225,17 +225,17 @@ export async function getTreasuryTransactions(agencyIdFilter?: string | 'GENERAL
             date: t.createdAt,
             amount: Number(t.paidAmount),
             type: 'SALE',
-            description: `مبيعات (${t.agency.name}) ` + (t.note || ''),
-            agencyName: t.agency.name
+            description: `مبيعات (${t.agency?.name || 'غير معروف'}) ` + (t.note || ''),
+            agencyName: t.agency?.name || 'غير معروف'
         })),
         ...purchases.map(t => ({
             id: t.id,
             date: t.createdAt,
             amount: -Number(t.paidAmount),
             type: 'PURCHASE',
-            description: `شراء (${t.agency.name}) ` + (t.note || ''),
-            warehouseName: t.warehouse?.name,
-            agencyName: t.agency.name
+            description: `شراء (${t.agency?.name || 'غير معروف'}) ` + (t.note || ''),
+            warehouseName: t.warehouse?.name || 'غير معروف',
+            agencyName: t.agency?.name || 'غير معروف'
         })),
         ...income.map(t => ({
             id: t.id,
@@ -310,7 +310,7 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
     // Treasury Balance (All Time)
     // We need to re-fetch all time transactions for balance
     const allTx = await getTreasuryTransactions(agencyIdFilter as any);
-    const treasuryBalance = allTx.length > 0 ? allTx[0].balance : 0;
+    const treasuryBalance = allTx.length > 0 ? (allTx[0].balance || 0) : 0;
 
     return {
         totalSales,
