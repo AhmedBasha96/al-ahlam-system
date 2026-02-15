@@ -18,7 +18,7 @@ services:
     ports:
       - "3307:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -32,10 +32,12 @@ services:
       target: builder
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=mysql://root:password@db:3306/al_ahlam_db
     # db service is optional if using remote database, but kept for local dev
     # depends_on:
     #   - db
-    command: ["sh", "-c", "npx prisma migrate deploy"]
+    command: [ "sh", "-c", "npx prisma migrate deploy" ]
     restart: 'no'
     container_name: migrate
     networks:
@@ -48,7 +50,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=mysql://root:password@db:3306/al_ahlam_db
       - NODE_ENV=production
       - PORT=3000
     env_file:
