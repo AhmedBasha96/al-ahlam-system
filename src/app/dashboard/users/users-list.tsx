@@ -17,9 +17,10 @@ type User = {
 type Props = {
     users: User[];
     agencies: Array<{ id: string, name: string }>;
+    currentUserRole?: string;
 }
 
-export default function UsersList({ users, agencies }: Props) {
+export default function UsersList({ users, agencies, currentUserRole }: Props) {
     const [editingUser, setEditingUser] = useState<User | null>(null);
 
     const handleDelete = async (id: string) => {
@@ -28,10 +29,10 @@ export default function UsersList({ users, agencies }: Props) {
         }
     }
 
+    // ... helper functions omitted for brevity, they remain unchanged ...
     const getAgencyNames = (user: User) => {
         const ids = user.agencyIds || (user.agencyId ? [user.agencyId] : []);
         if (ids.length === 0) return 'الكل / غير محدد';
-
         const names = ids.map(id => agencies.find(a => a.id === id)?.name || 'غير معروف');
         return names.join('، ');
     }
@@ -42,6 +43,8 @@ export default function UsersList({ users, agencies }: Props) {
             case 'MANAGER': return 'مدير توكيلات';
             case 'ACCOUNTANT': return 'محاسب';
             case 'WAREHOUSE_KEEPER': return 'أمين مخزن';
+            case 'SALES_REPRESENTATIVE': return 'مندوب مبيعات';
+            case 'SALES_RECORDER': return 'مسجل مبيعات';
             default: return role;
         }
     }
@@ -56,6 +59,8 @@ export default function UsersList({ users, agencies }: Props) {
         }
     }
 
+    const isAdmin = currentUserRole === 'ADMIN';
+
     return (
         <>
             <div className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
@@ -65,13 +70,13 @@ export default function UsersList({ users, agencies }: Props) {
                             <th className="p-4 font-semibold">المستخدم</th>
                             <th className="p-4 font-semibold">الدور</th>
                             <th className="p-4 font-semibold">التخصيص</th>
-                            <th className="p-4 font-semibold">إجراءات</th>
+                            {isAdmin && <th className="p-4 font-semibold">إجراءات</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {users.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="p-8 text-center text-gray-400 text-sm">
+                                <td colSpan={isAdmin ? 4 : 3} className="p-8 text-center text-gray-400 text-sm">
                                     لا يوجد مستخدمين حتى الآن
                                 </td>
                             </tr>
@@ -96,20 +101,22 @@ export default function UsersList({ users, agencies }: Props) {
                                     </span>
                                 </td>
                                 <td className="p-4 text-gray-500 text-sm whitespace-normal max-w-xs">{getAgencyNames(user)}</td>
-                                <td className="p-4">
-                                    <button
-                                        className="text-emerald-600 hover:text-emerald-800 font-medium ml-3"
-                                        onClick={() => setEditingUser(user)}
-                                    >
-                                        تعديل
-                                    </button>
-                                    <button
-                                        className="text-red-500 hover:text-red-700 font-medium"
-                                        onClick={() => handleDelete(user.id)}
-                                    >
-                                        حذف
-                                    </button>
-                                </td>
+                                {isAdmin && (
+                                    <td className="p-4">
+                                        <button
+                                            className="ml-3 text-emerald-600 hover:text-emerald-800 text-sm font-medium transition-colors"
+                                            onClick={() => setEditingUser(user)}
+                                        >
+                                            تعديل
+                                        </button>
+                                        <button
+                                            className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors"
+                                            onClick={() => handleDelete(user.id)}
+                                        >
+                                            حذف
+                                        </button>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>

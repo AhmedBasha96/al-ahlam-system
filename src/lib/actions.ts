@@ -350,6 +350,12 @@ export async function createUser(formData: FormData) {
     const pricingType = formData.get('pricingType') as string;
     const imageFile = formData.get('image') as File | null;
 
+    // Permission check
+    const currentUser = await getCurrentUser();
+    if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
+        throw new Error('Unauthorized: Only Admins and Managers can create users');
+    }
+
     if (!username || !role || !password) {
         throw new Error('Username, Password, and Role are required');
     }
@@ -388,6 +394,12 @@ export async function createUser(formData: FormData) {
 }
 
 export async function updateUser(id: string, formData: FormData) {
+    // Permission check
+    const currentUser = await getCurrentUser();
+    if (currentUser.role !== 'ADMIN') {
+        throw new Error('Unauthorized: Only Admins can update users');
+    }
+
     const username = formData.get('username') as string;
     const name = formData.get('name') as string;
     const role = formData.get('role') as Role;
@@ -417,7 +429,7 @@ export async function updateUser(id: string, formData: FormData) {
 
 export async function deleteUser(id: string) {
     const userRole = await getCurrentUser().then(u => u.role);
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') throw new Error('Unauthorized');
+    if (userRole !== 'ADMIN') throw new Error('Unauthorized: Only Admins can delete users');
 
     await prisma.$transaction(async (tx) => {
         // Find if user is a rep to delete their virtual warehouse
