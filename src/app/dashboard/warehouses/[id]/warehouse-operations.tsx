@@ -16,6 +16,8 @@ type Product = {
     factoryPrice: number;
     agencyId: string;
     priceUpdatedAt?: string;
+    agency?: { id: string, name: string };
+    supplier?: { id: string, name: string };
 }
 
 type RepStock = {
@@ -70,7 +72,7 @@ type Props = {
 
 
 export default function WarehouseOperations({ warehouseId, agencyProducts, allStocks, reps, transactions, allRepStocks, allCustomers, warehouses }: Props) {
-    const [activeTab, setActiveTab] = useState<'inventory' | 'audit' | 'loading' | 'history' | 'rep-audit'>('inventory');
+    const [activeTab, setActiveTab] = useState<'inventory' | 'loading' | 'history' | 'rep-audit'>('inventory');
     const [selectedRepId, setSelectedRepId] = useState<string>("");
     const [supplyModeProductId, setSupplyModeProductId] = useState<string | null>(null);
 
@@ -95,15 +97,6 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                         }`}
                 >
                     مخزون المنتجات (Stock)
-                </button>
-                <button
-                    onClick={() => setActiveTab('audit')}
-                    className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors relative ${activeTab === 'audit'
-                        ? 'text-emerald-600 border-b-2 border-emerald-600'
-                        : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                >
-                    جرد فعلي للمخزن (Audit)
                 </button>
                 <button
                     onClick={() => setActiveTab('loading')}
@@ -141,7 +134,8 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                         <table className="w-full text-right">
                             <thead className="bg-emerald-50 text-emerald-900 border-b border-emerald-100">
                                 <tr>
-                                    <th className="p-4 font-semibold text-right">الصنف</th>
+                                    <th className="p-4 font-semibold text-right">الصنف / المورد</th>
+                                    <th className="p-4 font-semibold text-center">التوكيل</th>
                                     <th className="p-4 font-semibold text-center">سعر الجمله</th>
                                     <th className="p-4 font-semibold text-center">سعر القطاعي</th>
                                     <th className="p-4 font-semibold text-center">الكميه المتاحه</th>
@@ -167,8 +161,18 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <div className="font-medium text-gray-800">{product.name}</div>
+                                                    <div className="flex flex-col">
+                                                        <div className="font-bold text-gray-800">{product.name}</div>
+                                                        <div className="text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded-md inline-block self-start mt-1">
+                                                            {product.supplier?.name || "بدون مورد"}
+                                                        </div>
+                                                    </div>
                                                 </div>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+                                                    {product.agency?.name || "بدون توكيل"}
+                                                </span>
                                             </td>
                                             <td className="p-4 text-gray-600 text-center font-mono">{product.wholesalePrice.toLocaleString('en-US')} ج.م</td>
                                             <td className="p-4 text-gray-600 text-center font-mono">{product.retailPrice.toLocaleString('en-US')} ج.م</td>
@@ -199,12 +203,6 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                             </tbody>
                         </table>
                     </div>
-                ) : activeTab === 'audit' ? (
-                    <WarehouseAuditForm
-                        warehouseId={warehouseId}
-                        products={agencyProducts}
-                        stocks={allStocks.filter(s => s.warehouseId === warehouseId)}
-                    />
                 ) : activeTab === 'loading' ? (
                     <div className="max-w-4xl mx-auto">
                         <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} />

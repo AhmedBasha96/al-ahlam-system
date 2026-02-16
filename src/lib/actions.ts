@@ -614,14 +614,14 @@ export async function getProducts() {
 
     if (user.role === 'ADMIN' || user.role === 'MANAGER') {
         return await (prisma as any).product.findMany({
-            include: { agency: true },
+            include: { agency: true, supplier: true },
             orderBy: { name: 'asc' }
         });
     }
 
     return await (prisma as any).product.findMany({
         where: { agencyId: user.agencyId },
-        include: { agency: true },
+        include: { agency: true, supplier: true },
         orderBy: { name: 'asc' }
     });
 }

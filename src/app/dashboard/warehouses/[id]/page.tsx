@@ -74,6 +74,14 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
             unitFactoryPrice: Number(p.unitFactoryPrice || 0),
             unitWholesalePrice: Number(p.unitWholesalePrice || 0),
             unitRetailPrice: Number(p.unitRetailPrice || 0),
+            agency: p.agency ? {
+                id: p.agency.id,
+                name: p.agency.name
+            } : undefined,
+            supplier: p.supplier ? {
+                id: p.supplier.id,
+                name: p.supplier.name
+            } : undefined
         }));
 
     // Sanitize Stocks to remove Prisma objects/Decimals
