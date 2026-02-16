@@ -16,6 +16,15 @@ export default function CreateProductForm({ agencies, createProductAction }: Pro
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // Check file size (5MB limit to account for base64 overhead)
+            const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+            if (file.size > maxSize) {
+                alert('حجم الصورة كبير جداً! الحد الأقصى المسموح به هو 5 ميجابايت.');
+                e.target.value = ''; // Clear the input
+                setPreview(null);
+                return;
+            }
+
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPreview(reader.result as string);
