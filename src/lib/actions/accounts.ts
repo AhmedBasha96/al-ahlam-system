@@ -19,6 +19,7 @@ export async function createAccountRecord(formData: FormData) {
     const type = formData.get('type') as AccountRecordType;
     const date = formData.get('date') as string;
     const agencyIdRaw = formData.get('agencyId') as string;
+    const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
     // If agencyId is "GENERAL" or empty, store as null (General Expense)
@@ -49,6 +50,7 @@ export async function createAccountRecord(formData: FormData) {
             type,
             agencyId: agencyId, // Can be null now
             userId: user.id,
+            supplierId: supplierId || null,
             createdAt: date ? new Date(date) : new Date(),
             imageUrl: imageUrl,
         }
@@ -91,6 +93,7 @@ export async function createPurchaseInvoice(formData: FormData) {
     const paidAmount = Number(formData.get('paidAmount') || 0);
     const note = formData.get('note') as string;
     const date = formData.get('date') as string;
+    const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
     const items: { productId: string, quantity: number, cost: number }[] = JSON.parse(itemsJson);
@@ -143,6 +146,7 @@ export async function createPurchaseInvoice(formData: FormData) {
                 userId: user.id,
                 agencyId: warehouse.agencyId, // Auto-assign based on warehouse
                 warehouseId,
+                supplierId: supplierId || null,
                 note: note || 'فاتورة مشتريات',
                 createdAt: date ? new Date(date) : new Date(),
                 imageUrl: imageUrl,

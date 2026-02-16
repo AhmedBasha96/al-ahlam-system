@@ -12,20 +12,25 @@ type Product = {
     wholesalePrice: number;
     retailPrice: number;
     agencyId: string;
+    supplierId?: string | null;
     image: string | null;
 };
 
 type Props = {
     product: Product;
     agencies: Array<{ id: string, name: string }>;
+    suppliers: Array<{ id: string, name: string, agencyId: string }>;
     updateProductAction: (id: string, formData: FormData) => Promise<void>;
     closeModal: () => void;
 };
 
-export default function EditProductModal({ product, agencies, updateProductAction, closeModal }: Props) {
+export default function EditProductModal({ product, agencies, suppliers, updateProductAction, closeModal }: Props) {
+    const [selectedAgencyId, setSelectedAgencyId] = useState<string>(product.agencyId);
     const [loading, setLoading] = useState(false);
     const [preview, setPreview] = useState<string | null>(product.image);
     const router = useRouter();
+
+    const filteredSuppliers = suppliers.filter(s => s.agencyId === selectedAgencyId);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -77,9 +82,25 @@ export default function EditProductModal({ product, agencies, updateProductActio
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">التوكيل</label>
-                            <select name="agencyId" defaultValue={product.agencyId} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                            <select
+                                name="agencyId"
+                                value={selectedAgencyId}
+                                onChange={(e) => setSelectedAgencyId(e.target.value)}
+                                className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                required
+                            >
                                 {agencies.map(agency => (
                                     <option key={agency.id} value={agency.id}>{agency.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">المورد</label>
+                            <select name="supplierId" defaultValue={product.supplierId || ''} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+                                <option value="">اختر المورد (اختياري)...</option>
+                                {filteredSuppliers.map(supplier => (
+                                    <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
                                 ))}
                             </select>
                         </div>

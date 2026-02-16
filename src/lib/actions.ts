@@ -634,6 +634,7 @@ export async function createProduct(formData: FormData) {
     const wholesalePrice = Number(formData.get('wholesalePrice'));
     const retailPrice = Number(formData.get('retailPrice'));
     const agencyId = formData.get('agencyId') as string;
+    const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
     if (!name || !agencyId) throw new Error('Name and Agency are required');
@@ -649,6 +650,7 @@ export async function createProduct(formData: FormData) {
             wholesalePrice,
             retailPrice,
             agencyId,
+            supplierId: supplierId || null,
             image: imageBase64,
         }
     });
@@ -664,6 +666,7 @@ export async function updateProduct(id: string, formData: FormData) {
     const wholesalePrice = Number(formData.get('wholesalePrice'));
     const retailPrice = Number(formData.get('retailPrice'));
     const agencyId = formData.get('agencyId') as string;
+    const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
     const imageBase64 = await fileToBase64(imageFile);
@@ -678,6 +681,7 @@ export async function updateProduct(id: string, formData: FormData) {
             wholesalePrice,
             retailPrice,
             agencyId,
+            supplierId: supplierId || null,
             ...(imageBase64 ? { image: imageBase64 } : {})
         }
     });

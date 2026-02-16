@@ -1,5 +1,4 @@
-'use client';
-
+import { useState } from 'react';
 import { createAccountRecord, deleteAccountRecord } from "@/lib/actions/accounts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,14 +12,19 @@ import { CategoryPieChart } from "@/components/charts/category-pie-chart";
 interface ExpensesPageProps {
     initialExpenses: any[];
     agencies: { id: string, name: string }[];
+    suppliers: { id: string, name: string, agencyId: string }[];
 }
 
 const formatMoney = (amount: number) => {
     return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(amount);
 };
 
-export default function ClientExpensesPage({ initialExpenses, agencies }: ExpensesPageProps) {
+export default function ClientExpensesPage({ initialExpenses, agencies, suppliers }: ExpensesPageProps) {
+    const [selectedAgencyId, setSelectedAgencyId] = useState<string>("GENERAL");
     const totalExpenses = initialExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
+
+    // Filter suppliers by agency
+    const filteredSuppliers = suppliers.filter(s => s.agencyId === selectedAgencyId);
 
     // Group by category for the chart
     const categoryDataMap = new Map<string, number>();
@@ -95,8 +99,8 @@ export default function ClientExpensesPage({ initialExpenses, agencies }: Expens
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="agencyId" className="text-xs font-bold text-slate-500 uppercase">الجهة</Label>
-                                    <Select name="agencyId" defaultValue="GENERAL">
+                                    <Label htmlFor="agencyId" className="text-xs font-bold text-slate-500 uppercase">الجهة (التوكيل)</Label>
+                                    <Select name="agencyId" value={selectedAgencyId} onValueChange={setSelectedAgencyId}>
                                         <SelectTrigger className="bg-white/60 border-slate-200 h-10 focus:bg-white transition-all">
                                             <SelectValue placeholder="اختر التوكيل" />
                                         </SelectTrigger>
@@ -108,6 +112,21 @@ export default function ClientExpensesPage({ initialExpenses, agencies }: Expens
                                         </SelectContent>
                                     </Select>
                                 </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="supplierId" className="text-xs font-bold text-slate-500 uppercase">المورد</Label>
+                                <Select name="supplierId" disabled={selectedAgencyId === 'GENERAL'}>
+                                    <SelectTrigger className="bg-white/60 border-slate-200 h-10 focus:bg-white transition-all">
+                                        <SelectValue placeholder={selectedAgencyId === 'GENERAL' ? "اختر التوكيل أولاً" : "اختر المورد (اختياري)"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="NONE">بدون مورد</SelectItem>
+                                        {filteredSuppliers.map(supplier => (
+                                            <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className="space-y-2">

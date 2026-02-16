@@ -60,7 +60,6 @@ export default async function DashboardLayout({
                             <span>التوكيلات (وكلاء)</span>
                         </Link>
                     )}
-
                     {/* Products */}
                     {canSeeProducts && (
                         <Link href="/dashboard/products" className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-700 rounded-lg transition">
@@ -68,6 +67,16 @@ export default async function DashboardLayout({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                             </svg>
                             <span>المنتجات والأسعار</span>
+                        </Link>
+                    )}
+
+                    {/* Suppliers */}
+                    {(role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT') && (
+                        <Link href="/dashboard/suppliers" className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-700 rounded-lg transition">
+                            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m12-10a4 4 0 11-8 0 4 4 0 018 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <span>الموردين</span>
                         </Link>
                     )}
 

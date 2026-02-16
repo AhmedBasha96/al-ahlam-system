@@ -12,12 +12,14 @@ import { Trash2, Plus } from 'lucide-react';
 
 interface PurchaseFormProps {
     warehouses: any[];
+    suppliers: any[];
     products: any[];
 }
 
-export default function PurchaseForm({ warehouses, products }: PurchaseFormProps) {
+export default function PurchaseForm({ warehouses, suppliers, products }: PurchaseFormProps) {
     const router = useRouter();
     const [warehouseId, setWarehouseId] = useState("");
+    const [supplierId, setSupplierId] = useState("");
     const [items, setItems] = useState<{ productId: string, quantity: number, cost: number }[]>([
         { productId: "", quantity: 1, cost: 0 }
     ]);
@@ -25,6 +27,13 @@ export default function PurchaseForm({ warehouses, products }: PurchaseFormProps
     const [note, setNote] = useState("");
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Get agencyId of selected warehouse
+    const selectedWarehouse = warehouses.find(w => w.id === warehouseId);
+    const agencyId = selectedWarehouse?.agencyId;
+
+    // Filter suppliers by agency
+    const filteredSuppliers = suppliers.filter(s => s.agencyId === agencyId);
 
     const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.cost), 0);
 
@@ -57,6 +66,7 @@ export default function PurchaseForm({ warehouses, products }: PurchaseFormProps
 
         const formData = new FormData(e.currentTarget);
         formData.append('warehouseId', warehouseId);
+        formData.append('supplierId', supplierId);
         formData.append('items', JSON.stringify(items));
         formData.append('paidAmount', paidAmount.toString());
         formData.append('note', note);
@@ -77,10 +87,10 @@ export default function PurchaseForm({ warehouses, products }: PurchaseFormProps
         <Card>
             <CardContent className="pt-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>المخزن (الوجهة)</Label>
-                            <Select value={warehouseId} onValueChange={setWarehouseId} required>
+                            <Select value={warehouseId} onValueChange={(val) => { setWarehouseId(val); setSupplierId(""); }} required>
                                 <SelectTrigger>
                                     <SelectValue placeholder="اختر المخزن" />
                                 </SelectTrigger>
@@ -90,6 +100,22 @@ export default function PurchaseForm({ warehouses, products }: PurchaseFormProps
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>المورد</Label>
+                            <Select value={supplierId} onValueChange={setSupplierId} disabled={!warehouseId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={warehouseId ? "اختر المورد (اختياري)" : "اختر المخزن أولاً"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {filteredSuppliers.map(s => (
+                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {warehouseId && filteredSuppliers.length === 0 && (
+                                <p className="text-[10px] text-orange-500 mt-1">* لا يوجد موردين مسجلين لهذا التوكيل</p>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <Label>تاريخ الفاتورة</Label>

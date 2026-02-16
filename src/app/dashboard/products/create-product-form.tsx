@@ -5,13 +5,17 @@ import { useRouter } from 'next/navigation';
 
 type Props = {
     agencies: Array<{ id: string, name: string }>;
+    suppliers: Array<{ id: string, name: string, agencyId: string }>;
     createProductAction: (formData: FormData) => Promise<void>;
 }
 
-export default function CreateProductForm({ agencies, createProductAction }: Props) {
+export default function CreateProductForm({ agencies, suppliers, createProductAction }: Props) {
+    const [selectedAgencyId, setSelectedAgencyId] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [preview, setPreview] = useState<string | null>(null);
     const router = useRouter();
+
+    const filteredSuppliers = suppliers.filter(s => s.agencyId === selectedAgencyId);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -61,12 +65,29 @@ export default function CreateProductForm({ agencies, createProductAction }: Pro
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">التوكيل التابع له</label>
-                <select name="agencyId" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                <select
+                    name="agencyId"
+                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    required
+                    value={selectedAgencyId}
+                    onChange={(e) => setSelectedAgencyId(e.target.value)}
+                >
                     <option value="">اختر التوكيل...</option>
                     {agencies.map(agency => (
                         <option key={agency.id} value={agency.id}>{agency.name}</option>
                     ))}
                 </select>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">المورد</label>
+                <select name="supplierId" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" disabled={!selectedAgencyId}>
+                    <option value="">اختر المورد (اختياري)...</option>
+                    {filteredSuppliers.map(supplier => (
+                        <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                    ))}
+                </select>
+                {!selectedAgencyId && <p className="text-[10px] text-gray-400 mt-1">* اختر التوكيل أولاً لرؤية الموردين التابعين له</p>}
             </div>
 
             <div>

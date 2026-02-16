@@ -45,6 +45,24 @@ model Agency {
   directUsers  User[]
   warehouses   Warehouse[]
   users        User[]          @relation("UserAgencies")
+  suppliers    Supplier[]
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  address   String?
+  agencyId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  agency    Agency   @relation(fields: [agencyId], references: [id])
+  products  Product[]
+  transactions Transaction[]
+  accounts  AccountRecord[]
+
+  @@index([agencyId])
 }
 
 model Warehouse {
@@ -70,14 +88,17 @@ model Product {
   wholesalePrice   Decimal
   retailPrice      Decimal
   agencyId         String
+  supplierId       String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   image            String?           @db.LongText
   agency           Agency            @relation(fields: [agencyId], references: [id])
+  supplier         Supplier?         @relation(fields: [supplierId], references: [id])
   stocks           Stock[]
   transactionItems TransactionItem[]
 
   @@index([agencyId], map: "Product_agencyId_fkey")
+  @@index([supplierId])
 }
 
 model Stock {
@@ -100,6 +121,7 @@ model Transaction {
   agencyId        String
   warehouseId     String?
   customerId      String?
+  supplierId      String?
   paymentType     PaymentType       @default(CASH)
   paidAmount      Decimal?
   remainingAmount Decimal?
@@ -108,6 +130,7 @@ model Transaction {
   imageUrl        String?           @db.LongText
   agency          Agency            @relation(fields: [agencyId], references: [id])
   customer        Customer?         @relation(fields: [customerId], references: [id])
+  supplier        Supplier?         @relation(fields: [supplierId], references: [id])
   user            User              @relation(fields: [userId], references: [id])
   warehouse       Warehouse?        @relation(fields: [warehouseId], references: [id])
   items           TransactionItem[]
@@ -116,6 +139,7 @@ model Transaction {
   @@index([customerId], map: "Transaction_customerId_fkey")
   @@index([userId], map: "Transaction_userId_fkey")
   @@index([warehouseId], map: "Transaction_warehouseId_fkey")
+  @@index([supplierId])
 }
 
 model Customer {
@@ -157,14 +181,17 @@ model AccountRecord {
   description String
   agencyId    String?
   userId      String
+  supplierId  String?
   createdAt   DateTime          @default(now())
   category    String?
   imageUrl    String?           @db.LongText
   agency      Agency?           @relation(fields: [agencyId], references: [id])
   createdBy   User              @relation(fields: [userId], references: [id])
+  supplier    Supplier?         @relation(fields: [supplierId], references: [id])
 
   @@index([agencyId], map: "AccountRecord_agencyId_fkey")
   @@index([userId], map: "AccountRecord_userId_fkey")
+  @@index([supplierId])
 }
 
 model Bank {

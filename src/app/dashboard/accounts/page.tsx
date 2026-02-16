@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { getFinancialSummary } from "@/lib/actions/accounts";
-import { formatCurrency } from "@/lib/utils";
+import prisma from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
-import { Wallet, TrendingUp, TrendingDown, DollarSign, Activity, ArrowUpRight, Zap, PieChart } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, DollarSign, Activity, ArrowUpRight, Zap, PieChart, Users } from "lucide-react";
 import { OverviewChart } from "@/components/charts/overview-chart";
 
 const formatMoney = (amount: number) => {
@@ -24,6 +25,20 @@ export default async function AccountsDashboard() {
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     const summary = await getFinancialSummary(startOfMonth, endOfMonth);
+
+    // Calculate total supplier balance
+    const allTransactions = await prisma.transaction.findMany({
+        where: { supplierId: { not: null } },
+        select: { totalAmount: true, paidAmount: true }
+    });
+    const allSupplierAccounts = await prisma.accountRecord.findMany({
+        where: { supplierId: { not: null } },
+        select: { amount: true, type: true }
+    });
+
+    const totalSupplierDebt = allTransactions.reduce((acc: number, t: any) => acc + (Number(t.totalAmount) - Number(t.paidAmount || 0)), 0)
+        - allSupplierAccounts.filter((a: any) => a.type === 'EXPENSE').reduce((acc: number, a: any) => acc + Number(a.amount), 0)
+        + allSupplierAccounts.filter((a: any) => a.type === 'INCOME').reduce((acc: number, a: any) => acc + Number(a.amount), 0);
 
     return (
         <div className="relative min-h-screen -m-6 p-8 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-rose-50/30 overflow-hidden">
@@ -141,6 +156,17 @@ export default async function AccountsDashboard() {
                             <Zap className="w-6 h-6 text-purple-600" />
                         </div>
                     </div>
+
+                    {/* Supplier Debt */}
+                    <Link href="/dashboard/suppliers" className="glass-card flex-1 p-5 rounded-2xl flex items-center justify-between group hover:bg-white/90 transition-all border-l-4 border-l-rose-500">
+                        <div>
+                            <p className="text-sm text-slate-500 font-bold uppercase mb-1">مديونية الموردين</p>
+                            <p className="text-3xl font-black text-rose-700 decoration-rose-200 underline underline-offset-4 decoration-2">{formatMoney(totalSupplierDebt)}</p>
+                        </div>
+                        <div className="h-12 w-12 bg-rose-100/50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                            <Users className="w-6 h-6 text-rose-600" />
+                        </div>
+                    </Link>
                 </div>
             </div>
 
