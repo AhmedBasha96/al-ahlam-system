@@ -22,7 +22,7 @@ export async function getProfitLossReport(
     const agencyFilter = agencyId && agencyId !== 'ALL' ? { agencyId } : {};
 
     // 1. Get Sales Revenue AND Returns matched by date
-    const transactions = await prisma.transaction.findMany({
+    const transactions = await (prisma as any).transaction.findMany({
         where: {
             type: { in: ['SALE', 'RETURN_IN'] },
             createdAt: dateRange,
@@ -210,7 +210,7 @@ export async function getIncomeExpensesReport(
     const dateRange = getDateRange(startDate, endDate);
     const agencyFilter = agencyId && agencyId !== 'ALL' ? { agencyId } : {};
 
-    const income = await prisma.accountRecord.findMany({
+    const income = await (prisma as any).accountRecord.findMany({
         where: {
             type: 'INCOME',
             createdAt: dateRange,
@@ -222,7 +222,7 @@ export async function getIncomeExpensesReport(
         orderBy: { createdAt: 'desc' }
     });
 
-    const expenses = await prisma.accountRecord.findMany({
+    const expenses = await (prisma as any).accountRecord.findMany({
         where: {
             type: 'EXPENSE',
             createdAt: dateRange,
@@ -387,7 +387,7 @@ export async function getPurchasesReport(
     const dateRange = getDateRange(startDate, endDate);
     const warehouseFilter = warehouseId && warehouseId !== 'ALL' ? { warehouseId } : {};
 
-    const purchases = await prisma.transaction.findMany({
+    const purchases = await (prisma as any).transaction.findMany({
         where: {
             type: 'PURCHASE',
             createdAt: dateRange,
