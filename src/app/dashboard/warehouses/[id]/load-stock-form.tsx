@@ -24,10 +24,17 @@ type User = {
     role: string;
 }
 
+type Stock = {
+    warehouseId: string;
+    productId: string;
+    quantity: number;
+}
+
 type Props = {
     warehouseId: string;
     products: Product[];
     reps: User[];
+    stocks: Stock[];
 }
 
 type OrderItem = {
@@ -36,7 +43,7 @@ type OrderItem = {
     units: number;
 }
 
-export default function LoadStockForm({ warehouseId, products, reps }: Props) {
+export default function LoadStockForm({ warehouseId, products, reps, stocks }: Props) {
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<OrderItem[]>([{ productId: "", cartons: 0, units: 0 }]);
     const router = useRouter();
@@ -134,9 +141,18 @@ export default function LoadStockForm({ warehouseId, products, reps }: Props) {
                                         required
                                     >
                                         <option value="">اختر المنتج...</option>
-                                        {products.map(product => (
-                                            <option key={product.id} value={product.id}>{product.name}</option>
-                                        ))}
+                                        {products.map(product => {
+                                            const stock = stocks.find(s => s.productId === product.id);
+                                            const qty = stock?.quantity || 0;
+                                            const upc = product.unitsPerCarton || 1;
+                                            const cartons = Math.floor(qty / upc);
+                                            const units = qty % upc;
+                                            return (
+                                                <option key={product.id} value={product.id}>
+                                                    {product.name} (المتاح: {cartons} ك + {units} ع)
+                                                </option>
+                                            );
+                                        })}
                                     </select>
 
                                 </div>

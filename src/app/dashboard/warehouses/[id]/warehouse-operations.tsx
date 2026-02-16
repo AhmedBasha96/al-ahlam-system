@@ -181,9 +181,16 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                             <td className="p-4 text-gray-600 text-center font-mono">{product.wholesalePrice.toLocaleString('en-US')} ج.م</td>
                                             <td className="p-4 text-gray-600 text-center font-mono">{product.retailPrice.toLocaleString('en-US')} ج.م</td>
                                             <td className="p-4 text-center">
-                                                <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-sm">
-                                                    {currentStock}
-                                                </span>
+                                                <div className="flex flex-col items-center">
+                                                    <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-sm">
+                                                        {currentStock} علبة
+                                                    </span>
+                                                    {product.unitsPerCarton > 1 && (
+                                                        <span className="text-[10px] text-gray-500 mt-1 font-bold">
+                                                            ({Math.floor(currentStock / product.unitsPerCarton)} ك + {currentStock % product.unitsPerCarton} ع)
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="p-4 text-center text-xs text-gray-500 font-medium">
                                                 {product.priceUpdatedAt ? (
@@ -209,7 +216,7 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                     </div>
                 ) : activeTab === 'loading' ? (
                     <div className="max-w-4xl mx-auto">
-                        <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} />
+                        <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} stocks={allStocks} />
                     </div>
                 ) : activeTab === 'rep-audit' ? (
                     <div className="space-y-6">
