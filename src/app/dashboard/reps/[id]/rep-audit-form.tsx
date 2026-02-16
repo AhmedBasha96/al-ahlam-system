@@ -10,6 +10,9 @@ type Product = {
     name: string;
     wholesalePrice: number;
     retailPrice: number;
+    unitsPerCarton: number;
+    unitWholesalePrice: number;
+    unitRetailPrice: number;
 }
 
 type RepStock = {
@@ -38,8 +41,8 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
     const [loading, setLoading] = useState(false);
     const [showInvoice, setShowInvoice] = useState(false);
 
-    // State for audit
-    const [auditData, setAuditData] = useState<{ [productId: string]: number }>({});
+    // State for audit: actual units remaining
+    const [auditData, setAuditData] = useState<{ [productId: string]: { cartons: number, units: number } }>({});
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(defaultWarehouseId || "");
     const [remainingStockAction, setRemainingStockAction] = useState<'RETURN' | 'KEEP'>('KEEP');
 
@@ -49,18 +52,42 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
     // Initialize audit data with current stock (assuming 0 sold initially if not touched?)
     // Actually better to start empty or default to current stock (meaning 0 sold)
     // Let's populate default values on mount or render
-    const getActualQty = (productId: string, currentQty: number) => {
-        return auditData[productId] !== undefined ? auditData[productId] : currentQty;
+    const getActualUnits = (productId: string, currentTotalQty: number) => {
+        if (auditData[productId]) {
+            const product = products.find(p => p.id === productId);
+            const upc = product?.unitsPerCarton || 1;
+            return (auditData[productId].cartons * upc) + auditData[productId].units;
+        }
+        return currentTotalQty;
     };
 
-    const handleQuantityChange = (productId: string, qty: number) => {
-        setAuditData(prev => ({ ...prev, [productId]: qty }));
+    const handleUnitChange = (productId: string, field: 'cartons' | 'units', val: number) => {
+        const product = products.find(p => p.id === productId);
+        const stock = repStocks.find(s => s.productId === productId);
+        if (!product || !stock) return;
+
+        setAuditData(prev => {
+            const current = prev[productId] || {
+                cartons: Math.floor(stock.quantity / (product.unitsPerCarton || 1)),
+                units: stock.quantity % (product.unitsPerCarton || 1)
+            };
+            return {
+                ...prev,
+                [productId]: { ...current, [field]: val }
+            };
+        });
     };
 
-    const getProductPrice = (product: Product) => {
+    const getPricing = (product: Product) => {
         const effectivePricing = pricingType ?? 'RETAIL';
-        if (effectivePricing === 'WHOLESALE') return product.wholesalePrice;
-        return product.retailPrice; // Default to Retail
+        if (effectivePricing === 'WHOLESALE') return {
+            carton: product.wholesalePrice,
+            unit: product.unitWholesalePrice
+        };
+        return {
+            carton: product.retailPrice,
+            unit: product.unitRetailPrice
+        };
     };
 
     const calculateTotals = () => {
@@ -73,15 +100,29 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
         repStocks.forEach(stock => {
             const product = products.find(p => p.id === stock.productId);
             if (!product) return;
-            const actual = getActualQty(stock.productId, stock.quantity);
-            const sold = Math.max(0, stock.quantity - actual);
-            const price = getProductPrice(product);
 
-            totalSoldAmount += sold * price;
-            totalItemsSold += sold;
-            totalItemsReturned += actual;
-            totalCustodyValue += stock.quantity * price;
-            totalRemainingValue += actual * price;
+            const upc = product.unitsPerCarton || 1;
+            const actualTotal = getActualUnits(stock.productId, stock.quantity);
+            const soldTotal = Math.max(0, stock.quantity - actualTotal);
+
+            const pricing = getPricing(product);
+
+            // Calculate sold value accurately: full cartons first, then remaining units
+            const soldCartons = Math.floor(soldTotal / upc);
+            const soldUnits = soldTotal % upc;
+            const soldValue = (soldCartons * pricing.carton) + (soldUnits * pricing.unit);
+
+            totalSoldAmount += soldValue;
+            totalItemsSold += soldTotal;
+            totalItemsReturned += actualTotal;
+
+            const custodyCartons = Math.floor(stock.quantity / upc);
+            const custodyUnits = stock.quantity % upc;
+            totalCustodyValue += (custodyCartons * pricing.carton) + (custodyUnits * pricing.unit);
+
+            const remainingCartons = Math.floor(actualTotal / upc);
+            const remainingUnits = actualTotal % upc;
+            totalRemainingValue += (remainingCartons * pricing.carton) + (remainingUnits * pricing.unit);
         });
 
         return { totalSoldAmount, totalItemsSold, totalItemsReturned, totalCustodyValue, totalRemainingValue };
@@ -101,7 +142,7 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
         // We need to send actual quantity for ALL items in custody
         const finalAuditItems = repStocks.map(stock => ({
             productId: stock.productId,
-            actualQuantity: getActualQty(stock.productId, stock.quantity)
+            actualQuantity: getActualUnits(stock.productId, stock.quantity)
         }));
 
         setLoading(true);
@@ -222,16 +263,9 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                         <tr>
                             <th className="p-4 font-semibold">الصنف</th>
                             <th className="p-4 font-semibold text-center">العهدة (المسلم)</th>
-                            <th className="p-4 font-semibold text-center">قيمة العهدة</th>
-                            <th className="p-4 font-semibold text-center w-48">الفعلي (المتبقي)</th>
-                            <th className="p-4 font-semibold text-center text-blue-600">قيمة المتبقي</th>
-                            <th className="p-4 font-semibold text-center text-red-600">المباع (الفرق)</th>
-                            <th className="p-4 font-semibold text-center">
-                                سعر الوحدة
-                                <span className="block text-[10px] font-normal text-emerald-600">
-                                    ({pricingType === 'WHOLESALE' ? 'جملة' : 'قطاعي'})
-                                </span>
-                            </th>
+                            <th className="p-4 font-semibold text-center w-64">الفعلي (المتبقي)</th>
+                            <th className="p-4 font-semibold text-center text-red-600">المباع</th>
+                            <th className="p-4 font-semibold text-center">التسعيرة</th>
                             <th className="p-4 font-semibold text-center">قيمة المبيعات</th>
                         </tr>
                     </thead>
@@ -240,40 +274,66 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                             const product = products.find(p => p.id === stock.productId);
                             if (!product) return null;
 
-                            const actual = getActualQty(stock.productId, stock.quantity);
-                            const sold = Math.max(0, stock.quantity - actual);
-                            const price = getProductPrice(product);
-                            const total = sold * price;
+                            const upc = product.unitsPerCarton || 1;
+                            const actualTotal = getActualUnits(stock.productId, stock.quantity);
+                            const soldTotal = Math.max(0, stock.quantity - actualTotal);
+                            const pricing = getPricing(product);
+
+                            const soldCartons = Math.floor(soldTotal / upc);
+                            const soldUnits = soldTotal % upc;
+                            const totalSoldRow = (soldCartons * pricing.carton) + (soldUnits * pricing.unit);
+
+                            const currentData = auditData[stock.productId] || {
+                                cartons: Math.floor(stock.quantity / upc),
+                                units: stock.quantity % upc
+                            };
 
                             return (
                                 <tr key={stock.productId} className="hover:bg-gray-50 transition-colors">
-                                    <td className="p-4 font-medium text-gray-800">{product.name}</td>
-                                    <td className="p-4 text-center font-bold text-gray-600">{stock.quantity}</td>
-                                    <td className="p-4 text-center text-gray-400 font-mono text-xs">
-                                        {(stock.quantity * price).toLocaleString('en-US')}
+                                    <td className="p-4">
+                                        <div className="font-medium text-gray-800">{product.name}</div>
+                                        <div className="text-[10px] text-gray-400">الكرتونة = {upc} علبة</div>
+                                    </td>
+                                    <td className="p-4 text-center">
+                                        <div className="font-bold text-gray-600">{Math.floor(stock.quantity / upc)} ك + {stock.quantity % upc} ع</div>
+                                        <div className="text-[10px] text-gray-400">إجمالي: {stock.quantity}</div>
                                     </td>
                                     <td className="p-4">
-                                        <input
-                                            type="number"
-                                            value={actual}
-                                            onChange={(e) => handleQuantityChange(stock.productId, Number(e.target.value))}
-                                            readOnly={isRep}
-                                            min="0"
-                                            max={stock.quantity}
-                                            className={`w-full border rounded-lg p-2 text-center focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-emerald-700 ${isRep ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
-                                        />
+                                        <div className="flex gap-2 items-center justify-center">
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-[9px] text-gray-400">كرتون</span>
+                                                <input
+                                                    type="number"
+                                                    value={currentData.cartons}
+                                                    onChange={(e) => handleUnitChange(stock.productId, 'cartons', Number(e.target.value))}
+                                                    readOnly={isRep}
+                                                    className="w-16 border rounded-lg p-1 text-center font-bold text-emerald-700"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-[9px] text-gray-400">علبة</span>
+                                                <input
+                                                    type="number"
+                                                    value={currentData.units}
+                                                    onChange={(e) => handleUnitChange(stock.productId, 'units', Number(e.target.value))}
+                                                    readOnly={isRep}
+                                                    className="w-16 border rounded-lg p-1 text-center font-bold text-emerald-700"
+                                                />
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td className="p-4 text-center font-black text-blue-600 font-mono">
-                                        {(actual * price).toLocaleString('en-US')}
+                                    <td className={`p-4 text-center font-black ${soldTotal > 0 ? 'text-red-600' : 'text-gray-300'}`}>
+                                        {soldCartons > 0 && <span>{soldCartons} ك</span>}
+                                        {soldCartons > 0 && soldUnits > 0 && <span> + </span>}
+                                        {soldUnits > 0 && <span>{soldUnits} ع</span>}
+                                        {soldTotal === 0 && <span>0</span>}
                                     </td>
-                                    <td className={`p-4 text-center font-black ${sold > 0 ? 'text-red-600' : 'text-gray-300'}`}>
-                                        {sold}
-                                    </td>
-                                    <td className="p-4 text-center text-gray-500 font-medium bg-gray-50/50">
-                                        {price.toLocaleString('en-US')}
+                                    <td className="p-4 text-center text-[10px] text-gray-500 bg-gray-50/50">
+                                        <div>ك: {pricing.carton}</div>
+                                        <div>ع: {pricing.unit}</div>
                                     </td>
                                     <td className="p-4 text-center font-bold text-gray-900">
-                                        {total.toLocaleString('en-US')} ج.م
+                                        {totalSoldRow.toLocaleString('en-US')} ج.م
                                     </td>
                                 </tr>
                             );

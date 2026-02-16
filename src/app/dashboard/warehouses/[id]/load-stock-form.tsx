@@ -62,6 +62,8 @@ export default function LoadStockForm({ warehouseId, products, reps }: Props) {
                 const totalUnits = (item.cartons * unitsPerCarton) + item.units;
                 return {
                     productId: item.productId,
+                    cartons: item.cartons,
+                    units: item.units,
                     quantity: totalUnits
                 };
             }).filter(item => item.quantity > 0);

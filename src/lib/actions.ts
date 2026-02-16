@@ -922,7 +922,8 @@ export async function loadStockToRep(data: FormData) {
 
     if (!repId || !warehouseId || !itemsJson) throw new Error("Invalid Data");
 
-    let items: { productId: string; quantity: number }[] = JSON.parse(itemsJson);
+    // Expecting items to have { productId: string, cartons: number, units: number, quantity: number (total) }
+    let items: { productId: string; cartons?: number; units?: number; quantity: number }[] = JSON.parse(itemsJson);
     if (items.length === 0) throw new Error("No items to load");
 
     const rep = await prisma.user.findUnique({ where: { id: repId } });
@@ -930,8 +931,14 @@ export async function loadStockToRep(data: FormData) {
     if (!rep.agencyId) throw new Error("Representative is not assigned to an agency");
 
     await prisma.$transaction(async (tx) => {
+        let grandTotal = 0;
+        const transactionItems = [];
+
         for (const item of items) {
             if (item.quantity <= 0) continue;
+
+            const product = await tx.product.findUnique({ where: { id: item.productId } });
+            if (!product) throw new Error(`Product not found: ${item.productId}`);
 
             // 1. Check if source stock exists and has enough quantity
             const sourceStock = await tx.stock.findUnique({
@@ -939,8 +946,7 @@ export async function loadStockToRep(data: FormData) {
             });
 
             if (!sourceStock || sourceStock.quantity < item.quantity) {
-                const product = await tx.product.findUnique({ where: { id: item.productId } });
-                throw new Error(`الرصيد غير كافٍ للصنف: ${product?.name || item.productId}`);
+                throw new Error(`الرصيد غير كافٍ للصنف: ${product.name}`);
             }
 
             // 2. Decrement from source warehouse
@@ -956,26 +962,37 @@ export async function loadStockToRep(data: FormData) {
                 create: { warehouseId: repId, productId: item.productId, quantity: item.quantity }
             });
 
-            // 4. Record Transaction
-            await tx.transaction.create({
-                data: {
-                    type: 'SALE', // Change from PURCHASE to SALE to represent warehouse deduction
-                    totalAmount: 0,
-                    userId: repId,
-                    agencyId: rep.agencyId!,
-                    warehouseId: warehouseId,
-                    note: `تحميل للمندوب: ${rep.name}`,
-                    items: {
-                        create: [{
-                            productId: item.productId,
-                            quantity: item.quantity,
-                            price: 0,
-                            cost: Number(await tx.product.findUnique({ where: { id: item.productId } }).then(p => p?.factoryPrice || 0))
-                        }]
-                    }
-                }
+            // Calculate cost for this line item based on units and cartons
+            // If user provided cartons/units, use those for calculation
+            const cartons = item.cartons || 0;
+            const units = item.units || 0;
+
+            // Financial value calculation for the transaction (using factory prices)
+            const itemTotalCost = (cartons * Number(product.factoryPrice)) + (units * Number(product.unitFactoryPrice));
+            grandTotal += itemTotalCost;
+
+            transactionItems.push({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: Number(product.factoryPrice), // Reference price
+                cost: Number(product.factoryPrice) // Reference cost
             });
         }
+
+        // 4. Record Transaction with real calculated total
+        await tx.transaction.create({
+            data: {
+                type: 'SALE', // Warehouse deduction
+                totalAmount: grandTotal,
+                userId: repId,
+                agencyId: rep.agencyId!,
+                warehouseId: warehouseId,
+                note: `تحميل للمندوب: ${rep.name}`,
+                items: {
+                    create: transactionItems
+                }
+            }
+        });
     });
 
     revalidatePath('/dashboard', 'layout');
@@ -1013,14 +1030,24 @@ export async function finalizeRepAudit(
 
                 if (soldQty > 0) {
                     const product = await tx.product.findUnique({ where: { id: item.productId } });
-                    const price = user.pricingType === 'WHOLESALE' ? product?.wholesalePrice : product?.retailPrice;
+                    if (!product) continue;
+
+                    const upc = Number(product.unitsPerCarton) || 1;
+                    const pricing = user.pricingType === 'WHOLESALE'
+                        ? { carton: Number(product.wholesalePrice), unit: Number(product.unitWholesalePrice) }
+                        : { carton: Number(product.retailPrice), unit: Number(product.unitRetailPrice) };
+
+                    // Calculate sold value: full cartons first, then pieces
+                    const soldCartons = Math.floor(soldQty / upc);
+                    const soldUnitsRemaining = soldQty % upc;
+                    const totalSoldRowValue = (soldCartons * pricing.carton) + (soldUnitsRemaining * pricing.unit);
 
                     soldItems.push({
                         productId: item.productId,
-                        productName: product?.name || "منتج غير معروف",
+                        productName: product.name || "منتج غير معروف",
                         quantity: soldQty,
-                        price: Number(price),
-                        total: soldQty * Number(price)
+                        price: pricing.carton, // Storing carton price as reference
+                        total: totalSoldRowValue
                     });
 
                     await tx.stock.update({
