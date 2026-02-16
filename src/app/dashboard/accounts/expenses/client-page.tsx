@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { createAccountRecord, deleteAccountRecord } from "@/lib/actions/accounts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

@@ -637,7 +637,16 @@ export async function createProduct(formData: FormData) {
     const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
-    if (!name || !agencyId) throw new Error('Name and Agency are required');
+    if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
+
+    // Validate supplier-agency hierarchy
+    const supplier = await prisma.supplier.findUnique({
+        where: { id: supplierId }
+    });
+
+    if (!supplier || supplier.agencyId !== agencyId) {
+        throw new Error('المورد المختار لا ينتمي إلى التوكيل المحدد');
+    }
 
     const imageBase64 = await fileToBase64(imageFile);
 
@@ -650,7 +659,7 @@ export async function createProduct(formData: FormData) {
             wholesalePrice,
             retailPrice,
             agencyId,
-            supplierId: supplierId || null,
+            supplierId,
             image: imageBase64,
         }
     });
@@ -669,6 +678,17 @@ export async function updateProduct(id: string, formData: FormData) {
     const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
+    if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
+
+    // Validate supplier-agency hierarchy
+    const supplier = await prisma.supplier.findUnique({
+        where: { id: supplierId }
+    });
+
+    if (!supplier || supplier.agencyId !== agencyId) {
+        throw new Error('المورد المختار لا ينتمي إلى التوكيل المحدد');
+    }
+
     const imageBase64 = await fileToBase64(imageFile);
 
     await prisma.product.update({
@@ -681,7 +701,7 @@ export async function updateProduct(id: string, formData: FormData) {
             wholesalePrice,
             retailPrice,
             agencyId,
-            supplierId: supplierId || null,
+            supplierId,
             ...(imageBase64 ? { image: imageBase64 } : {})
         }
     });

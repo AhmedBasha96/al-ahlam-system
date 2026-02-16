@@ -3,6 +3,7 @@
 import { deleteAgency, updateAgency } from "@/lib/actions";
 import { useState } from "react";
 import EditAgencyModal from "./edit-agency-modal";
+import Link from "next/link";
 
 type Agency = {
     id: string;
@@ -56,6 +57,12 @@ export default function AgenciesList({ agencies }: { agencies: Agency[] }) {
                                         : String(agency.createdAt)}
                                 </td>
                                 <td className="p-4">
+                                    <Link
+                                        href={`/dashboard/accounts/agencies/${agency.id}`}
+                                        className="text-indigo-600 hover:text-indigo-800 font-medium ml-3"
+                                    >
+                                        الحسابات
+                                    </Link>
                                     <button
                                         className="text-emerald-600 hover:text-emerald-800 font-medium ml-3"
                                         onClick={() => setEditingAgency(agency)}

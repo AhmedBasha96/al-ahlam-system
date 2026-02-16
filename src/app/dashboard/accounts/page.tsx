@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getFinancialSummary } from "@/lib/actions/accounts";
 import prisma from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
-import { Wallet, TrendingUp, TrendingDown, DollarSign, Activity, ArrowUpRight, Zap, PieChart, Users } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, DollarSign, Activity, ArrowUpRight, Zap, PieChart, Users, Building2 } from "lucide-react";
 import { OverviewChart } from "@/components/charts/overview-chart";
 
 const formatMoney = (amount: number) => {
@@ -25,6 +25,7 @@ export default async function AccountsDashboard() {
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     const summary = await getFinancialSummary(startOfMonth, endOfMonth);
+    const agencies = await prisma.agency.findMany({ select: { id: true, name: true, image: true } });
 
     // Calculate total supplier balance
     const allTransactions = await prisma.transaction.findMany({
@@ -170,6 +171,46 @@ export default async function AccountsDashboard() {
                 </div>
             </div>
 
+            {/* Agencies Section */}
+            <div className="relative z-10 mt-12 mb-10">
+                <div className="flex items-center gap-3 mb-8">
+                    <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                        <Users className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                        <h2 className="text-3xl font-black text-slate-800 tracking-tight">حسابات التوكيلات والموردين</h2>
+                        <p className="text-slate-500 font-medium">اختر التوكيل لعرض حسابات الموردين التابعة له</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {agencies.map((agency: any) => (
+                        <Link key={agency.id} href={`/dashboard/accounts/agencies/${agency.id}`}
+                            className="group relative bg-white rounded-3xl p-6 shadow-md hover:shadow-2xl transition-all duration-500 border border-slate-100 overflow-hidden hover:-translate-y-1">
+                            {/* Decorative background */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-100 transition-colors" />
+
+                            <div className="relative flex items-center gap-5">
+                                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-100 group-hover:border-indigo-200 transition-colors">
+                                    {agency.image ? (
+                                        <img src={agency.image} alt={agency.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <Building2 className="w-8 h-8 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-xl font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{agency.name}</h3>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">عرض تفاصيل الحسابات</span>
+                                        <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
+                                    </div>
+                                </div>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            </div>
+
             {/* Charts Section - Glass Style */}
             <div className="relative z-10">
                 <div className="glass-card p-8 rounded-3xl shadow-lg border border-white/60">
@@ -179,7 +220,6 @@ export default async function AccountsDashboard() {
                         </div>
                         <h3 className="text-xl font-bold text-slate-800">تحليل الأداء الزمني</h3>
                     </div>
-                    {/* The Chart component handles the responsive container, so we just wrap it */}
                     <div className="h-[400px]">
                         <OverviewChart data={chartData} />
                     </div>

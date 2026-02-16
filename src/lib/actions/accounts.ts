@@ -326,3 +326,32 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         treasuryBalance
     };
 }
+
+export async function getAgencySuppliersBalances(agencyId: string) {
+    const suppliers = await prisma.supplier.findMany({
+        where: { agencyId },
+        include: {
+            transactions: {
+                select: { totalAmount: true, paidAmount: true }
+            },
+            accounts: {
+                select: { amount: true, type: true }
+            }
+        }
+    });
+
+    return suppliers.map((supplier: any) => {
+        const transactionsBalance = supplier.transactions.reduce((acc: number, t: any) =>
+            acc + (Number(t.totalAmount) - Number(t.paidAmount || 0)), 0);
+
+        const accountsBalance = supplier.accounts.reduce((acc: number, accRec: any) =>
+            acc + (accRec.type === 'EXPENSE' ? -Number(accRec.amount) : Number(accRec.amount)), 0);
+
+        return {
+            id: supplier.id,
+            name: supplier.name,
+            phone: supplier.phone,
+            currentBalance: transactionsBalance + accountsBalance
+        };
+    });
+}

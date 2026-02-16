@@ -81,12 +81,12 @@ export default function EditProductModal({ product, agencies, suppliers, updateP
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">التوكيل</label>
+                            <label className="block text-sm font-black text-slate-700 mb-1">1. التوكيل (الشركة المصنعة)</label>
                             <select
                                 name="agencyId"
                                 value={selectedAgencyId}
                                 onChange={(e) => setSelectedAgencyId(e.target.value)}
-                                className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                className="w-full border-2 border-slate-100 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 font-bold transition-all"
                                 required
                             >
                                 {agencies.map(agency => (
@@ -96,9 +96,14 @@ export default function EditProductModal({ product, agencies, suppliers, updateP
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">المورد</label>
-                            <select name="supplierId" defaultValue={product.supplierId || ''} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
-                                <option value="">اختر المورد (اختياري)...</option>
+                            <label className="block text-sm font-black text-slate-700 mb-1">2. المورد (الموزع)</label>
+                            <select
+                                name="supplierId"
+                                defaultValue={product.supplierId || ''}
+                                className="w-full border-2 border-slate-100 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 font-bold transition-all"
+                                required
+                            >
+                                <option value="">اختر المورد...</option>
                                 {filteredSuppliers.map(supplier => (
                                     <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
                                 ))}
