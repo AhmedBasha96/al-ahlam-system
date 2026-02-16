@@ -640,7 +640,7 @@ export async function createProduct(formData: FormData) {
     if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
 
     // Validate supplier-agency hierarchy
-    const supplier = await prisma.supplier.findUnique({
+    const supplier = await (prisma as any).supplier.findUnique({
         where: { id: supplierId }
     });
 
@@ -650,7 +650,7 @@ export async function createProduct(formData: FormData) {
 
     const imageBase64 = await fileToBase64(imageFile);
 
-    await prisma.product.create({
+    await (prisma as any).product.create({
         data: {
             name,
             description,
@@ -661,7 +661,7 @@ export async function createProduct(formData: FormData) {
             agencyId,
             supplierId,
             image: imageBase64,
-        }
+        } as any
     });
 
     revalidatePath('/dashboard', 'layout');
@@ -691,7 +691,7 @@ export async function updateProduct(id: string, formData: FormData) {
 
     const imageBase64 = await fileToBase64(imageFile);
 
-    await prisma.product.update({
+    await (prisma as any).product.update({
         where: { id },
         data: {
             name,
@@ -703,7 +703,7 @@ export async function updateProduct(id: string, formData: FormData) {
             agencyId,
             supplierId,
             ...(imageBase64 ? { image: imageBase64 } : {})
-        }
+        } as any
     });
 
     revalidatePath('/dashboard', 'layout');

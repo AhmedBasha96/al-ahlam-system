@@ -42,7 +42,7 @@ export async function createAccountRecord(formData: FormData) {
         imageUrl = `data:${imageFile.type};base64,${base64}`;
     }
 
-    await prisma.accountRecord.create({
+    await (prisma as any).accountRecord.create({
         data: {
             amount,
             description,
@@ -53,7 +53,7 @@ export async function createAccountRecord(formData: FormData) {
             supplierId: supplierId || null,
             createdAt: date ? new Date(date) : new Date(),
             imageUrl: imageUrl,
-        }
+        } as any
     });
 
     revalidatePath('/dashboard/accounts', 'layout');
@@ -137,7 +137,7 @@ export async function createPurchaseInvoice(formData: FormData) {
         }
 
         // 2. Create Transaction
-        await tx.transaction.create({
+        await (tx as any).transaction.create({
             data: {
                 type: 'PURCHASE',
                 totalAmount,
@@ -158,7 +158,7 @@ export async function createPurchaseInvoice(formData: FormData) {
                         cost: item.cost
                     }))
                 }
-            }
+            } as any
         });
     });
 
@@ -328,7 +328,7 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
 }
 
 export async function getAgencySuppliersBalances(agencyId: string) {
-    const suppliers = await prisma.supplier.findMany({
+    const suppliers = await (prisma as any).supplier.findMany({
         where: { agencyId },
         include: {
             transactions: {
