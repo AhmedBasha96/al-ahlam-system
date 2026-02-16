@@ -649,6 +649,10 @@ export async function createProduct(formData: FormData) {
     }
 
     const imageBase64 = await fileToBase64(imageFile);
+    const unitsPerCarton = Number(formData.get('unitsPerCarton')) || 1;
+    const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
+    const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
+    const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
 
     await (prisma as any).product.create({
         data: {
@@ -661,6 +665,10 @@ export async function createProduct(formData: FormData) {
             agencyId,
             supplierId,
             image: imageBase64,
+            unitsPerCarton,
+            unitFactoryPrice,
+            unitWholesalePrice,
+            unitRetailPrice,
         } as any
     });
 
@@ -681,7 +689,7 @@ export async function updateProduct(id: string, formData: FormData) {
     if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
 
     // Validate supplier-agency hierarchy
-    const supplier = await prisma.supplier.findUnique({
+    const supplier = await (prisma as any).supplier.findUnique({
         where: { id: supplierId }
     });
 
@@ -690,6 +698,10 @@ export async function updateProduct(id: string, formData: FormData) {
     }
 
     const imageBase64 = await fileToBase64(imageFile);
+    const unitsPerCarton = Number(formData.get('unitsPerCarton')) || 1;
+    const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
+    const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
+    const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
 
     await (prisma as any).product.update({
         where: { id },
@@ -702,6 +714,10 @@ export async function updateProduct(id: string, formData: FormData) {
             retailPrice,
             agencyId,
             supplierId,
+            unitsPerCarton,
+            unitFactoryPrice,
+            unitWholesalePrice,
+            unitRetailPrice,
             ...(imageBase64 ? { image: imageBase64 } : {})
         } as any
     });
