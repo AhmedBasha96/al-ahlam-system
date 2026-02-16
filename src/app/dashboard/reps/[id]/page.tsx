@@ -22,17 +22,38 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
     try {
         rawProducts = await getProducts();
         rawRepStocks = await getRepStocks(repId);
-        users = await getUsers();
-        repCustomers = await getRepCustomers(repId);
-        warehouses = await getWarehouses();
-        // salesSessions fetch moved to safely execute
+        const rawUsers = await getUsers();
+        users = rawUsers.map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            agencyId: u.agencyId || undefined,
+            pricingType: u.pricingType || undefined,
+            warehouseId: u.warehouseId || undefined
+        }));
+        const rawRepCustomers = await getRepCustomers(repId);
+        repCustomers = rawRepCustomers.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            phone: c.phone || undefined,
+            address: c.address || undefined
+        }));
+        const rawWarehouses = await getWarehouses();
+        warehouses = rawWarehouses.map((w: any) => ({
+            id: w.id,
+            name: w.name,
+            agencyId: w.agencyId
+        }));
         salesSessions = await getSalesSessions({ repId });
         rep = users.find((u: any) => u.id === repId);
         currentUser = await getCurrentUser();
     } catch (e) { console.error("RepPage data fetch error:", e); }
 
     const allProducts = rawProducts.map((p: any) => ({
-        ...p,
+        id: p.id,
+        name: p.name,
+        image: p.image,
         factoryPrice: Number(p.factoryPrice || 0),
         wholesalePrice: Number(p.wholesalePrice || 0),
         retailPrice: Number(p.retailPrice || 0),
@@ -40,6 +61,7 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
         unitFactoryPrice: Number(p.unitFactoryPrice || 0),
         unitWholesalePrice: Number(p.unitWholesalePrice || 0),
         unitRetailPrice: Number(p.unitRetailPrice || 0),
+        agencyId: p.agencyId
     }));
     const repStocks = rawRepStocks.map(s => ({ productId: s.productId, quantity: s.quantity }));
 

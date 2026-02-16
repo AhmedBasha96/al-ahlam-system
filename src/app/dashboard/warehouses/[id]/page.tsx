@@ -44,7 +44,11 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
             transactions = transactionsData || [];
             allRepStocks = repStocksData || [];
             allCustomers = customersData || [];
-            allWarehouses = warehousesData || [];
+            allWarehouses = (warehousesData || []).map((w: any) => ({
+                id: w.id,
+                name: w.name,
+                agencyId: w.agencyId
+            }));
         }
     } catch (e) {
         console.error("Warehouse details fetch error:", e);
@@ -66,7 +70,9 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
     const agencyProducts = allProducts
         .filter((p: any) => p && p.agencyId === warehouse.agencyId)
         .map((p: any) => ({
-            ...p,
+            id: p.id,
+            name: p.name,
+            image: p.image,
             factoryPrice: Number(p.factoryPrice || 0),
             wholesalePrice: Number(p.wholesalePrice || 0),
             retailPrice: Number(p.retailPrice || 0),
@@ -74,14 +80,10 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
             unitFactoryPrice: Number(p.unitFactoryPrice || 0),
             unitWholesalePrice: Number(p.unitWholesalePrice || 0),
             unitRetailPrice: Number(p.unitRetailPrice || 0),
-            agency: p.agency ? {
-                id: p.agency.id,
-                name: p.agency.name
-            } : undefined,
-            supplier: p.supplier ? {
-                id: p.supplier.id,
-                name: p.supplier.name
-            } : undefined
+            agencyId: p.agencyId,
+            priceUpdatedAt: p.priceUpdatedAt ? p.priceUpdatedAt.toISOString() : undefined,
+            agency: p.agency ? { id: p.agency.id, name: p.agency.name } : undefined,
+            supplier: p.supplier ? { id: p.supplier.id, name: p.supplier.name } : undefined
         }));
 
     // Sanitize Stocks to remove Prisma objects/Decimals
@@ -95,7 +97,10 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
     const agencyReps = allUsers
         .filter((u: any) => u && u.role === 'SALES_REPRESENTATIVE' && u.agencyId === warehouse.agencyId)
         .map((u: any) => ({
-            ...u,
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
             agencyId: u.agencyId || undefined,
             pricingType: u.pricingType || undefined,
             warehouseId: u.warehouseId || undefined
@@ -137,9 +142,12 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
 
     // Map Customers
     const mappedCustomers = allCustomers.map((c: any) => ({
-        ...c,
+        id: c.id,
+        name: c.name,
         phone: c.phone || undefined,
-        representativeId: c.representativeId || undefined
+        address: c.address || undefined,
+        representativeId: c.representativeId || undefined,
+        agencyId: c.agencyId
     }));
 
     // Stats Calculations
