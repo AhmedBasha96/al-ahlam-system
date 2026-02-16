@@ -86,11 +86,11 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
             supplier: p.supplier ? { id: p.supplier.id, name: p.supplier.name } : undefined
         }));
 
-    // Sanitize Stocks to remove Prisma objects/Decimals
-    const sanitizedStocks = allStocks.map((s: any) => ({
-        warehouseId: s.warehouseId,
-        productId: s.productId,
-        quantity: s.quantity || 0
+    // Sanitize Stocks - SUPER SANITIZE
+    const sanitizedStocks = (allStocks || []).map((s: any) => ({
+        warehouseId: String(s.warehouseId),
+        productId: String(s.productId),
+        quantity: Number(s.quantity || 0)
     }));
 
     // Map reps to handle nulls
@@ -133,22 +133,23 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
         }
     });
 
-    // Map Rep Stocks
-    const mappedRepStocks = allRepStocks.map((s: any) => ({
-        repId: s.warehouseId,
-        productId: s.productId,
-        quantity: s.quantity || 0
+    // Map Rep Stocks - SUPER SANITIZE
+    const mappedRepStocks = (allRepStocks || []).map((s: any) => ({
+        repId: String(s.warehouseId),
+        productId: String(s.productId),
+        quantity: Number(s.quantity || 0)
     }));
 
-    // Map Customers
-    const mappedCustomers = allCustomers.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        phone: c.phone || undefined,
-        address: c.address || undefined,
-        representativeId: c.representativeId || undefined,
-        agencyId: c.agencyId
+    // Map Customers - SUPER SANITIZE
+    const mappedCustomers = (allCustomers || []).map((c: any) => ({
+        id: String(c.id),
+        name: String(c.name || ""),
+        phone: c.phone ? String(c.phone) : undefined,
+        address: c.address ? String(c.address) : undefined,
+        representativeId: c.representativeId ? String(c.representativeId) : undefined,
+        agencyId: String(c.agencyId)
     }));
+    const sanitizedCustomers = mappedCustomers;
 
     // Stats Calculations
     const totalItems = agencyProducts.length;
@@ -201,7 +202,7 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                     reps={agencyReps}
                     transactions={uiTransactions}
                     allRepStocks={mappedRepStocks}
-                    allCustomers={mappedCustomers}
+                    allCustomers={sanitizedCustomers}
                     warehouses={allWarehouses}
                 />
             </div>

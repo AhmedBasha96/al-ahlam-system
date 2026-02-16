@@ -336,11 +336,26 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                 <tbody className="divide-y divide-gray-100">
                                     {(() => {
                                         const filtered = transactions.filter(t => {
-                                            const matchesSearch = !historySearch || t.note?.includes(historySearch) || agencyProducts.find(p => p.id === t.productId)?.name.includes(historySearch);
+                                            const product = agencyProducts.find(p => p.id === t.productId);
+                                            const matchesSearch = !historySearch ||
+                                                (t.note?.toLowerCase().includes(historySearch.toLowerCase())) ||
+                                                (product?.name?.toLowerCase().includes(historySearch.toLowerCase()));
+
                                             const matchesType = historyType === 'ALL' || t.type === historyType;
                                             const matchesProduct = historyProduct === 'ALL' || t.productId === historyProduct;
-                                            const matchesStart = !historyStartDate || new Date(t.date).toISOString().split('T')[0] >= historyStartDate;
-                                            const matchesEnd = !historyEndDate || new Date(t.date).toISOString().split('T')[0] <= historyEndDate;
+
+                                            let matchesStart = true;
+                                            if (historyStartDate) {
+                                                const txDate = new Date(t.date).toISOString().split('T')[0];
+                                                matchesStart = txDate >= historyStartDate;
+                                            }
+
+                                            let matchesEnd = true;
+                                            if (historyEndDate) {
+                                                const txDate = new Date(t.date).toISOString().split('T')[0];
+                                                matchesEnd = txDate <= historyEndDate;
+                                            }
+
                                             return matchesSearch && matchesType && matchesProduct && matchesStart && matchesEnd;
                                         });
 

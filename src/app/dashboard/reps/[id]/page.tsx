@@ -24,26 +24,26 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
         rawRepStocks = await getRepStocks(repId);
         const rawUsers = await getUsers();
         users = rawUsers.map((u: any) => ({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            role: u.role,
-            agencyId: u.agencyId || undefined,
-            pricingType: u.pricingType || undefined,
-            warehouseId: u.warehouseId || undefined
+            id: String(u.id),
+            name: String(u.name || ""),
+            email: String(u.email || ""),
+            role: String(u.role || ""),
+            agencyId: u.agencyId ? String(u.agencyId) : undefined,
+            pricingType: u.pricingType ? String(u.pricingType) : undefined,
+            warehouseId: u.warehouseId ? String(u.warehouseId) : undefined
         }));
         const rawRepCustomers = await getRepCustomers(repId);
         repCustomers = rawRepCustomers.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            phone: c.phone || undefined,
-            address: c.address || undefined
+            id: String(c.id),
+            name: String(c.name || ""),
+            phone: c.phone ? String(c.phone) : undefined,
+            address: c.address ? String(c.address) : undefined
         }));
         const rawWarehouses = await getWarehouses();
         warehouses = rawWarehouses.map((w: any) => ({
-            id: w.id,
-            name: w.name,
-            agencyId: w.agencyId
+            id: String(w.id),
+            name: String(w.name || ""),
+            agencyId: String(w.agencyId || "")
         }));
         salesSessions = await getSalesSessions({ repId });
         rep = users.find((u: any) => u.id === repId);
@@ -51,9 +51,9 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
     } catch (e) { console.error("RepPage data fetch error:", e); }
 
     const allProducts = rawProducts.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        image: p.image,
+        id: String(p.id),
+        name: String(p.name || ""),
+        image: p.image ? String(p.image) : null,
         factoryPrice: Number(p.factoryPrice || 0),
         wholesalePrice: Number(p.wholesalePrice || 0),
         retailPrice: Number(p.retailPrice || 0),
@@ -61,7 +61,7 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
         unitFactoryPrice: Number(p.unitFactoryPrice || 0),
         unitWholesalePrice: Number(p.unitWholesalePrice || 0),
         unitRetailPrice: Number(p.unitRetailPrice || 0),
-        agencyId: p.agencyId
+        agencyId: String(p.agencyId || "")
     }));
     const repStocks = rawRepStocks.map(s => ({ productId: s.productId, quantity: s.quantity }));
 
