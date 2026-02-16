@@ -1,9 +1,10 @@
-import { getProducts, getRepStocks, getUsers, getRepCustomers, getWarehouses, getCurrentUser, getSalesSessions } from "@/lib/actions";
+import { getProducts, getRepStocks, getUsers, getRepCustomers, getWarehouses, getCurrentUser, getSalesSessions, getRepDebtBreakdown } from "@/lib/actions";
 import Link from "next/link";
 import RepAuditForm from "./rep-audit-form";
 import NewInvoiceButton from "./new-invoice-button";
 import PricingToggle from "./pricing-toggle";
 import DebugInfo from "./debug-info";
+import RepDebtBreakdown from "./rep-debt-breakdown";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
     let salesSessions: any[] = [];
     let rep: any = null;
     let currentUser = { role: 'GUEST' } as any;
+    let customerDebtBreakdown: any[] = [];
 
     try {
         rawProducts = await getProducts();
@@ -48,6 +50,7 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
         salesSessions = await getSalesSessions({ repId });
         rep = users.find((u: any) => u.id === repId);
         currentUser = await getCurrentUser();
+        customerDebtBreakdown = await getRepDebtBreakdown(repId);
     } catch (e) { console.error("RepPage data fetch error:", e); }
 
     const allProducts = rawProducts.map((p: any) => ({
@@ -152,32 +155,13 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                     />
                 </div>
 
-                <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-white rounded-xl shadow-sm border border-emerald-100 p-5">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="bg-emerald-100 p-1 rounded-lg text-emerald-700 text-sm">👥</span>
-                            العملاء التابعين للمندوب ({repCustomers.length})
-                        </h3>
-                        {repCustomers.length > 0 ? (
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {repCustomers.map((customer: any) => (
-                                    <div key={customer.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-emerald-50 transition-colors">
-                                        <p className="font-bold text-gray-900 text-sm">{customer.name}</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">📞 {customer.phone || 'بدون رقم'}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-gray-400 text-sm italic text-center py-4">لا يوجد عملاء مضافين لهذا المندوب.</p>
-                        )}
-                        <Link href="/dashboard/customers" className="block mt-4 text-center text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 py-2 rounded-lg transition-colors">
-                            إدارة العملاء &rarr;
-                        </Link>
-                    </div>
+                <div className="lg:col-span-1 space-y-6">
+                    {/* Customer Debt Breakdown Component */}
+                    <RepDebtBreakdown repId={repId} customers={customerDebtBreakdown} />
 
                     <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 text-xs text-emerald-800">
                         <p className="font-bold mb-1">💡 ملحوظة:</p>
-                        <p>يتم ربط العميل بالمندوب لتسهيل عملية التحصيل وتسجيل المديونيات بشكل دقيق عند إصدار الفاتورة.</p>
+                        <p>يتم عرض ديون العملاء المرتبطين بك هنا. عند تحصيل أي مبلغ، سيتم خصمه من مديونيتك الإجمالية ومن حساب العميل في نفس الوقت.</p>
                     </div>
                 </div>
             </div>

@@ -1281,7 +1281,8 @@ export async function getSalesSessions(filters?: { repId?: string; startDate?: s
 export async function recordDebtCollection(
     customerId: string,
     amount: number,
-    note?: string
+    note?: string,
+    repId?: string // Optional repId to attribute some collections to a specific rep
 ) {
     try {
         const user = await getCurrentUser();
@@ -1292,7 +1293,7 @@ export async function recordDebtCollection(
             data: {
                 type: 'COLLECTION',
                 totalAmount: 0,
-                userId: user.id,
+                userId: repId || customer.representativeId || user.id, // Attribute to rep if provided or assigned
                 agencyId: customer.agencyId,
                 customerId: customerId,
                 paymentType: 'CASH',
@@ -1304,6 +1305,9 @@ export async function recordDebtCollection(
 
         revalidatePath('/dashboard', 'layout');
         revalidatePath(`/dashboard/customers/${customerId}`);
+        if (repId || customer.representativeId) {
+            revalidatePath(`/dashboard/reps/${repId || customer.representativeId}`);
+        }
         return { success: true, sessionId: transaction.id };
     } catch (error) {
         console.error("recordDebtCollection error:", error);
@@ -1446,4 +1450,26 @@ export async function updateSalesSession(
         console.error("updateSalesSession error:", error);
         return { success: false, error: String(error) };
     }
+}
+
+export async function getRepDebtBreakdown(repId: string) {
+    const customers = await prisma.customer.findMany({
+        where: { representativeId: repId },
+        include: {
+            transactions: {
+                select: {
+                    remainingAmount: true
+                }
+            }
+        }
+    });
+
+    return customers.map(c => {
+        const debt = c.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+        return {
+            id: c.id,
+            name: c.name,
+            debt: debt
+        };
+    }).filter(c => c.debt !== 0);
 }
