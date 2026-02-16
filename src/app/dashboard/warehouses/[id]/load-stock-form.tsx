@@ -10,6 +10,7 @@ type Product = {
     name: string;
     wholesalePrice: number;
     factoryPrice: number;
+    unitsPerCarton: number;
 }
 
 type User = {
@@ -26,16 +27,17 @@ type Props = {
 
 type OrderItem = {
     productId: string;
-    quantity: number;
+    cartons: number;
+    units: number;
 }
 
 export default function LoadStockForm({ warehouseId, products, reps }: Props) {
     const [loading, setLoading] = useState(false);
-    const [items, setItems] = useState<OrderItem[]>([{ productId: "", quantity: 1 }]);
+    const [items, setItems] = useState<OrderItem[]>([{ productId: "", cartons: 0, units: 0 }]);
     const router = useRouter();
 
     const handleAddItem = () => {
-        setItems([...items, { productId: "", quantity: 1 }]);
+        setItems([...items, { productId: "", cartons: 0, units: 0 }]);
     };
 
     const handleRemoveItem = (index: number) => {
@@ -53,13 +55,26 @@ export default function LoadStockForm({ warehouseId, products, reps }: Props) {
     const handleSubmit = async (formData: FormData) => {
         setLoading(true);
         try {
+            // Calculate total quantities based on unitsPerCarton
+            const processedItems = items.map(item => {
+                const product = products.find(p => p.id === item.productId);
+                const unitsPerCarton = product?.unitsPerCarton || 1;
+                const totalUnits = (item.cartons * unitsPerCarton) + item.units;
+                return {
+                    productId: item.productId,
+                    quantity: totalUnits
+                };
+            }).filter(item => item.quantity > 0);
+
+            if (processedItems.length === 0) throw new Error("يرجى إدخال كميات صحيحة");
+
             // Append items as JSON string to FormData
-            formData.append('items', JSON.stringify(items));
+            formData.append('items', JSON.stringify(processedItems));
 
             await loadStockToRep(formData);
             router.refresh();
             alert("تم تحميل البضاعة بنجاح");
-            setItems([{ productId: "", quantity: 1 }]); // Reset form
+            setItems([{ productId: "", cartons: 0, units: 0 }]); // Reset form
         } catch (error) {
             alert(error instanceof Error ? error.message : "حدث خطأ أثناء التحميل");
         } finally {
@@ -120,17 +135,29 @@ export default function LoadStockForm({ warehouseId, products, reps }: Props) {
                                 </div>
                             </div>
 
-                            <div className="w-32">
-                                <label className="block text-xs text-gray-500 mb-1">الكمية</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={item.quantity}
-                                    onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
-                                    placeholder="0"
-                                    required
-                                />
+                            <div className="flex gap-2">
+                                <div className="w-24">
+                                    <label className="block text-[10px] text-gray-500 mb-1">كرتونة</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={item.cartons}
+                                        onChange={(e) => handleItemChange(index, 'cartons', Number(e.target.value))}
+                                        className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold bg-white"
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div className="w-24">
+                                    <label className="block text-[10px] text-gray-500 mb-1">علبة</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={item.units}
+                                        onChange={(e) => handleItemChange(index, 'units', Number(e.target.value))}
+                                        className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold bg-white"
+                                        placeholder="0"
+                                    />
+                                </div>
                             </div>
 
                             {items.length > 1 && (
