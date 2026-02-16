@@ -962,20 +962,23 @@ export async function loadStockToRep(data: FormData) {
                 create: { warehouseId: repId, productId: item.productId, quantity: item.quantity }
             });
 
+            // Determine pricing based on rep type
+            const pricing = rep.pricingType === 'WHOLESALE'
+                ? { carton: Number(product.wholesalePrice), unit: Number(product.unitWholesalePrice) }
+                : { carton: Number(product.retailPrice), unit: Number(product.unitRetailPrice) };
+
             // Calculate cost for this line item based on units and cartons
-            // If user provided cartons/units, use those for calculation
             const cartons = item.cartons || 0;
             const units = item.units || 0;
 
-            // Financial value calculation for the transaction (using factory prices)
-            const itemTotalCost = (cartons * Number(product.factoryPrice)) + (units * Number(product.unitFactoryPrice));
-            grandTotal += itemTotalCost;
+            const itemTotalValue = (cartons * pricing.carton) + (units * pricing.unit);
+            grandTotal += itemTotalValue;
 
             transactionItems.push({
                 productId: item.productId,
                 quantity: item.quantity,
-                price: Number(product.factoryPrice), // Reference price
-                cost: Number(product.factoryPrice) // Reference cost
+                price: pricing.carton, // Store the relevant carton price for history
+                cost: Number(product.factoryPrice) // Keep factory price in cost field for margin analysis
             });
         }
 
