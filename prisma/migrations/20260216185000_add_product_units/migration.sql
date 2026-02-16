@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `Product` ADD COLUMN `unitsPerCarton` INTEGER NOT NULL DEFAULT 1,
+    ADD COLUMN `unitFactoryPrice` DECIMAL(65, 30) NOT NULL DEFAULT 0,
+    ADD COLUMN `unitWholesalePrice` DECIMAL(65, 30) NOT NULL DEFAULT 0,
+    ADD COLUMN `unitRetailPrice` DECIMAL(65, 30) NOT NULL DEFAULT 0;
