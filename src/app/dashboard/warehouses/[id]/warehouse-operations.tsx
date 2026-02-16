@@ -384,10 +384,10 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                                         {t.quantityChange > 0 ? `+${t.quantityChange}` : t.quantityChange}
                                                     </td>
                                                     <td className="p-4 text-center text-gray-600 font-mono">
-                                                        {t.price ? `${t.price.toLocaleString('en-US')} ج.م` : '-'}
+                                                        {t.type !== 'PURCHASE' && t.price ? `${t.price.toLocaleString('en-US')} ج.م` : '-'}
                                                     </td>
                                                     <td className="p-4 text-center font-bold text-gray-900">
-                                                        {t.price ? `${(Math.abs(t.quantityChange) * t.price).toLocaleString('en-US')} ج.م` : '-'}
+                                                        {t.type !== 'PURCHASE' && t.price ? `${(Math.abs(t.quantityChange) * t.price).toLocaleString('en-US')} ج.م` : '-'}
                                                     </td>
                                                     <td className="p-4 font-mono font-bold text-gray-700">{t.newQuantity}</td>
                                                     <td className="p-4 text-sm text-gray-600">{t.note}</td>
