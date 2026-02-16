@@ -974,11 +974,15 @@ export async function loadStockToRep(data: FormData) {
             const itemTotalValue = (cartons * pricing.carton) + (units * pricing.unit);
             grandTotal += itemTotalValue;
 
+            // Store the effective unit price in the transaction item
+            // Since quantity is in units, price MUST be unit price for (qty * price) to be correct
+            const effectiveUnitPrice = item.quantity > 0 ? (itemTotalValue / item.quantity) : 0;
+
             transactionItems.push({
                 productId: item.productId,
                 quantity: item.quantity,
-                price: pricing.carton, // Store the relevant carton price for history
-                cost: Number(product.factoryPrice) // Keep factory price in cost field for margin analysis
+                price: effectiveUnitPrice,
+                cost: Number(product.unitFactoryPrice || 0)
             });
         }
 
@@ -1045,11 +1049,14 @@ export async function finalizeRepAudit(
                     const soldUnitsRemaining = soldQty % upc;
                     const totalSoldRowValue = (soldCartons * pricing.carton) + (soldUnitsRemaining * pricing.unit);
 
+                    // Store effective unit price (total/quantity)
+                    const effectiveUnitPrice = soldQty > 0 ? (totalSoldRowValue / soldQty) : 0;
+
                     soldItems.push({
                         productId: item.productId,
                         productName: product.name || "منتج غير معروف",
                         quantity: soldQty,
-                        price: pricing.carton, // Storing carton price as reference
+                        price: effectiveUnitPrice,
                         total: totalSoldRowValue
                     });
 
@@ -1112,7 +1119,7 @@ export async function finalizeRepAudit(
             }
 
             if (soldItems.length > 0) {
-                const totalAmount = soldItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+                const totalAmount = soldItems.reduce((sum, item) => sum + item.total, 0);
                 const transaction = await tx.transaction.create({
                     data: {
                         type: 'SALE',
@@ -1128,8 +1135,8 @@ export async function finalizeRepAudit(
                                 return {
                                     productId: si.productId,
                                     quantity: si.quantity,
-                                    price: si.price,
-                                    cost: prod?.factoryPrice || 0
+                                    price: si.price, // Already unit price
+                                    cost: prod?.unitFactoryPrice || 0
                                 };
                             }))
                         }
@@ -1182,7 +1189,7 @@ export async function recordSalesSession(
                             productId: item.productId,
                             quantity: item.quantity,
                             price: item.price || 0,
-                            cost: product?.factoryPrice || 0
+                            cost: product?.unitFactoryPrice || 0
                         };
                     }))
                 }
@@ -1237,7 +1244,7 @@ export async function recordDirectSale(
                                 productId: item.productId,
                                 quantity: item.quantity,
                                 price: item.price,
-                                cost: product?.factoryPrice || 0
+                                cost: product?.unitFactoryPrice || 0
                             };
                         }))
                     }
