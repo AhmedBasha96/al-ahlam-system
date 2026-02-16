@@ -15,9 +15,13 @@ export default async function ProductsPage() {
         const rawProducts = await getProducts();
         products = rawProducts.map((p: any) => ({
             ...p,
-            factoryPrice: Number(p.factoryPrice),
-            wholesalePrice: Number(p.wholesalePrice),
-            retailPrice: Number(p.retailPrice),
+            factoryPrice: Number(p.factoryPrice) || 0,
+            wholesalePrice: Number(p.wholesalePrice) || 0,
+            retailPrice: Number(p.retailPrice) || 0,
+            unitsPerCarton: Number(p.unitsPerCarton) || 1,
+            unitFactoryPrice: Number(p.unitFactoryPrice) || 0,
+            unitWholesalePrice: Number(p.unitWholesalePrice) || 0,
+            unitRetailPrice: Number(p.unitRetailPrice) || 0,
             createdAt: p.createdAt ? p.createdAt.toISOString() : undefined,
             updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
             priceUpdatedAt: p.priceUpdatedAt ? p.priceUpdatedAt.toISOString() : undefined,

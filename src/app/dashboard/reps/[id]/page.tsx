@@ -32,7 +32,14 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
     } catch (e) { console.error("RepPage data fetch error:", e); }
 
     const allProducts = rawProducts.map((p: any) => ({
-        ...p, factoryPrice: Number(p.factoryPrice), wholesalePrice: Number(p.wholesalePrice), retailPrice: Number(p.retailPrice)
+        ...p,
+        factoryPrice: Number(p.factoryPrice || 0),
+        wholesalePrice: Number(p.wholesalePrice || 0),
+        retailPrice: Number(p.retailPrice || 0),
+        unitsPerCarton: Number(p.unitsPerCarton || 1),
+        unitFactoryPrice: Number(p.unitFactoryPrice || 0),
+        unitWholesalePrice: Number(p.unitWholesalePrice || 0),
+        unitRetailPrice: Number(p.unitRetailPrice || 0),
     }));
     const repStocks = rawRepStocks.map(s => ({ productId: s.productId, quantity: s.quantity }));
 

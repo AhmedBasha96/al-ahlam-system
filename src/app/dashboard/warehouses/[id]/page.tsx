@@ -69,7 +69,11 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
             ...p,
             factoryPrice: Number(p.factoryPrice || 0),
             wholesalePrice: Number(p.wholesalePrice || 0),
-            retailPrice: Number(p.retailPrice || 0)
+            retailPrice: Number(p.retailPrice || 0),
+            unitsPerCarton: Number(p.unitsPerCarton || 1),
+            unitFactoryPrice: Number(p.unitFactoryPrice || 0),
+            unitWholesalePrice: Number(p.unitWholesalePrice || 0),
+            unitRetailPrice: Number(p.unitRetailPrice || 0),
         }));
 
     // Sanitize Stocks to remove Prisma objects/Decimals
