@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 
 export const dynamic = 'force-dynamic';
 
-export default async function AgencyPurchasesPage({ params }: { params: { id: string } }) {
+export default async function AgencyPurchasesPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const allReports = await getAgencyPurchases();
     const agencyReport = allReports.find(a => a.id === id);

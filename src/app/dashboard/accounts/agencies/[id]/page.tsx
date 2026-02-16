@@ -8,8 +8,8 @@ import SuppliersManager from "./suppliers-manager";
 
 export const dynamic = 'force-dynamic';
 
-export default async function AgencyAccountsPage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default async function AgencyAccountsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const agencies = await getAgencies();
     const agency = agencies.find(a => a.id === id);
 
