@@ -103,6 +103,14 @@ export default function UsersList({ users, agencies, currentUserRole }: Props) {
                                 <td className="p-4 text-gray-500 text-sm whitespace-normal max-w-xs">{getAgencyNames(user)}</td>
                                 {isAdmin && (
                                     <td className="p-4">
+                                        {user.role === 'SALES_REPRESENTATIVE' && (
+                                            <a
+                                                href={`/dashboard/reps/${user.id}`}
+                                                className="ml-3 text-blue-600 hover:text-blue-800 text-sm font-bold transition-colors"
+                                            >
+                                                عرض المديونية
+                                            </a>
+                                        )}
                                         <button
                                             className="ml-3 text-emerald-600 hover:text-emerald-800 text-sm font-medium transition-colors"
                                             onClick={() => setEditingUser(user)}
