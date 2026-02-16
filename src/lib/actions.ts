@@ -627,102 +627,120 @@ export async function getProducts() {
 }
 
 export async function createProduct(formData: FormData) {
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-    const barcode = formData.get('barcode') as string;
-    const factoryPrice = Number(formData.get('factoryPrice'));
-    const wholesalePrice = Number(formData.get('wholesalePrice'));
-    const retailPrice = Number(formData.get('retailPrice'));
-    const agencyId = formData.get('agencyId') as string;
-    const supplierId = formData.get('supplierId') as string;
-    const imageFile = formData.get('image') as File | null;
+    try {
+        console.log('[createProduct] Starting product creation...');
+        const name = formData.get('name') as string;
+        const description = formData.get('description') as string;
+        const barcode = formData.get('barcode') as string;
+        const factoryPrice = Number(formData.get('factoryPrice'));
+        const wholesalePrice = Number(formData.get('wholesalePrice'));
+        const retailPrice = Number(formData.get('retailPrice'));
+        const agencyId = formData.get('agencyId') as string;
+        const supplierId = formData.get('supplierId') as string;
+        const imageFile = formData.get('image') as File | null;
 
-    if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
+        if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
 
-    // Validate supplier-agency hierarchy
-    const supplier = await (prisma as any).supplier.findUnique({
-        where: { id: supplierId }
-    });
+        console.log(`[createProduct] Validating supplier ${supplierId} for agency ${agencyId}`);
+        // Validate supplier-agency hierarchy
+        const supplier = await (prisma as any).supplier.findUnique({
+            where: { id: supplierId }
+        });
 
-    if (!supplier || supplier.agencyId !== agencyId) {
-        throw new Error('المورد المختار لا ينتمي إلى التوكيل المحدد');
+        if (!supplier || supplier.agencyId !== agencyId) {
+            throw new Error('المورد المختار لا ينتمي إلى التوكيل المحدد');
+        }
+
+        const imageBase64 = await fileToBase64(imageFile);
+        const unitsPerCarton = Number(formData.get('unitsPerCarton')) || 1;
+        const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
+        const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
+        const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
+
+        console.log('[createProduct] Creating product in database...');
+        const product = await (prisma as any).product.create({
+            data: {
+                name,
+                description,
+                barcode: barcode || undefined,
+                factoryPrice: new Decimal(factoryPrice),
+                wholesalePrice: new Decimal(wholesalePrice),
+                retailPrice: new Decimal(retailPrice),
+                agencyId,
+                supplierId,
+                image: imageBase64,
+                unitsPerCarton,
+                unitFactoryPrice: new Decimal(unitFactoryPrice),
+                unitWholesalePrice: new Decimal(unitWholesalePrice),
+                unitRetailPrice: new Decimal(unitRetailPrice),
+            } as any
+        });
+
+        console.log(`[createProduct] Product created successfully: ${product.id}`);
+        revalidatePath('/dashboard', 'layout');
+    } catch (error) {
+        console.error('[createProduct] Fatal Error:', error);
+        throw error;
     }
-
-    const imageBase64 = await fileToBase64(imageFile);
-    const unitsPerCarton = Number(formData.get('unitsPerCarton')) || 1;
-    const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
-    const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
-    const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
-
-    await (prisma as any).product.create({
-        data: {
-            name,
-            description,
-            barcode: barcode || undefined,
-            factoryPrice,
-            wholesalePrice,
-            retailPrice,
-            agencyId,
-            supplierId,
-            image: imageBase64,
-            unitsPerCarton,
-            unitFactoryPrice,
-            unitWholesalePrice,
-            unitRetailPrice,
-        } as any
-    });
-
-    revalidatePath('/dashboard', 'layout');
 }
 
 export async function updateProduct(id: string, formData: FormData) {
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-    const barcode = formData.get('barcode') as string;
-    const factoryPrice = Number(formData.get('factoryPrice'));
-    const wholesalePrice = Number(formData.get('wholesalePrice'));
-    const retailPrice = Number(formData.get('retailPrice'));
-    const agencyId = formData.get('agencyId') as string;
-    const supplierId = formData.get('supplierId') as string;
-    const imageFile = formData.get('image') as File | null;
+    try {
+        console.log(`[updateProduct] Starting update for product ${id}...`);
+        const name = formData.get('name') as string;
+        const description = formData.get('description') as string;
+        const barcode = formData.get('barcode') as string;
+        const factoryPrice = Number(formData.get('factoryPrice'));
+        const wholesalePrice = Number(formData.get('wholesalePrice'));
+        const retailPrice = Number(formData.get('retailPrice'));
+        const agencyId = formData.get('agencyId') as string;
+        const supplierId = formData.get('supplierId') as string;
+        const imageFile = formData.get('image') as File | null;
 
-    if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
+        if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
 
-    // Validate supplier-agency hierarchy
-    const supplier = await (prisma as any).supplier.findUnique({
-        where: { id: supplierId }
-    });
+        console.log(`[updateProduct] Validating supplier ${supplierId} for agency ${agencyId}`);
+        // Validate supplier-agency hierarchy
+        const supplier = await (prisma as any).supplier.findUnique({
+            where: { id: supplierId }
+        });
 
-    if (!supplier || supplier.agencyId !== agencyId) {
-        throw new Error('المورد المختار لا ينتمي إلى التوكيل المحدد');
+        if (!supplier || supplier.agencyId !== agencyId) {
+            throw new Error('المورد المختار لا ينتمي إلى التوكيل المحدد');
+        }
+
+        const imageBase64 = await fileToBase64(imageFile);
+        const unitsPerCarton = Number(formData.get('unitsPerCarton')) || 1;
+        const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
+        const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
+        const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
+
+        console.log('[updateProduct] Updating product in database...');
+        await (prisma as any).product.update({
+            where: { id },
+            data: {
+                name,
+                description,
+                barcode: barcode || null,
+                factoryPrice: new Decimal(factoryPrice),
+                wholesalePrice: new Decimal(wholesalePrice),
+                retailPrice: new Decimal(retailPrice),
+                agencyId,
+                supplierId,
+                unitsPerCarton,
+                unitFactoryPrice: new Decimal(unitFactoryPrice),
+                unitWholesalePrice: new Decimal(unitWholesalePrice),
+                unitRetailPrice: new Decimal(unitRetailPrice),
+                ...(imageBase64 ? { image: imageBase64 } : {})
+            } as any
+        });
+
+        console.log(`[updateProduct] Product ${id} updated successfully`);
+        revalidatePath('/dashboard', 'layout');
+    } catch (error) {
+        console.error('[updateProduct] Fatal Error:', error);
+        throw error;
     }
-
-    const imageBase64 = await fileToBase64(imageFile);
-    const unitsPerCarton = Number(formData.get('unitsPerCarton')) || 1;
-    const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
-    const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
-    const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
-
-    await (prisma as any).product.update({
-        where: { id },
-        data: {
-            name,
-            description,
-            barcode: barcode || null,
-            factoryPrice,
-            wholesalePrice,
-            retailPrice,
-            agencyId,
-            supplierId,
-            unitsPerCarton,
-            unitFactoryPrice,
-            unitWholesalePrice,
-            unitRetailPrice,
-            ...(imageBase64 ? { image: imageBase64 } : {})
-        } as any
-    });
-
-    revalidatePath('/dashboard', 'layout');
 }
 
 export async function deleteProduct(id: string) {

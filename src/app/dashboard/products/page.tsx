@@ -25,6 +25,12 @@ export default async function ProductsPage() {
             createdAt: p.createdAt ? p.createdAt.toISOString() : undefined,
             updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
             priceUpdatedAt: p.priceUpdatedAt ? p.priceUpdatedAt.toISOString() : undefined,
+            // Deeply serialize nested agency
+            agency: p.agency ? {
+                ...p.agency,
+                createdAt: p.agency.createdAt ? p.agency.createdAt.toISOString() : undefined,
+                updatedAt: p.agency.updatedAt ? p.agency.updatedAt.toISOString() : undefined,
+            } : undefined
         }));
 
         // Sanitize agencies and suppliers to ensure no Date objects are passed
@@ -38,6 +44,11 @@ export default async function ProductsPage() {
             ...s,
             createdAt: s.createdAt ? s.createdAt.toISOString() : undefined,
             updatedAt: s.updatedAt ? s.updatedAt.toISOString() : undefined,
+            agency: s.agency ? {
+                ...s.agency,
+                createdAt: s.agency.createdAt ? s.agency.createdAt.toISOString() : undefined,
+                updatedAt: s.agency.updatedAt ? s.agency.updatedAt.toISOString() : undefined,
+            } : undefined
         }));
     } catch (e) { console.error("Products fetch error:", e); }
     const user = await getCurrentUser();

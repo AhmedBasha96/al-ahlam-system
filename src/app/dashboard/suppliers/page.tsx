@@ -8,9 +8,27 @@ import { Building2, Phone, MapPin, Package, History, Wallet, UserCircle } from "
 export const dynamic = 'force-dynamic';
 
 export default async function SuppliersPage() {
-    const suppliers = await getSuppliers();
-    const agencies = await getAgencies();
+    let suppliers = await getSuppliers();
+    let agencies = await getAgencies();
     const user = await getCurrentUser();
+
+    // Serialize data to avoid render errors
+    agencies = agencies.map((a: any) => ({
+        ...a,
+        createdAt: a.createdAt ? a.createdAt.toISOString() : undefined,
+        updatedAt: a.updatedAt ? a.updatedAt.toISOString() : undefined,
+    }));
+
+    suppliers = suppliers.map((s: any) => ({
+        ...s,
+        createdAt: s.createdAt ? s.createdAt.toISOString() : undefined,
+        updatedAt: s.updatedAt ? s.updatedAt.toISOString() : undefined,
+        agency: s.agency ? {
+            ...s.agency,
+            createdAt: s.agency.createdAt ? s.agency.createdAt.toISOString() : undefined,
+            updatedAt: s.agency.updatedAt ? s.agency.updatedAt.toISOString() : undefined,
+        } : undefined
+    }));
 
     // Permissions: Admin and Manager can manage suppliers
     const canManage = user.role === 'ADMIN' || user.role === 'MANAGER';

@@ -22,7 +22,21 @@ export default async function AgencyAccountsPage({ params }: { params: Promise<{
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     const summary = await getFinancialSummary(startOfMonth, endOfMonth, id);
-    const supplierBalances = await getAgencySuppliersBalances(id);
+    let supplierBalances = await getAgencySuppliersBalances(id);
+
+    // Serialize agencies
+    const serializedAgencies = agencies.map((a: any) => ({
+        ...a,
+        createdAt: a.createdAt ? a.createdAt.toISOString() : undefined,
+        updatedAt: a.updatedAt ? a.updatedAt.toISOString() : undefined,
+    }));
+
+    // Serialize supplier balances
+    supplierBalances = supplierBalances.map((s: any) => ({
+        ...s,
+        currentBalance: Number(s.currentBalance || 0),
+        // Ensure no hidden Dates are passed if any in future schema additions
+    }));
 
     const formatMoney = (amount: number) => {
         return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(amount);
@@ -105,7 +119,7 @@ export default async function AgencyAccountsPage({ params }: { params: Promise<{
                 <SuppliersManager
                     agencyId={id}
                     suppliers={supplierBalances}
-                    agencies={agencies}
+                    agencies={serializedAgencies}
                 />
             </div>
         </div>
