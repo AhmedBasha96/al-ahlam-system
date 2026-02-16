@@ -613,13 +613,13 @@ export async function getProducts() {
     const user = await getCurrentUser();
 
     if (user.role === 'ADMIN' || user.role === 'MANAGER') {
-        return await prisma.product.findMany({
+        return await (prisma as any).product.findMany({
             include: { agency: true },
             orderBy: { name: 'asc' }
         });
     }
 
-    return await prisma.product.findMany({
+    return await (prisma as any).product.findMany({
         where: { agencyId: user.agencyId },
         include: { agency: true },
         orderBy: { name: 'asc' }

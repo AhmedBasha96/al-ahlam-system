@@ -6,6 +6,7 @@ import { createSupplier, updateSupplier } from '@/lib/actions/suppliers';
 
 type Props = {
     agencies: Array<{ id: string, name: string }>;
+    initialAgencyId?: string;
     supplier?: {
         id: string;
         name: string;
@@ -16,7 +17,7 @@ type Props = {
     onSuccess?: () => void;
 }
 
-export default function SupplierForm({ agencies, supplier, onSuccess }: Props) {
+export default function SupplierForm({ agencies, initialAgencyId, supplier, onSuccess }: Props) {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
@@ -57,7 +58,7 @@ export default function SupplierForm({ agencies, supplier, onSuccess }: Props) {
                 />
             </div>
 
-            {!supplier && (
+            {!supplier && !initialAgencyId ? (
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">التوكيل التابع له</label>
                     <select name="agencyId" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" required>
@@ -67,7 +68,9 @@ export default function SupplierForm({ agencies, supplier, onSuccess }: Props) {
                         ))}
                     </select>
                 </div>
-            )}
+            ) : initialAgencyId && !supplier ? (
+                <input type="hidden" name="agencyId" value={initialAgencyId} />
+            ) : null}
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>

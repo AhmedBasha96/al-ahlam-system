@@ -1,10 +1,10 @@
 import { getFinancialSummary, getAgencySuppliersBalances } from "@/lib/actions/accounts";
 import { getAgencies } from "@/lib/actions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building2, TrendingUp, TrendingDown, Zap, Wallet, Users, ArrowLeft, Phone, ExternalLink } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Building2, TrendingUp, TrendingDown, Zap, Wallet, ArrowLeft, Phone } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import SuppliersManager from "./suppliers-manager";
 
 export const dynamic = 'force-dynamic';
 
@@ -100,63 +100,14 @@ export default async function AgencyAccountsPage({ params }: { params: { id: str
                 </Card>
             </div>
 
-            {/* Suppliers Balances Section */}
-            <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
-                <CardHeader className="border-b border-slate-50 bg-slate-50/50 p-6">
-                    <div className="flex justify-between items-center">
-                        <CardTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                            <Users className="w-6 h-6 text-indigo-500" />
-                            حسابات الموردين (مديونيات)
-                        </CardTitle>
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                            {supplierBalances.length} موردين
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                                <TableHead className="text-right font-bold text-slate-900 py-4">اسم المورد</TableHead>
-                                <TableHead className="text-right font-bold text-slate-900">رقم الهاتف</TableHead>
-                                <TableHead className="text-left font-bold text-slate-900">الرصيد الحالي</TableHead>
-                                <TableHead className="text-center font-bold text-slate-900">إجراءات</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {supplierBalances.map((supplier) => (
-                                <TableRow key={supplier.id} className="hover:bg-slate-50/80 transition-colors">
-                                    <TableCell className="font-bold text-slate-700 py-4">{supplier.name}</TableCell>
-                                    <TableCell className="text-slate-500 font-medium">
-                                        <div className="flex items-center gap-2">
-                                            <Phone className="w-4 h-4 text-slate-300" />
-                                            {supplier.phone || 'غير مسجل'}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-left">
-                                        <span className={`text-xl font-black ${supplier.currentBalance > 0 ? 'text-rose-600' : supplier.currentBalance < 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                            {formatMoney(supplier.currentBalance)}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        <Link href={`/dashboard/suppliers/${supplier.id}`} className="inline-flex items-center gap-2 bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-full hover:bg-black transition-all shadow-md active:scale-95">
-                                            <ExternalLink className="w-3 h-3" />
-                                            كشف حساب كامل
-                                        </Link>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {supplierBalances.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-20 text-slate-400 font-bold border-none">
-                                        لا يوجد موردين مسجلين لهذا التوكيل
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            {/* Suppliers Management Section */}
+            <div className="bg-white rounded-3xl shadow-xl p-8 border border-slate-100">
+                <SuppliersManager
+                    agencyId={id}
+                    suppliers={supplierBalances}
+                    agencies={agencies}
+                />
+            </div>
         </div>
     );
 }

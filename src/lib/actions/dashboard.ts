@@ -95,23 +95,23 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
         // Batch 2: Transaction queries
         const [todayTransactions, weekTransactions] = await Promise.all([
-            prisma.transaction.findMany({
+            (prisma as any).transaction.findMany({
                 where: { ...transactionFilter, type: 'SALE', totalAmount: { gt: 0 }, createdAt: { gte: today } },
                 select: { totalAmount: true },
             }),
-            prisma.transaction.findMany({
+            (prisma as any).transaction.findMany({
                 where: { ...transactionFilter, type: 'SALE', totalAmount: { gt: 0 }, createdAt: { gte: weekAgo, lt: today } },
                 select: { totalAmount: true },
             }),
         ]);
 
-        const lastWeekTransactions = await prisma.transaction.findMany({
+        const lastWeekTransactions = await (prisma as any).transaction.findMany({
             where: { ...transactionFilter, type: 'SALE', totalAmount: { gt: 0 }, createdAt: { gte: twoWeeksAgo, lt: weekAgo } },
             select: { totalAmount: true },
         });
 
         // Batch 3: Stock queries - Aggregated by product
-        const allProducts = await prisma.product.findMany({
+        const allProducts = await (prisma as any).product.findMany({
             where: isRestricted ? { agencyId: { in: (currentUser as any).agencyIds } } : {},
             include: {
                 stocks: {
@@ -159,7 +159,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         const outOfStockCount = outOfStockProducts.length;
 
         // Batch 4: Recent transactions
-        const recentTransactions = await prisma.transaction.findMany({
+        const recentTransactions = await (prisma as any).transaction.findMany({
             where: transactionFilter,
             take: 5,
             orderBy: { createdAt: 'desc' },
