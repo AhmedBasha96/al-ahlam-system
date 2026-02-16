@@ -14,7 +14,7 @@ export async function getSuppliers(agencyId?: string) {
         where.agencyId = user.agencyId;
     }
 
-    return await prisma.supplier.findMany({
+    return await (prisma as any).supplier.findMany({
         where,
         include: {
             agency: true,
@@ -38,7 +38,7 @@ export async function createSupplier(formData: FormData) {
 
     if (!name || !agencyId) throw new Error('Name and Agency are required');
 
-    await prisma.supplier.create({
+    await (prisma as any).supplier.create({
         data: {
             name,
             phone,
@@ -59,7 +59,7 @@ export async function updateSupplier(id: string, formData: FormData) {
 
     if (!name) throw new Error('Name is required');
 
-    await prisma.supplier.update({
+    await (prisma as any).supplier.update({
         where: { id },
         data: {
             name,
@@ -76,7 +76,7 @@ export async function deleteSupplier(id: string) {
     const user = await getCurrentUser();
     if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error('Unauthorized');
 
-    await prisma.supplier.delete({
+    await (prisma as any).supplier.delete({
         where: { id }
     });
 
@@ -85,7 +85,7 @@ export async function deleteSupplier(id: string) {
 }
 
 export async function getSupplierDetails(id: string) {
-    return await prisma.supplier.findUnique({
+    return await (prisma as any).supplier.findUnique({
         where: { id },
         include: {
             agency: true,
