@@ -129,11 +129,11 @@ export default async function DashboardLayout({
                                 </svg>
                                 <span>المستخدمين</span>
                             </Link>
-                            <Link href="/dashboard/users" className="flex items-center gap-3 px-4 py-3 bg-amber-600/20 text-amber-100 hover:bg-amber-600/40 rounded-lg transition border border-amber-500/20">
+                            <Link href="/dashboard/accounts/rep-debts" className="flex items-center gap-3 px-4 py-3 bg-amber-600/20 text-amber-100 hover:bg-amber-600/40 rounded-lg transition border border-amber-500/20">
                                 <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                                 </svg>
-                                <span className="font-bold">مديونيات المناديب</span>
+                                <span className="font-bold">مديونيات المناديب (حصري)</span>
                             </Link>
                         </>
                     )}

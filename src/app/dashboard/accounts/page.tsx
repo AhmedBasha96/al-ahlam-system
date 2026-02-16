@@ -168,6 +168,17 @@ export default async function AccountsDashboard() {
                             <Users className="w-6 h-6 text-rose-600" />
                         </div>
                     </Link>
+
+                    {/* New Rep Debts Card */}
+                    <Link href="/dashboard/accounts/rep-debts" className="glass-card flex-1 p-5 rounded-2xl flex items-center justify-between group hover:bg-emerald-50 transition-all border-l-4 border-l-emerald-600 shadow-xl scale-105 transform">
+                        <div>
+                            <p className="text-sm text-emerald-600 font-black uppercase mb-1">تحصيل ديون المناديب</p>
+                            <p className="text-xl font-bold text-slate-800">إدارة مديونيات العملاء</p>
+                        </div>
+                        <div className="h-12 w-12 bg-emerald-600 rounded-2xl flex items-center justify-center group-hover:rotate-12 transition-transform shadow-lg">
+                            <DollarSign className="w-6 h-6 text-white" />
+                        </div>
+                    </Link>
                 </div>
             </div>
 
