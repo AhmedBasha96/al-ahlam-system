@@ -9,8 +9,13 @@ type Product = {
     image: string | null;
     name: string;
     wholesalePrice: number;
+    retailPrice: number;
     factoryPrice: number;
     unitsPerCarton: number;
+    unitWholesalePrice: number;
+    unitRetailPrice: number;
+    unitFactoryPrice: number;
+    agencyId: string;
 }
 
 type User = {

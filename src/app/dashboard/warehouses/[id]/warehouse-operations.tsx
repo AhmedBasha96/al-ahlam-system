@@ -14,6 +14,10 @@ type Product = {
     wholesalePrice: number;
     retailPrice: number;
     factoryPrice: number;
+    unitsPerCarton: number;
+    unitWholesalePrice: number;
+    unitRetailPrice: number;
+    unitFactoryPrice: number;
     agencyId: string;
     priceUpdatedAt?: string;
     agency?: { id: string, name: string };
