@@ -12,7 +12,7 @@ model User {
   username       String          @unique
   password       String
   name           String
-  image          String?         @db.Text
+  image          String?         @db.LongText
   role           Role            @default(ACCOUNTANT)
   agencyId       String?
   warehouseId    String?
@@ -35,7 +35,7 @@ model Agency {
   name         String
   address      String?
   phone        String?
-  image        String?         @db.Text
+  image        String?         @db.LongText
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   accounts     AccountRecord[]
