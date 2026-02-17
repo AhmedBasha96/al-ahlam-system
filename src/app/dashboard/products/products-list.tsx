@@ -34,6 +34,9 @@ type Props = {
 export default function ProductsList({ products, agencies, suppliers, userRole }: Props) {
     const canEditOrDelete = userRole === 'ADMIN' || userRole === 'MANAGER';
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedAgency, setSelectedAgency] = useState("");
+    const [selectedSupplier, setSelectedSupplier] = useState("");
     const router = useRouter();
 
     const handleDelete = async (id: string) => {
@@ -52,14 +55,88 @@ export default function ProductsList({ products, agencies, suppliers, userRole }
         return suppliers.find(s => s.id === id)?.name || 'غير معروف';
     }
 
+    // Filter suppliers based on selected agency
+    const filteredSuppliers = selectedAgency
+        ? suppliers.filter(s => s.agencyId === selectedAgency)
+        : suppliers;
+
+    // Filtering logic
+    const filteredProducts = products.filter(product => {
+        const matchesSearch =
+            product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (product.barcode && product.barcode.includes(searchTerm));
+
+        const matchesAgency = !selectedAgency || product.agencyId === selectedAgency;
+        const matchesSupplier = !selectedSupplier || product.supplierId === selectedSupplier;
+
+        return matchesSearch && matchesAgency && matchesSupplier;
+    });
+
     return (
-        <>
+        <div className="space-y-6">
+            {/* Filter Section */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-bold text-gray-500 mb-1">بحث بالاسم أو الباركود</label>
+                    <input
+                        type="text"
+                        placeholder="ابحث هنا..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                </div>
+
+                <div className="w-full md:w-48">
+                    <label className="block text-xs font-bold text-gray-500 mb-1">التوكيل</label>
+                    <select
+                        value={selectedAgency}
+                        onChange={(e) => {
+                            setSelectedAgency(e.target.value);
+                            setSelectedSupplier(""); // Reset supplier when agency changes
+                        }}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                    >
+                        <option value="">الكل</option>
+                        {agencies.map(a => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="w-full md:w-48">
+                    <label className="block text-xs font-bold text-gray-500 mb-1">المورد</label>
+                    <select
+                        value={selectedSupplier}
+                        onChange={(e) => setSelectedSupplier(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                    >
+                        <option value="">الكل</option>
+                        {filteredSuppliers.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <button
+                    onClick={() => {
+                        setSearchTerm("");
+                        setSelectedAgency("");
+                        setSelectedSupplier("");
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-red-500 transition"
+                >
+                    مسح الكل
+                </button>
+            </div>
+
+            {/* Products Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.length === 0 ? (
+                {filteredProducts.length === 0 ? (
                     <div className="col-span-full text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                        <p className="text-gray-500">لا توجد منتجات حتى الآن</p>
+                        <p className="text-gray-500">لا توجد منتجات تطابق البحث</p>
                     </div>
-                ) : products.map((product) => (
+                ) : filteredProducts.map((product) => (
                     <div key={product.id} className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden hover:shadow-md transition group">
                         <div className="h-32 bg-gray-100 flex items-center justify-center relative overflow-hidden">
                             {product.image ? (
@@ -160,6 +237,6 @@ export default function ProductsList({ products, agencies, suppliers, userRole }
                     closeModal={() => setEditingProduct(null)}
                 />
             )}
-        </>
+        </div>
     );
 }
