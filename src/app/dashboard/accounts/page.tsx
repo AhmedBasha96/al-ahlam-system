@@ -41,6 +41,12 @@ export default async function AccountsDashboard() {
         - allSupplierAccounts.filter((a: any) => a.type === 'EXPENSE').reduce((acc: number, a: any) => acc + Number(a.amount), 0)
         + allSupplierAccounts.filter((a: any) => a.type === 'INCOME').reduce((acc: number, a: any) => acc + Number(a.amount), 0);
 
+    const totalCustomerDebtAgg = await prisma.transaction.aggregate({
+        where: { type: 'SALE' },
+        _sum: { remainingAmount: true }
+    });
+    const totalCustomerDebt = Number(totalCustomerDebtAgg._sum.remainingAmount || 0);
+
     return (
         <div className="relative min-h-screen -m-6 p-8 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-rose-50/30 overflow-hidden">
 
@@ -125,6 +131,21 @@ export default async function AccountsDashboard() {
 
                 {/* Quick Stats Stack */}
                 <div className="lg:col-span-3 flex flex-col gap-4">
+                    {/* Rep Debts - Primary Action Link */}
+                    <Link href="/dashboard/accounts/rep-debts" className="glass-card p-5 rounded-2xl flex items-center justify-between group bg-emerald-600 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200/50 border-0">
+                        <div>
+                            <p className="text-xs text-emerald-100 font-bold uppercase mb-1">مديونيات المناديب والعملاء</p>
+                            <p className="text-2xl font-black text-white">{formatMoney(totalCustomerDebt)}</p>
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-200 font-bold">
+                                <span>إدارة وتحصيل المديونيات</span>
+                                <ArrowUpRight className="w-3 h-3" />
+                            </div>
+                        </div>
+                        <div className="h-12 w-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform backdrop-blur-sm">
+                            <DollarSign className="w-7 h-7 text-white" />
+                        </div>
+                    </Link>
+
                     {/* Sales */}
                     <div className="glass-card flex-1 p-5 rounded-2xl flex items-center justify-between group hover:bg-white/90 transition-all border-l-4 border-l-blue-500">
                         <div>
@@ -166,17 +187,6 @@ export default async function AccountsDashboard() {
                         </div>
                         <div className="h-12 w-12 bg-rose-100/50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                             <Users className="w-6 h-6 text-rose-600" />
-                        </div>
-                    </Link>
-
-                    {/* New Rep Debts Card */}
-                    <Link href="/dashboard/accounts/rep-debts" className="glass-card flex-1 p-5 rounded-2xl flex items-center justify-between group hover:bg-emerald-50 transition-all border-l-4 border-l-emerald-600 shadow-xl scale-105 transform">
-                        <div>
-                            <p className="text-sm text-emerald-600 font-black uppercase mb-1">تحصيل ديون المناديب</p>
-                            <p className="text-xl font-bold text-slate-800">إدارة مديونيات العملاء</p>
-                        </div>
-                        <div className="h-12 w-12 bg-emerald-600 rounded-2xl flex items-center justify-center group-hover:rotate-12 transition-transform shadow-lg">
-                            <DollarSign className="w-6 h-6 text-white" />
                         </div>
                     </Link>
                 </div>
