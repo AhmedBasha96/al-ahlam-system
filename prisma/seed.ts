@@ -18,7 +18,7 @@ async function main() {
 
         // Hash password
         console.log('Hashing password...')
-        const hashedPassword = await bcrypt.hash('1', 10)
+        const hashedPassword = await bcrypt.hash('Ahmed3300@@', 10)
         console.log(`Password hash: ${hashedPassword.substring(0, 30)}...`)
 
         // Create or update default user
