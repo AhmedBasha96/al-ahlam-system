@@ -1,6 +1,6 @@
 'use client';
 
-import { deleteProduct, updateProduct } from "@/lib/actions";
+import { updateProduct } from "@/lib/actions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import EditProductModal from "./edit-product-modal";
@@ -32,19 +32,12 @@ type Props = {
 }
 
 export default function ProductsList({ products, agencies, suppliers, userRole }: Props) {
-    const canEditOrDelete = userRole === 'ADMIN' || userRole === 'MANAGER';
+    const canEdit = userRole === 'ADMIN' || userRole === 'MANAGER';
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedAgency, setSelectedAgency] = useState("");
     const [selectedSupplier, setSelectedSupplier] = useState("");
     const router = useRouter();
-
-    const handleDelete = async (id: string) => {
-        if (confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
-            await deleteProduct(id);
-            router.refresh();
-        }
-    }
 
     const getAgencyName = (id: string) => {
         return agencies.find(a => a.id === id)?.name || 'غير معروف';
@@ -168,7 +161,7 @@ export default function ProductsList({ products, agencies, suppliers, userRole }
                             )}
 
                             <div className="space-y-1 my-3 text-sm">
-                                {canEditOrDelete && (
+                                {canEdit && (
                                     <div className="flex justify-between text-gray-600">
                                         <span>سعر المصنع:</span>
                                         <span className="font-semibold">{product.factoryPrice.toLocaleString('en-US')}</span>
@@ -206,19 +199,13 @@ export default function ProductsList({ products, agencies, suppliers, userRole }
                                 </div>
                             </div>
 
-                            {canEditOrDelete && (
+                            {canEdit && (
                                 <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
                                     <button
                                         onClick={() => setEditingProduct(product)}
                                         className="flex-1 bg-emerald-50 text-emerald-600 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-100 transition"
                                     >
                                         تعديل
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(product.id)}
-                                        className="flex-1 bg-red-50 text-red-500 py-1.5 rounded-lg text-sm font-medium hover:bg-red-100 transition"
-                                    >
-                                        حذف
                                     </button>
                                 </div>
                             )}

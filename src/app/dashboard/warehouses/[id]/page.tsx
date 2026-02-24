@@ -7,54 +7,9 @@ export const dynamic = 'force-dynamic';
 export default async function WarehouseDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: warehouseId } = await params;
 
-    let warehouse: any = null;
-    let allProducts: any[] = [];
-    let allStocks: any[] = [];
-    let allUsers: any[] = [];
-    let transactions: any[] = [];
-    let allRepStocks: any[] = [];
-    let allCustomers: any[] = [];
-    let allWarehouses: any[] = [];
-
-    try {
-        warehouse = await getWarehouse(warehouseId);
-        if (warehouse) {
-            // Fetch everything else only if warehouse exists
-            const [
-                productsData,
-                stocksData,
-                usersData,
-                transactionsData,
-                repStocksData,
-                customersData,
-                warehousesData
-            ] = await Promise.all([
-                getProducts(),
-                getStocks(),
-                getUsers(),
-                getTransactions(warehouseId),
-                getAllRepStocks(),
-                getCustomers(),
-                getWarehouses()
-            ]);
-
-            allProducts = productsData || [];
-            allStocks = stocksData || [];
-            allUsers = usersData || [];
-            transactions = transactionsData || [];
-            allRepStocks = repStocksData || [];
-            allCustomers = customersData || [];
-            allWarehouses = (warehousesData || []).map((w: any) => ({
-                id: w.id,
-                name: w.name,
-                agencyId: w.agencyId
-            }));
-        }
-    } catch (e) {
-        console.error("Warehouse details fetch error:", e);
-    }
-
-    if (!warehouse) {
+    const warehouse = await getWarehouse(warehouseId);
+    const user = await getCurrentUser();
+    if (!warehouse || !user) {
         return (
             <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300 m-8">
                 <div className="text-5xl mb-4">🔍</div>
@@ -64,6 +19,49 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                 </Link>
             </div>
         );
+    }
+
+    let allProducts: any[] = [];
+    let allStocks: any[] = [];
+    let allUsers: any[] = [];
+    let transactions: any[] = [];
+    let allRepStocks: any[] = [];
+    let allCustomers: any[] = [];
+    let allWarehouses: any[] = [];
+
+    try {
+        // Fetch everything else
+        const [
+            productsData,
+            stocksData,
+            usersData,
+            transactionsData,
+            repStocksData,
+            customersData,
+            warehousesData
+        ] = await Promise.all([
+            getProducts(),
+            getStocks(),
+            getUsers(),
+            getTransactions(warehouseId),
+            getAllRepStocks(),
+            getCustomers(),
+            getWarehouses()
+        ]);
+
+        allProducts = productsData || [];
+        allStocks = stocksData || [];
+        allUsers = usersData || [];
+        transactions = transactionsData || [];
+        allRepStocks = repStocksData || [];
+        allCustomers = customersData || [];
+        allWarehouses = (warehousesData || []).map((w: any) => ({
+            id: w.id,
+            name: w.name,
+            agencyId: w.agencyId
+        }));
+    } catch (e) {
+        console.error("Warehouse details fetch error:", e);
     }
 
     // Map products to convert Decimal to number
@@ -115,19 +113,38 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                 if (t.type === 'SALE') {
                     if (t.note && t.note.includes('تحميل للمندوب')) displayType = 'LOAD_TO_REP';
                 } else if (t.type === 'PURCHASE') {
-                    if (t.note && t.note.includes('مرتجع')) displayType = 'RETURN';
+                    if (t.note && (t.note.includes('مرتجع') || t.type === 'RETURN_OUT')) displayType = 'RETURN';
                     else displayType = 'SUPPLY';
                 }
 
+                // Determine party name
+                const partyName = t.customer?.name || t.supplier?.name || (t.type === 'SALE' ? 'عميل نقدي' : 'توريد مخزن');
+
                 uiTransactions.push({
                     id: `${t.id}-${item.id}`,
+                    baseId: t.id,
                     productId: item.productId,
                     type: displayType,
-                    quantityChange: t.type === 'SALE' ? -item.quantity : item.quantity,
+                    rawType: t.type,
+                    quantityChange: (t.type === 'SALE' || t.type === 'RETURN_OUT') ? -item.quantity : item.quantity,
                     newQuantity: item.quantity,
                     date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
                     price: Number(item.price || 0),
-                    note: t.note || ''
+                    note: t.note || '',
+                    partyName,
+                    userName: t.user?.name || 'غير معروف',
+                    items: t.items.map((i: any) => ({
+                        productId: i.productId,
+                        productName: i.product.name,
+                        quantity: i.quantity,
+                        price: Number(i.price),
+                        total: i.quantity * Number(i.price)
+                    })),
+                    paymentInfo: {
+                        type: t.paymentType,
+                        paidAmount: Number(t.paidAmount || 0),
+                        totalAmount: Number(t.totalAmount || 0)
+                    }
                 });
             });
         }
@@ -204,6 +221,7 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                     allRepStocks={mappedRepStocks}
                     allCustomers={sanitizedCustomers}
                     warehouses={allWarehouses}
+                    userRole={user.role}
                 />
             </div>
         </div>

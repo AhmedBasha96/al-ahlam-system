@@ -1,6 +1,6 @@
 'use client';
 
-import { deleteUser, updateUser } from "@/lib/actions";
+import { updateUser } from "@/lib/actions";
 import { useState } from "react";
 import EditUserModal from "./edit-user-modal";
 
@@ -23,13 +23,6 @@ type Props = {
 export default function UsersList({ users, agencies, currentUserRole }: Props) {
     const [editingUser, setEditingUser] = useState<User | null>(null);
 
-    const handleDelete = async (id: string) => {
-        if (confirm("هل أنت متأكد من حذف هذا المستخدم؟")) {
-            await deleteUser(id);
-        }
-    }
-
-    // ... helper functions omitted for brevity, they remain unchanged ...
     const getAgencyNames = (user: User) => {
         const ids = user.agencyIds || (user.agencyId ? [user.agencyId] : []);
         if (ids.length === 0) return 'الكل / غير محدد';
@@ -112,16 +105,10 @@ export default function UsersList({ users, agencies, currentUserRole }: Props) {
                                             </a>
                                         )}
                                         <button
-                                            className="ml-3 text-emerald-600 hover:text-emerald-800 text-sm font-medium transition-colors"
+                                            className="text-emerald-600 hover:text-emerald-800 text-sm font-medium transition-colors"
                                             onClick={() => setEditingUser(user)}
                                         >
                                             تعديل
-                                        </button>
-                                        <button
-                                            className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors"
-                                            onClick={() => handleDelete(user.id)}
-                                        >
-                                            حذف
                                         </button>
                                     </td>
                                 )}

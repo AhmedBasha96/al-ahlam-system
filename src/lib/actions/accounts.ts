@@ -346,6 +346,26 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
     };
 }
 
+export async function updateAccountRecord(id: string, updates: { amount?: number; description?: string; category?: string }) {
+    try {
+        const data: any = {};
+        if (updates.amount !== undefined) data.amount = updates.amount;
+        if (updates.description !== undefined) data.description = updates.description;
+        if (updates.category !== undefined) data.category = updates.category;
+
+        await prisma.accountRecord.update({
+            where: { id },
+            data
+        });
+
+        revalidatePath('/dashboard/accounts', 'layout');
+        return { success: true };
+    } catch (error) {
+        console.error("updateAccountRecord error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
 export async function getAgencySuppliersBalances(agencyId: string) {
     const suppliers = await (prisma as any).supplier.findMany({
         where: { agencyId },

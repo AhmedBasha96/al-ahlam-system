@@ -5,6 +5,7 @@ import NewInvoiceButton from "./new-invoice-button";
 import PricingToggle from "./pricing-toggle";
 import DebugInfo from "./debug-info";
 import RepDebtBreakdown from "./rep-debt-breakdown";
+import RepSessionTable from "./rep-session-table";
 
 export const dynamic = 'force-dynamic';
 
@@ -143,7 +144,7 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-3 space-y-6">
                     <RepAuditForm
                         repId={repId}
                         repName={rep.name}
@@ -151,6 +152,11 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                         products={allProducts}
                         repStocks={repStocks}
                         warehouses={warehouses}
+                        userRole={currentUser.role}
+                    />
+
+                    <RepSessionTable
+                        sessions={salesSessions}
                         userRole={currentUser.role}
                     />
                 </div>
@@ -166,7 +172,7 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                 </div>
             </div>
 
-            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-gray-600 text-xs">
+            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-gray-600 text-xs text-center">
                 <strong>ملاحظة تقنية:</strong> عند "تأكيد الجرد"، يتم تحديث رصيد المندوب ليصبح مساوياً للكمية الفعلية التي أدخلتها. لزيادة العهدة مجدداً، استخدم "إذن صرف" من شاشة المخازن.
             </div>
 

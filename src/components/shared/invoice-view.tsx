@@ -14,36 +14,51 @@ interface InvoiceItem {
 interface InvoiceViewProps {
     invoiceId: string;
     date: Date | string;
-    customerName: string;
-    repName: string;
+    partyName: string; // Customer or Supplier Name
+    userName: string;  // Representative or User Name
     items: InvoiceItem[];
     totalAmount: number;
     paidAmount?: number;
     remainingAmount?: number;
     paymentType: string;
+    type?: 'SALE' | 'PURCHASE' | 'RETURN_IN' | 'RETURN_OUT' | 'INITIAL_STOCK' | 'INCOME' | 'EXPENSE';
 }
 
 export function InvoiceView({
     invoiceId,
     date,
-    customerName,
-    repName,
+    partyName,
+    userName,
     items,
     totalAmount,
     paidAmount = 0,
     remainingAmount = 0,
-    paymentType
+    paymentType,
+    type = 'SALE'
 }: InvoiceViewProps) {
+    const isPurchase = type === 'PURCHASE' || type === 'RETURN_OUT';
+    const isReturn = type === 'RETURN_IN' || type === 'RETURN_OUT';
+    const isInitial = type === 'INITIAL_STOCK';
+
+    const title = isInitial ? "رصيد بضاعة أول المدة" :
+        isReturn ? "فاتورة مرتجع" :
+            isPurchase ? "فاتورة مشتريات" :
+                type === 'INCOME' ? "إيصال توريد نقدية" :
+                    type === 'EXPENSE' ? "إيصال صرف نقدية" : "فاتورة مبيعات";
+
+    const partyLabel = isPurchase ? "المورد" : "العميل";
+    const userLabel = isPurchase ? "المستلم" : "المندوب";
+
     const handlePrint = () => {
         window.print();
     };
 
     const handleWhatsApp = () => {
         const message = `
-*فاتورة مبيعات - الاحلام*
+*${title} - الاحلام*
 📅 *التاريخ:* ${new Date(date).toLocaleDateString('ar-EG')}
 🧾 *رقم:* ${invoiceId}
-👤 *العميل:* ${customerName}
+👤 *${partyLabel}:* ${partyName}
 🛒 *الأصناف:*
 ${items.map(i => `- ${i.productName} (${i.quantity} × ${i.price} = ${i.total})`).join('\n')}
 ------------------
@@ -61,7 +76,7 @@ ${items.map(i => `- ${i.productName} (${i.quantity} × ${i.price} = ${i.total})`
             {/* Header */}
             <div className="flex justify-between items-start mb-8">
                 <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-2">فاتورة مبيعات</h1>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-2">{title}</h1>
                     <div className="flex items-center gap-2 text-slate-500 font-bold">
                         <Hash className="w-4 h-4" />
                         <span>رقم الفاتورة: {invoiceId.slice(0, 8)}</span>
@@ -69,7 +84,9 @@ ${items.map(i => `- ${i.productName} (${i.quantity} × ${i.price} = ${i.total})`
                 </div>
                 <div className="text-right">
                     <div className="text-2xl font-black text-indigo-600 mb-1">الاحلام للتجارة</div>
-                    <div className="text-sm text-slate-400 font-bold tracking-widest uppercase">Sales Invoice</div>
+                    <div className="text-sm text-slate-400 font-bold tracking-widest uppercase">
+                        {type === 'SALE' ? 'Sales Invoice' : type === 'PURCHASE' ? 'Purchase Invoice' : type === 'INCOME' ? 'Income Voucher' : type === 'EXPENSE' ? 'Expense Voucher' : 'Transaction Record'}
+                    </div>
                 </div>
             </div>
 
@@ -81,8 +98,8 @@ ${items.map(i => `- ${i.productName} (${i.quantity} × ${i.price} = ${i.total})`
                             <User className="w-5 h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">العميل</div>
-                            <div className="font-bold text-slate-800">{customerName}</div>
+                            <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">{partyLabel}</div>
+                            <div className="font-bold text-slate-800">{partyName}</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -101,8 +118,8 @@ ${items.map(i => `- ${i.productName} (${i.quantity} × ${i.price} = ${i.total})`
                             <ShoppingBag className="w-5 h-5 text-rose-600" />
                         </div>
                         <div>
-                            <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">المندوب</div>
-                            <div className="font-bold text-slate-800">{repName}</div>
+                            <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">{userLabel}</div>
+                            <div className="font-bold text-slate-800">{userName}</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -148,11 +165,11 @@ ${items.map(i => `- ${i.productName} (${i.quantity} × ${i.price} = ${i.total})`
                     <span>{totalAmount.toLocaleString()} ج.م</span>
                 </div>
                 <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
-                    <span>تحصيل (كاش)</span>
+                    <span>المدفوع</span>
                     <span>{paidAmount.toLocaleString()} ج.م</span>
                 </div>
                 <div className="flex justify-between items-center pt-3 border-t border-slate-200">
-                    <span className="text-lg font-black text-slate-900">المتبقي مديونية</span>
+                    <span className="text-lg font-black text-slate-900">المتبقي</span>
                     <span className="text-2xl font-black text-indigo-600">{remainingAmount.toLocaleString()} ج.م</span>
                 </div>
             </div>

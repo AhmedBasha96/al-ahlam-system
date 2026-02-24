@@ -1,7 +1,9 @@
+'use client';
+
 import { useState } from "react";
 import { InvoiceView } from "@/components/shared/invoice-view";
 
-type SoldItem = {
+type TransactionItem = {
     productId: string;
     productName: string;
     quantity: number;
@@ -11,10 +13,9 @@ type SoldItem = {
 
 type Props = {
     id?: string;
-    repId?: string;
-    repName: string;
-    customerName?: string;
-    items: SoldItem[];
+    partyName: string; // Customer or Supplier Name
+    userName: string;  // Representative or Responsible User
+    items: TransactionItem[];
     paymentInfo?: {
         type: 'CASH' | 'CREDIT' | 'PARTIAL';
         paidAmount?: number;
@@ -23,16 +24,29 @@ type Props = {
     date?: Date | string;
     editable?: boolean;
     paymentOnly?: boolean;
+    type?: 'SALE' | 'PURCHASE' | 'RETURN_IN' | 'RETURN_OUT' | 'INITIAL_STOCK' | 'INCOME' | 'EXPENSE';
     onUpdate?: (id: string, updates: any) => Promise<any>;
     onClose: () => void;
 }
 
-export default function SalesInvoiceModal({ id, repId, repName, customerName, items, paymentInfo, date: initialDate, editable, paymentOnly, onUpdate, onClose }: Props) {
+export default function TransactionModal({
+    id,
+    partyName,
+    userName,
+    items,
+    paymentInfo,
+    date: initialDate,
+    editable,
+    paymentOnly,
+    type = 'SALE',
+    onUpdate,
+    onClose
+}: Props) {
     const [localItems, setLocalItems] = useState(items);
     const [newPaymentAmount, setNewPaymentAmount] = useState("");
     const [saving, setSaving] = useState(false);
 
-    const totalAmount = localItems.reduce((sum: number, item: SoldItem) => sum + item.total, 0);
+    const totalAmount = localItems.reduce((sum: number, item: TransactionItem) => sum + item.total, 0);
     const date = initialDate ? new Date(initialDate) : new Date();
 
     const updateItem = (index: number, field: 'quantity' | 'price', value: number) => {
@@ -80,14 +94,14 @@ export default function SalesInvoiceModal({ id, repId, repName, customerName, it
                         <InvoiceView
                             invoiceId={id || "NEW"}
                             date={date}
-                            partyName={customerName || "عميل نقدي"}
-                            userName={repName}
+                            partyName={partyName}
+                            userName={userName}
                             items={items}
                             totalAmount={paymentInfo?.totalAmount || totalAmount}
                             paidAmount={paymentInfo?.paidAmount}
                             remainingAmount={(paymentInfo?.totalAmount || totalAmount) - (paymentInfo?.paidAmount || 0)}
                             paymentType={paymentInfo?.type || 'CASH'}
-                            type="SALE"
+                            type={type}
                         />
                     </div>
                 ) : (
@@ -145,7 +159,7 @@ export default function SalesInvoiceModal({ id, repId, repName, customerName, it
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
-                                            {localItems.map((item: SoldItem, index: number) => (
+                                            {localItems.map((item: TransactionItem, index: number) => (
                                                 <tr key={index}>
                                                     <td className="p-4 font-bold text-slate-800">{item.productName}</td>
                                                     <td className="p-4 text-center">

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, Fragment } from "react";
-import { updateSalesSession } from "@/lib/actions";
-import SalesInvoiceModal from "../../reps/[id]/sales-invoice-modal";
+import { updateTransaction } from "@/lib/actions";
+import TransactionModal from "@/components/shared/transaction-modal";
 
 type SoldItem = {
     productId: string;
@@ -148,10 +148,10 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
             </table>
             {/* View Modal */}
             {viewingSession && (
-                <SalesInvoiceModal
+                <TransactionModal
                     id={viewingSession.id}
-                    repName={viewingSession.repName}
-                    customerName={viewingSession.customerName}
+                    partyName={viewingSession.customerName || "عميل نقدي"}
+                    userName={viewingSession.repName}
                     items={viewingSession.items}
                     paymentInfo={{
                         type: viewingSession.paymentType,
@@ -160,15 +160,16 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                     }}
                     date={viewingSession.date}
                     onClose={() => setViewingSession(null)}
+                    type="SALE"
                 />
             )}
 
             {/* Edit Modal */}
             {editingSession && (
-                <SalesInvoiceModal
+                <TransactionModal
                     id={editingSession.id}
-                    repName={editingSession.repName}
-                    customerName={editingSession.customerName}
+                    partyName={editingSession.customerName || "عميل نقدي"}
+                    userName={editingSession.repName}
                     items={editingSession.items}
                     paymentInfo={{
                         type: editingSession.paymentType,
@@ -177,19 +178,20 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                     }}
                     date={editingSession.date}
                     editable={true}
-                    onUpdate={updateSalesSession}
+                    onUpdate={updateTransaction}
                     onClose={() => {
                         setEditingSession(null);
                         window.location.reload(); // Refresh to show updated data
                     }}
+                    type="SALE"
                 />
             )}
             {/* Payment Settlement Modal */}
             {paymentSession && (
-                <SalesInvoiceModal
+                <TransactionModal
                     id={paymentSession.id}
-                    repName={paymentSession.repName}
-                    customerName={paymentSession.customerName}
+                    partyName={paymentSession.customerName || "عميل نقدي"}
+                    userName={paymentSession.repName}
                     items={paymentSession.items}
                     paymentInfo={{
                         type: paymentSession.paymentType,
@@ -198,11 +200,12 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                     }}
                     date={paymentSession.date}
                     paymentOnly={true}
-                    onUpdate={updateSalesSession}
+                    onUpdate={updateTransaction}
                     onClose={() => {
                         setPaymentSession(null);
                         window.location.reload();
                     }}
+                    type="SALE"
                 />
             )}
         </div >

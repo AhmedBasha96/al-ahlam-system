@@ -1,4 +1,4 @@
-import { createWarehouse, getAgencies, getWarehouses, deleteWarehouse, getCurrentUser } from "@/lib/actions";
+import { createWarehouse, getAgencies, getWarehouses, getCurrentUser } from "@/lib/actions";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -88,17 +88,10 @@ export default async function WarehousesPage() {
                                                     ? warehouse.createdAt.toLocaleDateString('en-GB')
                                                     : String(warehouse.createdAt)}
                                             </td>
-                                            <td className="p-4 flex gap-2">
+                                            <td className="p-4 flex gap-2 justify-center">
                                                 <Link href={`/dashboard/warehouses/${warehouse.id}`} className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded text-sm hover:bg-emerald-200 transition">
                                                     إدارة الأرصدة
                                                 </Link>
-                                                {isAdminOrManager && (
-                                                    <>
-                                                        <form action={deleteWarehouse.bind(null, warehouse.id)}>
-                                                            <button className="text-red-500 hover:text-red-700 font-medium text-sm">حذف</button>
-                                                        </form>
-                                                    </>
-                                                )}
                                             </td>
                                         </tr>
                                     );

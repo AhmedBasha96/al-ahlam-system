@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus, Building2, Phone, MapPin, X, Edit2, Trash2, ExternalLink } from "lucide-react";
+import { UserPlus, Building2, Phone, MapPin, X, Edit2, ExternalLink } from "lucide-react";
 import SupplierForm from "@/app/dashboard/suppliers/supplier-form";
-import { deleteSupplier } from "@/lib/actions/suppliers";
 import Link from 'next/link';
 
 interface Supplier {
@@ -26,18 +25,6 @@ export default function SuppliersManager({ agencyId, suppliers, agencies }: Prop
     const [isAdding, setIsAdding] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
     const router = useRouter();
-
-    const handleDelete = async (id: string, name: string) => {
-        if (confirm(`هل أنت متأكد من حذف المورد "${name}"؟`)) {
-            try {
-                await deleteSupplier(id);
-                alert('تم حذف المورد بنجاح');
-                router.refresh();
-            } catch (error) {
-                alert('حدث خطأ أثناء الحذف');
-            }
-        }
-    };
 
     return (
         <div className="space-y-6">
@@ -104,12 +91,6 @@ export default function SuppliersManager({ agencyId, suppliers, agencies }: Prop
                                             className="p-2 hover:bg-slate-100 rounded-full text-blue-500 transition-colors"
                                         >
                                             <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(supplier.id, supplier.name)}
-                                            className="p-2 hover:bg-slate-100 rounded-full text-rose-500 transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>

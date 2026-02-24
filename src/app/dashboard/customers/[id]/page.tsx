@@ -1,14 +1,16 @@
-import { getCustomerDetails } from "@/lib/actions";
+import { getCustomerDetails, getCurrentUser } from "@/lib/actions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DebtCollectionForm from "./debt-collection-form";
 import { OpeningBalanceModal } from "@/components/accounts/opening-balance-modal";
+import CustomerLedgerTable from "./customer-ledger-table";
 
 export const dynamic = 'force-dynamic';
 
 export default async function CustomerDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const customer = await getCustomerDetails(id);
+    const currentUser = await getCurrentUser();
 
     if (!customer) {
         notFound();
@@ -76,77 +78,23 @@ export default async function CustomerDetailsPage({ params }: { params: Promise<
                         </Link>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-right">
-                            <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold border-b border-gray-100">
-                                <tr>
-                                    <th className="px-6 py-4">البيان / التاريخ</th>
-                                    <th className="px-6 py-4">الحالة/الطريقة</th>
-                                    <th className="px-6 py-4">قيمة العملية</th>
-                                    <th className="px-6 py-4 text-emerald-700">المحصل/المدفوع</th>
-                                    <th className="px-6 py-4 text-red-600">المتبقي (دين)</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 text-sm">
-                                {customer.transactions.map((transaction: any) => (
-                                    <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-gray-900">
-                                                {transaction.type === 'COLLECTION' ? '💰 تحصيل مديونية' :
-                                                    transaction.type === 'SALE' ? `#INV-${transaction.id.slice(0, 8)}` :
-                                                        transaction.type}
-                                            </div>
-                                            <div className="text-xs text-gray-400">
-                                                {new Date(transaction.createdAt).toLocaleDateString('ar-EG', {
-                                                    year: 'numeric',
-                                                    month: 'long',
-                                                    day: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </div>
-                                            {transaction.note && (
-                                                <div className="text-[10px] text-gray-400 mt-1 italic">{transaction.note}</div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-xs">
-                                            {transaction.type === 'COLLECTION' ? (
-                                                <span className="px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold">تحصيل نقدي</span>
-                                            ) : (
-                                                <span className={`px-2 py-1 rounded-full font-black ${transaction.paymentType === 'CASH' ? 'bg-emerald-100 text-emerald-700' :
-                                                    transaction.paymentType === 'CREDIT' ? 'bg-red-100 text-red-700' :
-                                                        'bg-blue-100 text-blue-700'
-                                                    }`}>
-                                                    {transaction.paymentType === 'CASH' ? 'نقدي' :
-                                                        transaction.paymentType === 'CREDIT' ? 'آجل' : 'جزئي'}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 font-bold">
-                                            {transaction.type === 'COLLECTION' ? '---' : Number(transaction.totalAmount).toLocaleString()}
-                                        </td>
-                                        <td className="px-6 py-4 text-emerald-700 font-bold">
-                                            {transaction.type === 'COLLECTION' ? (
-                                                <span className="text-blue-600">+{Number(transaction.paidAmount).toLocaleString()}</span>
-                                            ) : (
-                                                Number(transaction.paidAmount || 0).toLocaleString()
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-red-600 font-black">
-                                            {transaction.type === 'COLLECTION' ? '---' : Number(transaction.remainingAmount || 0).toLocaleString()}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {customer.transactions.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400 italic">
-                                            لا توجد مبيعات أو تحصيلات مسجلة لهذا العميل بعد
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                    <CustomerLedgerTable
+                        transactions={customer.transactions.map((t: any) => ({
+                            ...t,
+                            totalAmount: Number(t.totalAmount || 0),
+                            paidAmount: Number(t.paidAmount || 0),
+                            remainingAmount: Number(t.remainingAmount || 0),
+                            items: (t.items || []).map((i: any) => ({
+                                productId: i.productId,
+                                productName: i.product?.name || "منتج غير معروف",
+                                quantity: i.quantity,
+                                price: Number(i.price || 0),
+                                total: i.quantity * Number(i.price || 0)
+                            }))
+                        }))}
+                        customerName={customer.name}
+                        userRole={currentUser?.role}
+                    />
                 </div>
             </div>
         </div>

@@ -54,13 +54,19 @@ type Customer = {
 
 type Transaction = {
     id: string;
+    baseId: string;
     productId: string;
     type: 'SUPPLY' | 'LOAD_TO_REP' | 'RETURN' | 'ADJUSTMENT' | 'PURCHASE' | 'SALE' | 'INITIAL_STOCK';
+    rawType: string;
     quantityChange: number;
     newQuantity: number;
     date: string;
     price?: number;
     note?: string;
+    partyName: string;
+    userName: string;
+    items: any[];
+    paymentInfo: any;
 }
 
 type Props = {
@@ -72,11 +78,23 @@ type Props = {
     allRepStocks: RepStock[];
     allCustomers: Customer[];
     warehouses: { id: string, name: string }[];
+    userRole?: string;
 }
 
+import { updateTransaction } from "@/lib/actions";
+import TransactionModal from "@/components/shared/transaction-modal";
 
-
-export default function WarehouseOperations({ warehouseId, agencyProducts, allStocks, reps, transactions, allRepStocks, allCustomers, warehouses }: Props) {
+export default function WarehouseOperations({
+    warehouseId,
+    agencyProducts,
+    allStocks,
+    reps,
+    transactions,
+    allRepStocks,
+    allCustomers,
+    warehouses,
+    userRole
+}: Props) {
     const [activeTab, setActiveTab] = useState<'inventory' | 'loading' | 'history' | 'rep-audit'>('inventory');
     const [selectedRepId, setSelectedRepId] = useState<string>("");
     const [supplyModeProductId, setSupplyModeProductId] = useState<string | null>(null);
@@ -88,11 +106,17 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
     const [historyStartDate, setHistoryStartDate] = useState("");
     const [historyEndDate, setHistoryEndDate] = useState("");
 
+    const [viewingTx, setViewingTx] = useState<Transaction | null>(null);
+    const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
     const router = useRouter();
+
+    const canEdit = userRole === 'ADMIN' || userRole === 'MANAGER' || userRole === 'SECURITY';
 
     return (
         <div className="space-y-6">
             {/* Tabs Navigation */}
+            {/* ... (keep existing tabs) ... */}
             <div className="flex border-b border-gray-200 overflow-x-auto">
                 <button
                     onClick={() => setActiveTab('inventory')}
@@ -135,6 +159,7 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
             {/* Tab Content */}
             <div className="animate-in fade-in duration-300">
                 {activeTab === 'inventory' ? (
+                    /* ... inventory table (keep existing) ... */
                     <div className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
                         <table className="w-full text-right">
                             <thead className="bg-emerald-50 text-emerald-900 border-b border-emerald-100">
@@ -211,13 +236,6 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                         </tr>
                                     );
                                 })}
-                                {agencyProducts.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="p-12 text-center text-gray-400 italic">
-                                            لا توجد منتجات مسجلة لهذا التوكيل حالياً. أضف منتجات أولاً من قسم المنتجات.
-                                        </td>
-                                    </tr>
-                                )}
                             </tbody>
                         </table>
                     </div>
@@ -345,6 +363,7 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                         <th className="p-4 font-semibold text-center">الإجمالي</th>
                                         <th className="p-4 font-semibold">الرصيد بعد الحركة</th>
                                         <th className="p-4 font-semibold">ملاحظات</th>
+                                        <th className="p-4 font-semibold text-center">الإجراءات</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -376,7 +395,7 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                         if (filtered.length === 0) {
                                             return (
                                                 <tr>
-                                                    <td colSpan={8} className="p-12 text-center text-gray-400">لا توجد حركات تطابق الفلترة المختارة.</td>
+                                                    <td colSpan={9} className="p-12 text-center text-gray-400">لا توجد حركات تطابق الفلترة المختارة.</td>
                                                 </tr>
                                             );
                                         }
@@ -384,7 +403,7 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                         return filtered.map(t => {
                                             const product = agencyProducts.find(p => p.id === t.productId);
                                             return (
-                                                <tr key={t.id} className="hover:bg-gray-50">
+                                                <tr key={t.id} className="group hover:bg-gray-50 transition-all">
                                                     <td className="p-4 text-sm text-gray-500 font-mono">
                                                         {new Date(t.date).toLocaleString('ar-EG', {
                                                             year: 'numeric', month: '2-digit', day: '2-digit',
@@ -418,13 +437,33 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                                         {t.quantityChange > 0 ? `+${t.quantityChange}` : t.quantityChange}
                                                     </td>
                                                     <td className="p-4 text-center text-gray-600 font-mono">
-                                                        {t.type !== 'PURCHASE' && t.type !== 'SUPPLY' && t.price ? `${t.price.toLocaleString('en-US')} ج.م` : '-'}
+                                                        {t.price ? `${t.price.toLocaleString('en-US')} ج.م` : '-'}
                                                     </td>
                                                     <td className="p-4 text-center font-bold text-gray-900">
-                                                        {t.type !== 'PURCHASE' && t.type !== 'SUPPLY' && t.price ? `${(Math.abs(t.quantityChange) * t.price).toLocaleString('en-US')} ج.م` : '-'}
+                                                        {t.price ? `${(Math.abs(t.quantityChange) * t.price).toLocaleString('en-US')} ج.م` : '-'}
                                                     </td>
                                                     <td className="p-4 font-mono font-bold text-gray-700">{t.newQuantity}</td>
                                                     <td className="p-4 text-sm text-gray-600">{t.note}</td>
+                                                    <td className="p-4 text-center">
+                                                        {t.baseId && (
+                                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                                                <button
+                                                                    onClick={() => setViewingTx(t)}
+                                                                    className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-800 transition shadow-sm"
+                                                                >
+                                                                    فاتورة 📄
+                                                                </button>
+                                                                {canEdit && (t.rawType === 'SALE' || t.rawType === 'PURCHASE' || t.rawType === 'RETURN_IN' || t.rawType === 'RETURN_OUT') && (
+                                                                    <button
+                                                                        onClick={() => setEditingTx(t)}
+                                                                        className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-100 transition shadow-sm"
+                                                                    >
+                                                                        تعديل ✏️
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             );
                                         });
@@ -435,6 +474,38 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                     </div>
                 )}
             </div>
+
+            {/* Modals */}
+            {viewingTx && (
+                <TransactionModal
+                    id={viewingTx.baseId}
+                    partyName={viewingTx.partyName}
+                    userName={viewingTx.userName}
+                    items={viewingTx.items}
+                    paymentInfo={viewingTx.paymentInfo}
+                    date={viewingTx.date}
+                    onClose={() => setViewingTx(null)}
+                    type={viewingTx.rawType as any}
+                />
+            )}
+
+            {editingTx && (
+                <TransactionModal
+                    id={editingTx.baseId}
+                    partyName={editingTx.partyName}
+                    userName={editingTx.userName}
+                    items={editingTx.items}
+                    paymentInfo={editingTx.paymentInfo}
+                    date={editingTx.date}
+                    editable={true}
+                    onUpdate={updateTransaction}
+                    onClose={() => {
+                        setEditingTx(null);
+                        window.location.reload();
+                    }}
+                    type={editingTx.rawType as any}
+                />
+            )}
         </div>
     );
 }

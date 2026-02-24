@@ -1,6 +1,6 @@
 'use client';
 
-import { deleteAgency, updateAgency } from "@/lib/actions";
+import { updateAgency } from "@/lib/actions";
 import { useState } from "react";
 import EditAgencyModal from "./edit-agency-modal";
 import Link from "next/link";
@@ -14,12 +14,6 @@ type Agency = {
 
 export default function AgenciesList({ agencies }: { agencies: Agency[] }) {
     const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
-
-    const handleDelete = async (id: string) => {
-        if (confirm("هل أنت متأكد من حذف هذا التوكيل؟")) {
-            await deleteAgency(id);
-        }
-    }
 
     return (
         <>
@@ -64,16 +58,10 @@ export default function AgenciesList({ agencies }: { agencies: Agency[] }) {
                                         الحسابات
                                     </Link>
                                     <button
-                                        className="text-emerald-600 hover:text-emerald-800 font-medium ml-3"
+                                        className="text-emerald-600 hover:text-emerald-800 font-medium"
                                         onClick={() => setEditingAgency(agency)}
                                     >
                                         تعديل
-                                    </button>
-                                    <button
-                                        className="text-red-500 hover:text-red-700 font-medium"
-                                        onClick={() => handleDelete(agency.id)}
-                                    >
-                                        حذف
                                     </button>
                                 </td>
                             </tr>

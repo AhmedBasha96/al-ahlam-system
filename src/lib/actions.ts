@@ -904,7 +904,12 @@ export async function supplyStock(
 export async function getTransactions(warehouseId: string) {
     return await prisma.transaction.findMany({
         where: { warehouseId },
-        include: { items: { include: { product: true } }, user: true },
+        include: {
+            items: { include: { product: true } },
+            user: true,
+            customer: true,
+            supplier: true
+        },
         orderBy: { createdAt: 'desc' }
     });
 }
@@ -1434,7 +1439,7 @@ export async function getAgencyPurchases() {
     });
 }
 
-export async function updateSalesSession(
+export async function updateTransaction(
     id: string, updates: any) {
     try {
         await prisma.$transaction(async (tx) => {
@@ -1485,10 +1490,12 @@ export async function updateSalesSession(
         });
 
         revalidatePath('/dashboard/reports/sales');
+        revalidatePath('/dashboard/accounts/reports/purchases');
+        revalidatePath('/dashboard/accounts/purchases');
         revalidatePath('/dashboard', 'layout');
         return { success: true };
     } catch (error) {
-        console.error("updateSalesSession error:", error);
+        console.error("updateTransaction error:", error);
         return { success: false, error: String(error) };
     }
 }
