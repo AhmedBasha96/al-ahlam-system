@@ -495,7 +495,7 @@ export async function getCustomers() {
                     type: true
                 }
             }
-        }
+        } as any
     });
 
     // Calculate total debt for each customer
@@ -538,7 +538,7 @@ export async function getCustomerDetails(id: string) {
                 orderBy: {
                     createdAt: 'desc'
                 }
-            }
+            } as any
         }
     });
 
@@ -582,10 +582,13 @@ export async function getCustomerDetails(id: string) {
         }))
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    const hasInitialBalance = (c.accounts || []).some((acc: any) => acc.category === 'رصيد بداية المدة');
+
     return {
         ...customer,
         totalDebt: transactionDebt + accountDebt,
-        transactions: mergedLedger // Reusing transactions name for UI compatibility
+        transactions: mergedLedger, // Reusing transactions name for UI compatibility
+        hasInitialBalance
     };
 }
 
@@ -1510,4 +1513,60 @@ export async function getRepDebtBreakdown(repId: string) {
             debt: debt
         };
     }).filter(c => c.debt !== 0);
+}
+
+export async function recordOpeningStock(formData: FormData) {
+    try {
+        const warehouseId = formData.get('warehouseId') as string;
+        const productId = formData.get('productId') as string;
+        const quantity = Number(formData.get('quantity'));
+        const cost = Number(formData.get('cost') || 0);
+        const date = formData.get('date') as string;
+
+        if (!warehouseId || !productId || !quantity) throw new Error('بيانات غير مكتملة');
+
+        const user = await getCurrentUser();
+        const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
+        if (!warehouse) throw new Error("Warehouse not found");
+
+        await prisma.$transaction(async (tx) => {
+            // 1. Update/Upsert Stock
+            await tx.stock.upsert({
+                where: { warehouseId_productId: { warehouseId, productId } },
+                update: { quantity: { increment: quantity } },
+                create: { warehouseId, productId, quantity }
+            });
+
+            // 2. Record Transaction
+            await (tx as any).transaction.create({
+                data: {
+                    type: 'INITIAL_STOCK' as any,
+                    totalAmount: quantity * cost,
+                    userId: user.id,
+                    agencyId: warehouse.agencyId,
+                    warehouseId: warehouseId,
+                    paymentType: 'CASH',
+                    paidAmount: 0,
+                    remainingAmount: 0,
+                    note: "بضاعة أول المدة",
+                    createdAt: date ? new Date(date) : new Date(),
+                    items: {
+                        create: [{
+                            productId: productId,
+                            quantity: quantity,
+                            price: cost,
+                            cost: cost
+                        }]
+                    }
+                } as any
+            });
+        });
+
+        revalidatePath('/dashboard/warehouses/[id]', 'page');
+        revalidatePath('/dashboard/warehouses', 'layout');
+        return { success: true };
+    } catch (error) {
+        console.error("recordOpeningStock error:", error);
+        return { success: false, error: String(error) };
+    }
 }

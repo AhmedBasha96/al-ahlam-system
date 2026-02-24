@@ -6,6 +6,7 @@ import LoadStockForm from "./load-stock-form";
 import { updateStock, supplyStock } from "@/lib/actions";
 import WarehouseAuditForm from "./warehouse-audit-form";
 import RepAuditForm from "../../reps/[id]/rep-audit-form";
+import { OpeningStockModal } from "@/components/inventory/opening-stock-modal";
 
 type Product = {
     id: string;
@@ -54,7 +55,7 @@ type Customer = {
 type Transaction = {
     id: string;
     productId: string;
-    type: 'SUPPLY' | 'LOAD_TO_REP' | 'RETURN' | 'ADJUSTMENT' | 'PURCHASE' | 'SALE';
+    type: 'SUPPLY' | 'LOAD_TO_REP' | 'RETURN' | 'ADJUSTMENT' | 'PURCHASE' | 'SALE' | 'INITIAL_STOCK';
     quantityChange: number;
     newQuantity: number;
     date: string;
@@ -144,6 +145,7 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                     <th className="p-4 font-semibold text-center">سعر القطاعي</th>
                                     <th className="p-4 font-semibold text-center">الكميه المتاحه</th>
                                     <th className="p-4 font-semibold text-center">تاريخ اخر تحديث للسعر</th>
+                                    <th className="p-4 font-semibold text-center w-[150px]">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -199,6 +201,11 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                                     </div>
                                                 ) : (
                                                     <span className="text-gray-300 italic">غير محدد</span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                {!transactions.some(t => t.productId === product.id && t.type === 'INITIAL_STOCK') && (
+                                                    <OpeningStockModal warehouseId={warehouseId} product={product} />
                                                 )}
                                             </td>
                                         </tr>
@@ -405,6 +412,7 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                                                         {t.type === 'RETURN' && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">مرتجع</span>}
                                                         {t.type === 'PURCHASE' && <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded">توريد</span>}
                                                         {t.type === 'SALE' && <span className="bg-red-100 text-red-700 px-2 py-1 rounded">صرف</span>}
+                                                        {t.type === 'INITIAL_STOCK' && <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded">بضاعة أول المدة</span>}
                                                     </td>
                                                     <td className={`p-4 text-center font-bold ${t.quantityChange > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                                         {t.quantityChange > 0 ? `+${t.quantityChange}` : t.quantityChange}

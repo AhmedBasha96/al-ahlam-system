@@ -277,6 +277,7 @@ enum TransactionType {
   RETURN_OUT
   COLLECTION
   SUPPLY_PAYMENT
+  INITIAL_STOCK
 }
 
 enum AccountRecordType {

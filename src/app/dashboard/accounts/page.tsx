@@ -111,7 +111,7 @@ export default async function AccountsDashboard() {
                                     الرصيد المتاح حالياً
                                 </p>
                             </div>
-                            <OpeningBalanceModal type="TREASURY" />
+                            <OpeningBalanceModal type="TREASURY" visible={!summary.hasInitialBalance} />
                         </div>
                     </div>
                 </div>

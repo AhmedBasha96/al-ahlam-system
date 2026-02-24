@@ -324,6 +324,16 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
     const allTx = await getTreasuryTransactions(agencyIdFilter as any);
     const treasuryBalance = allTx.length > 0 ? (allTx[0].balance || 0) : 0;
 
+    // Check if initial balance exists for Treasury
+    const hasInitialBalance = await prisma.accountRecord.findFirst({
+        where: {
+            category: 'رصيد بداية المدة',
+            agencyId: agencyIdFilter === 'GENERAL' ? null : (agencyIdFilter || undefined),
+            customerId: null,
+            supplierId: null
+        }
+    }).then(res => !!res);
+
     return {
         totalSales,
         totalCost,
@@ -331,7 +341,8 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         expenses,
         income,
         netProfit,
-        treasuryBalance
+        treasuryBalance,
+        hasInitialBalance
     };
 }
 

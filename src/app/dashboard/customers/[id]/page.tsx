@@ -35,7 +35,13 @@ export default async function CustomerDetailsPage({ params }: { params: Promise<
                 </div>
 
                 <div className="flex items-center gap-6">
-                    <OpeningBalanceModal type="CUSTOMER" id={customer.id} name={customer.name} agencyId={customer.agencyId} />
+                    <OpeningBalanceModal
+                        type="CUSTOMER"
+                        id={customer.id}
+                        name={customer.name}
+                        agencyId={customer.agencyId}
+                        visible={!customer.hasInitialBalance}
+                    />
                     <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-center md:text-right min-w-[200px]">
                         <p className="text-red-700 text-sm font-bold mb-1">إجمالي المديونية المستحقة</p>
                         <p className="text-3xl font-black text-red-600">

@@ -85,7 +85,13 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                 </div>
 
                 <div className="flex gap-3">
-                    <OpeningBalanceModal type="SUPPLIER" id={supplier.id} name={supplier.name} agencyId={supplier.agencyId} />
+                    <OpeningBalanceModal
+                        type="SUPPLIER"
+                        id={supplier.id}
+                        name={supplier.name}
+                        agencyId={supplier.agencyId}
+                        visible={!supplier.hasInitialBalance}
+                    />
                     <button className="bg-white text-slate-900 border border-slate-200 px-6 py-3 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
                         <FileText className="w-5 h-5" />
                         طباعة الكشف

@@ -85,7 +85,7 @@ export async function deleteSupplier(id: string) {
 }
 
 export async function getSupplierDetails(id: string) {
-    return await (prisma as any).supplier.findUnique({
+    const supplier = await (prisma as any).supplier.findUnique({
         where: { id },
         include: {
             agency: true,
@@ -106,4 +106,13 @@ export async function getSupplierDetails(id: string) {
             }
         }
     });
+
+    if (!supplier) return null;
+
+    const hasInitialBalance = supplier.accounts.some((acc: any) => acc.category === 'رصيد بداية المدة');
+
+    return {
+        ...supplier,
+        hasInitialBalance
+    };
 }

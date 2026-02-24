@@ -21,11 +21,14 @@ interface OpeningBalanceModalProps {
     id?: string;
     name?: string;
     agencyId?: string;
+    visible?: boolean;
 }
 
-export function OpeningBalanceModal({ type, id, name, agencyId }: OpeningBalanceModalProps) {
+export function OpeningBalanceModal({ type, id, name, agencyId, visible = true }: OpeningBalanceModalProps) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    if (!visible) return null;
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         setLoading(true);
