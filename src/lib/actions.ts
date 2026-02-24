@@ -488,21 +488,30 @@ export async function getCustomers() {
                 select: {
                     remainingAmount: true
                 }
+            },
+            accounts: {
+                select: {
+                    amount: true,
+                    type: true
+                }
             }
         }
     });
 
     // Calculate total debt for each customer
-    return customers.map(customer => {
-        const totalDebt = customer.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+    return (customers as any[]).map(customer => {
+        const transactionDebt = customer.transactions.reduce((sum: number, t: any) => sum + Number(t.remainingAmount || 0), 0);
+        const accountDebt = customer.accounts.reduce((sum: number, acc: any) => {
+            return sum + (acc.type === 'INCOME' ? Number(acc.amount) : -Number(acc.amount));
+        }, 0);
 
-        // Remove transactions to avoid serialization issues with Decimal objects
-        const { transactions, ...customerData } = customer;
+        // Remove transactions and accounts to avoid serialization issues
+        const { transactions, accounts, ...customerData } = customer;
 
         return {
             ...customerData,
             representativeIds: customer.representativeId ? [customer.representativeId] : [],
-            totalDebt
+            totalDebt: transactionDebt + accountDebt
         };
     });
 }
@@ -535,8 +544,9 @@ export async function getCustomerDetails(id: string) {
 
     if (!customer) return null;
 
-    const transactionDebt = customer.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
-    const accountDebt = customer.accounts.reduce((sum, acc) => {
+    const c = customer as any;
+    const transactionDebt = c.transactions.reduce((sum: number, t: any) => sum + Number(t.remainingAmount || 0), 0);
+    const accountDebt = c.accounts.reduce((sum: number, acc: any) => {
         // INCOME for a customer means they owed us that money (Initial Balance or manual debit)
         // EXPENSE for a customer would mean we paid/credited them (Manual credit)
         // For simplicity: INCOME = Debt (+), EXPENSE = Credit (-)
@@ -544,7 +554,7 @@ export async function getCustomerDetails(id: string) {
     }, 0);
 
     const mergedLedger = [
-        ...customer.transactions.map(t => ({
+        ...c.transactions.map((t: any) => ({
             id: t.id,
             type: t.type,
             createdAt: t.createdAt,
@@ -553,13 +563,13 @@ export async function getCustomerDetails(id: string) {
             remainingAmount: Number(t.remainingAmount || 0),
             note: t.note,
             paymentType: t.paymentType,
-            items: t.items.map(item => ({
+            items: t.items.map((item: any) => ({
                 ...item,
                 price: Number(item.price),
                 cost: Number(item.cost || 0)
             }))
         })),
-        ...customer.accounts.map(acc => ({
+        ...c.accounts.map((acc: any) => ({
             id: acc.id,
             type: 'ACCOUNT_ADJUSTMENT',
             createdAt: acc.createdAt,

@@ -46,7 +46,18 @@ export default async function AccountsDashboard() {
         where: { type: 'SALE' },
         _sum: { remainingAmount: true }
     });
-    const totalCustomerDebt = Number(totalCustomerDebtAgg._sum.remainingAmount || 0);
+
+    // Include AccountRecord adjustments for customers
+    const allCustomerAccounts = await prisma.accountRecord.findMany({
+        where: { customerId: { not: null } },
+        select: { amount: true, type: true }
+    });
+
+    const customerAccountAdjustment = allCustomerAccounts.reduce((sum, acc) => {
+        return sum + (acc.type === 'INCOME' ? Number(acc.amount) : -Number(acc.amount));
+    }, 0);
+
+    const totalCustomerDebt = Number(totalCustomerDebtAgg._sum.remainingAmount || 0) + customerAccountAdjustment;
 
     return (
         <div className="relative min-h-screen -m-6 p-8 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-rose-50/30 overflow-hidden">
