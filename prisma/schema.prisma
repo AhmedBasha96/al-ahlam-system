@@ -130,6 +130,7 @@ model Transaction {
   paidAmount      Decimal?
   remainingAmount Decimal?
   note            String?
+  status          TransactionStatus @default(ACTIVE)
   createdAt       DateTime          @default(now())
   imageUrl        String?           @db.LongText
   agency          Agency            @relation(fields: [agencyId], references: [id])
@@ -258,10 +259,16 @@ model Installment {
 enum Role {
   ADMIN
   MANAGER
+  SECURITY
   ACCOUNTANT
   WAREHOUSE_KEEPER
   SALES_REPRESENTATIVE
   SALES_RECORDER
+}
+
+enum TransactionStatus {
+  ACTIVE
+  CANCELED
 }
 
 enum PaymentType {

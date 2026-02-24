@@ -32,87 +32,82 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
     const [editingSession, setEditingSession] = useState<SalesSession | null>(null);
     const [paymentSession, setPaymentSession] = useState<SalesSession | null>(null);
 
-    const isAuthorized = userRole === 'ADMIN' || userRole === 'MANAGER' || userRole === 'ACCOUNTANT';
-    const canEditItems = userRole === 'ADMIN' || userRole === 'MANAGER';
+    const canEdit = userRole === 'ADMIN' || userRole === 'MANAGER' || userRole === 'SECURITY';
+    const canPay = userRole === 'ADMIN' || userRole === 'MANAGER' || userRole === 'ACCOUNTANT';
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
             <table className="w-full text-right">
-                <thead className="bg-gray-50 text-gray-400 text-xs font-bold uppercase border-b border-gray-100">
+                <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                     <tr>
-                        <th className="p-4">تاريخ الجلسة</th>
-                        <th className="p-4">المندوب</th>
-                        <th className="p-4">العميل</th>
-                        <th className="p-4">الحالة / الدفع</th>
-                        <th className="p-4">إجمالي المبيعات</th>
-                        <th className="p-4 text-center">التفاصيل</th>
+                        <th className="p-6">التوقيت والتاريخ</th>
+                        <th className="p-6">المندوب</th>
+                        <th className="p-6">العميل</th>
+                        <th className="p-6">الحالة المالية</th>
+                        <th className="p-6">القيمة الكلية</th>
+                        <th className="p-6 text-center">الإجراءات</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-slate-50">
                     {sessions.length === 0 ? (
                         <tr>
-                            <td colSpan={5} className="p-12 text-center text-gray-400 italic">
+                            <td colSpan={6} className="p-16 text-center text-slate-300 italic font-bold">
                                 لا توجد جلسات مبيعات مسجلة لهذه الفترة.
                             </td>
                         </tr>
                     ) : sessions.map((session) => (
                         <Fragment key={session.id}>
-                            <tr className="hover:bg-gray-50 transition-colors">
-                                <td className="p-4 font-medium text-gray-900">
-                                    {new Date(session.date).toLocaleDateString('en-US')}
-                                    <span className="text-[10px] text-gray-400 mr-2">
-                                        {new Date(session.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            <tr className="group hover:bg-slate-50/50 transition-all">
+                                <td className="p-6 text-sm font-bold text-slate-600">
+                                    {new Date(session.date).toLocaleDateString('ar-EG', { day: '2-digit', month: 'short' })}
+                                    <span className="text-[10px] text-slate-400 mr-2 font-mono">
+                                        {new Date(session.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </td>
-                                <td className="p-4 font-bold text-emerald-700">
-                                    {session.repName}
+                                <td className="p-6 text-indigo-600 font-black">{session.repName}</td>
+                                <td className="p-6 text-slate-800 font-bold">
+                                    {session.customerName || <span className="text-slate-300 italic text-xs">عميل نقدي</span>}
                                 </td>
-                                <td className="p-4 text-gray-900 font-medium">
-                                    {session.customerName || <span className="text-gray-400 italic text-xs">غير محدد</span>}
-                                </td>
-                                <td className="p-4">
-                                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${session.paymentType === 'CASH' ? 'bg-green-100 text-green-700' :
-                                        session.paymentType === 'CREDIT' ? 'bg-red-100 text-red-700' :
-                                            'bg-blue-100 text-blue-700'
+                                <td className="p-6">
+                                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-tighter ${session.paymentType === 'CASH' ? 'bg-emerald-100 text-emerald-700' :
+                                        session.paymentType === 'CREDIT' ? 'bg-rose-100 text-rose-700' :
+                                            'bg-indigo-100 text-indigo-700'
                                         }`}>
                                         {session.paymentType === 'CASH' ? 'كاش' :
                                             session.paymentType === 'CREDIT' ? 'آجل' :
                                                 'جزئي'}
                                     </span>
-                                    {session.paymentType === 'PARTIAL' && (
-                                        <p className="text-[10px] text-gray-500 mt-1">مدفوع: {session.paidAmount}</p>
-                                    )}
                                 </td>
-                                <td className="p-4 font-black text-gray-900">
-                                    {session.totalAmount.toLocaleString('en-US')} ج.م
+                                <td className="p-6 font-black text-slate-900 text-lg">
+                                    {session.totalAmount.toLocaleString()} <span className="text-[10px] text-slate-400">ج.م</span>
                                 </td>
-                                <td className="p-4 text-center">
-                                    <div className="flex items-center justify-center gap-2">
+                                <td className="p-6 text-center">
+                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
                                         <button
                                             onClick={() => setViewingSession(session)}
-                                            className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-emerald-100 transition"
+                                            className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-slate-800 transition shadow-lg shadow-slate-200"
                                         >
-                                            عرض وفواتير 📄
+                                            عرض الفاتورة 📄
                                         </button>
-                                        {(isAuthorized && session.paymentType !== 'CASH') && (
+                                        {(canPay && session.paymentType !== 'CASH') && (
                                             <button
                                                 onClick={() => setPaymentSession(session)}
-                                                className="bg-orange-50 text-orange-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-orange-100 transition"
+                                                className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
                                             >
-                                                تحصيل 💰
+                                                تحصيل 📥
                                             </button>
                                         )}
-                                        {canEditItems && (
+                                        {canEdit && (
                                             <button
                                                 onClick={() => setEditingSession(session)}
-                                                className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-100 transition"
+                                                className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-indigo-100 transition"
                                             >
                                                 تعديل ✏️
                                             </button>
                                         )}
                                         <button
                                             onClick={() => setExpandedId(expandedId === session.id ? null : session.id)}
-                                            className="text-gray-400 hover:text-gray-600 font-bold text-sm underline ml-2"
+                                            className="text-slate-400 hover:text-indigo-600 font-black text-[10px] uppercase tracking-widest px-2"
                                         >
                                             {expandedId === session.id ? 'إخفاء' : 'الأصناف'}
                                         </button>
@@ -120,25 +115,25 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                 </td>
                             </tr>
                             {expandedId === session.id && (
-                                <tr className="bg-emerald-50/30">
-                                    <td colSpan={6} className="p-4">
-                                        <div className="bg-white rounded-xl border border-emerald-100 shadow-inner overflow-hidden">
+                                <tr className="bg-slate-50/30">
+                                    <td colSpan={6} className="p-6">
+                                        <div className="bg-white rounded-2xl border border-slate-100 shadow-inner overflow-hidden">
                                             <table className="w-full text-xs">
-                                                <thead className="bg-emerald-100/50 text-emerald-800 font-bold">
+                                                <thead className="bg-slate-50 text-slate-400 font-black uppercase tracking-widest border-b border-slate-50">
                                                     <tr>
-                                                        <th className="p-2">الصنف</th>
-                                                        <th className="p-2 text-center">الكمية</th>
-                                                        <th className="p-2 text-center">السعر</th>
-                                                        <th className="p-2 text-center">الإجمالي</th>
+                                                        <th className="p-4 text-right">الصنف</th>
+                                                        <th className="p-4 text-center">الكمية</th>
+                                                        <th className="p-4 text-center">السعر</th>
+                                                        <th className="p-4 text-left">الإجمالي</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-emerald-50">
+                                                <tbody className="divide-y divide-slate-50">
                                                     {session.items.map((item, idx) => (
-                                                        <tr key={idx}>
-                                                            <td className="p-2 font-medium">{item.productName}</td>
-                                                            <td className="p-2 text-center font-bold text-emerald-600">{item.quantity}</td>
-                                                            <td className="p-2 text-center text-gray-500">{item.price.toLocaleString('en-US')}</td>
-                                                            <td className="p-2 text-center font-black">{item.total.toLocaleString('en-US')}</td>
+                                                        <tr key={idx} className="hover:bg-slate-50/50">
+                                                            <td className="p-4 font-bold text-slate-800">{item.productName}</td>
+                                                            <td className="p-4 text-center font-black text-indigo-600">{item.quantity}</td>
+                                                            <td className="p-4 text-center text-slate-500 font-mono">{item.price.toLocaleString()}</td>
+                                                            <td className="p-4 text-left font-black text-slate-900">{item.total.toLocaleString()}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
