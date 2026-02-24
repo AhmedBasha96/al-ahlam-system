@@ -20,6 +20,7 @@ export async function createAccountRecord(formData: FormData) {
     const date = formData.get('date') as string;
     const agencyIdRaw = formData.get('agencyId') as string;
     const supplierId = formData.get('supplierId') as string;
+    const customerId = formData.get('customerId') as string;
     const imageFile = formData.get('image') as File | null;
 
     // If agencyId is "GENERAL" or empty, store as null (General Expense)
@@ -51,6 +52,7 @@ export async function createAccountRecord(formData: FormData) {
             agencyId: agencyId, // Can be null now
             userId: user.id,
             supplierId: supplierId || null,
+            customerId: customerId || null,
             createdAt: date ? new Date(date) : new Date(),
             imageUrl: imageUrl,
         } as any
@@ -295,8 +297,14 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
     const salesTx = await prisma.transaction.findMany({ where: { ...txWhere, type: 'SALE' }, include: { items: true } });
     const purchasesTx = await prisma.transaction.findMany({ where: { ...txWhere, type: 'PURCHASE' }, include: { items: true } });
 
-    const expensesAgg = await prisma.accountRecord.aggregate({ where: { ...accWhere, type: 'EXPENSE' }, _sum: { amount: true } });
-    const incomeAgg = await prisma.accountRecord.aggregate({ where: { ...accWhere, type: 'INCOME' }, _sum: { amount: true } });
+    const expensesAgg = await prisma.accountRecord.aggregate({
+        where: { ...accWhere, type: 'EXPENSE', category: { not: 'رصيد بداية المدة' } },
+        _sum: { amount: true }
+    });
+    const incomeAgg = await prisma.accountRecord.aggregate({
+        where: { ...accWhere, type: 'INCOME', category: { not: 'رصيد بداية المدة' } },
+        _sum: { amount: true }
+    });
 
     // Calculate Sales & Cost
     let totalSales = 0;

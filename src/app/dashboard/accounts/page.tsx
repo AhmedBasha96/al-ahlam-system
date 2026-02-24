@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Wallet, TrendingUp, TrendingDown, DollarSign, Activity, ArrowUpRight, Zap, PieChart, Users, Building2 } from "lucide-react";
 import { OverviewChart } from "@/components/charts/overview-chart";
+import { OpeningBalanceModal } from "@/components/accounts/opening-balance-modal";
 
 const formatMoney = (amount: number) => {
     return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(amount);
@@ -89,14 +90,17 @@ export default async function AccountsDashboard() {
                                 الخزينة (Cash)
                             </span>
                         </div>
-                        <div className="mt-8">
-                            <h2 className="text-4xl font-black tracking-tight mb-2 text-white drop-shadow-lg">
-                                {formatMoney(summary.treasuryBalance)}
-                            </h2>
-                            <p className="text-indigo-200 text-sm font-medium flex items-center gap-2">
-                                <ArrowUpRight className="w-4 h-4" />
-                                الرصيد المتاح حالياً
-                            </p>
+                        <div className="mt-8 flex justify-between items-end">
+                            <div>
+                                <h2 className="text-4xl font-black tracking-tight mb-2 text-white drop-shadow-lg">
+                                    {formatMoney(summary.treasuryBalance)}
+                                </h2>
+                                <p className="text-indigo-200 text-sm font-medium flex items-center gap-2">
+                                    <ArrowUpRight className="w-4 h-4" />
+                                    الرصيد المتاح حالياً
+                                </p>
+                            </div>
+                            <OpeningBalanceModal type="TREASURY" />
                         </div>
                     </div>
                 </div>

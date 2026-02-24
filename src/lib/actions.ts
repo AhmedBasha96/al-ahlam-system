@@ -514,6 +514,9 @@ export async function getCustomerDetails(id: string) {
         include: {
             representative: true,
             agency: true,
+            accounts: {
+                orderBy: { createdAt: 'desc' }
+            },
             transactions: {
                 include: {
                     user: true,
@@ -532,22 +535,47 @@ export async function getCustomerDetails(id: string) {
 
     if (!customer) return null;
 
-    const totalDebt = customer.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+    const transactionDebt = customer.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+    const accountDebt = customer.accounts.reduce((sum, acc) => {
+        // INCOME for a customer means they owed us that money (Initial Balance or manual debit)
+        // EXPENSE for a customer would mean we paid/credited them (Manual credit)
+        // For simplicity: INCOME = Debt (+), EXPENSE = Credit (-)
+        return sum + (acc.type === 'INCOME' ? Number(acc.amount) : -Number(acc.amount));
+    }, 0);
 
-    return {
-        ...customer,
-        totalDebt,
-        transactions: customer.transactions.map(t => ({
-            ...t,
+    const mergedLedger = [
+        ...customer.transactions.map(t => ({
+            id: t.id,
+            type: t.type,
+            createdAt: t.createdAt,
             totalAmount: Number(t.totalAmount),
             paidAmount: Number(t.paidAmount || 0),
             remainingAmount: Number(t.remainingAmount || 0),
+            note: t.note,
+            paymentType: t.paymentType,
             items: t.items.map(item => ({
                 ...item,
                 price: Number(item.price),
                 cost: Number(item.cost || 0)
             }))
+        })),
+        ...customer.accounts.map(acc => ({
+            id: acc.id,
+            type: 'ACCOUNT_ADJUSTMENT',
+            createdAt: acc.createdAt,
+            totalAmount: acc.type === 'INCOME' ? Number(acc.amount) : 0,
+            paidAmount: acc.type === 'EXPENSE' ? Number(acc.amount) : 0,
+            remainingAmount: acc.type === 'INCOME' ? Number(acc.amount) : -Number(acc.amount),
+            note: acc.description,
+            paymentType: 'MANUAL',
+            items: []
         }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return {
+        ...customer,
+        totalDebt: transactionDebt + accountDebt,
+        transactions: mergedLedger // Reusing transactions name for UI compatibility
     };
 }
 

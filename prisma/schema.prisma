@@ -158,6 +158,7 @@ model Customer {
   agency           Agency        @relation(fields: [agencyId], references: [id])
   representative   User          @relation("RepCustomers", fields: [representativeId], references: [id])
   transactions     Transaction[]
+  accounts         AccountRecord[]
 
   @@index([agencyId], map: "Customer_agencyId_fkey")
   @@index([representativeId], map: "Customer_representativeId_fkey")
@@ -186,16 +187,19 @@ model AccountRecord {
   agencyId    String?
   userId      String
   supplierId  String?
+  customerId  String?
   createdAt   DateTime          @default(now())
   category    String?
   imageUrl    String?           @db.LongText
   agency      Agency?           @relation(fields: [agencyId], references: [id])
   createdBy   User              @relation(fields: [userId], references: [id])
   supplier    Supplier?         @relation(fields: [supplierId], references: [id])
+  customer    Customer?         @relation(fields: [customerId], references: [id])
 
   @@index([agencyId], map: "AccountRecord_agencyId_fkey")
   @@index([userId], map: "AccountRecord_userId_fkey")
   @@index([supplierId])
+  @@index([customerId])
 }
 
 model Bank {

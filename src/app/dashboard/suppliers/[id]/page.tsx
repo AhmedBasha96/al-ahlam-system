@@ -1,9 +1,10 @@
 import { getSupplierDetails } from "@/lib/actions/suppliers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Building2, Phone, MapPin, Receipt, Wallet, ArrowUpRight, ArrowDownLeft, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, Building2, Phone, MapPin, Receipt, Wallet, ArrowUpRight, ArrowDownLeft, Calendar, FileText, Landmark } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { OpeningBalanceModal } from "@/components/accounts/opening-balance-modal";
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +85,7 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                 </div>
 
                 <div className="flex gap-3">
+                    <OpeningBalanceModal type="SUPPLIER" id={supplier.id} name={supplier.name} agencyId={supplier.agencyId} />
                     <button className="bg-white text-slate-900 border border-slate-200 px-6 py-3 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
                         <FileText className="w-5 h-5" />
                         طباعة الكشف
