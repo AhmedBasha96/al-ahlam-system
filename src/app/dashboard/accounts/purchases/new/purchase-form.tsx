@@ -20,8 +20,8 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const router = useRouter();
     const [warehouseId, setWarehouseId] = useState("");
     const [supplierId, setSupplierId] = useState("");
-    const [items, setItems] = useState<{ productId: string, quantity: number, cost: number }[]>([
-        { productId: "", quantity: 1, cost: 0 }
+    const [items, setItems] = useState<{ productId: string, cartons: number, units: number, cost: number }[]>([
+        { productId: "", cartons: 0, units: 0, cost: 0 }
     ]);
     const [paidAmount, setPaidAmount] = useState(0);
     const [note, setNote] = useState("");
@@ -35,39 +35,74 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     // Filter suppliers by agency
     const filteredSuppliers = suppliers.filter(s => s.agencyId === agencyId);
 
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.cost), 0);
+    const totalAmount = items.reduce((sum, item) => {
+        const product = products.find(p => p.id === item.productId);
+        const upc = product?.unitsPerCarton || 1;
+        const totalUnits = (item.cartons * upc) + item.units;
+        // The cost stored is per UNIT (factoryPrice)
+        return sum + (totalUnits * item.cost);
+    }, 0);
 
     const addItem = () => {
-        setItems([...items, { productId: "", quantity: 1, cost: 0 }]);
+        setItems([...items, { productId: "", cartons: 0, units: 0, cost: 0 }]);
     };
 
     const removeItem = (index: number) => {
         setItems(items.filter((_, i) => i !== index));
     };
 
-    const updateItem = (index: number, field: keyof typeof items[0], value: any) => {
+    const updateItem = (index: number, field: string, value: any) => {
         const newItems = [...items];
-        newItems[index] = { ...newItems[index], [field]: value };
+        const product = products.find(p => p.id === (field === 'productId' ? value : newItems[index].productId));
+        const upc = product?.unitsPerCarton || 1;
+
+        let newItem = { ...newItems[index], [field]: value };
 
         // Auto-fill cost if product changed
-        if (field === 'productId') {
-            const product = products.find(p => p.id === value);
-            if (product) {
-                newItems[index].cost = Number(product.factoryPrice);
-            }
+        if (field === 'productId' && product) {
+            newItem.cost = Number(product.factoryPrice);
+            // Reset quantities to maintain sanity
+            newItem.cartons = 0;
+            newItem.units = 0;
         }
 
+        // Smart Rebalancing
+        if (field === 'units' && value >= upc && upc > 0) {
+            newItem.cartons += Math.floor(value / upc);
+            newItem.units = value % upc;
+        }
+
+        newItems[index] = newItem;
         setItems(newItems);
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+
+        // Final validation: check if all items have products and quantities
+        const validItems = items.filter(it => it.productId && (it.cartons > 0 || it.units > 0));
+        if (validItems.length === 0) {
+            alert("يرجى إضافة صنف واحد على الأقل بكمية صحيحة");
+            return;
+        }
+
         setIsSubmitting(true);
 
         const formData = new FormData(e.currentTarget);
         formData.append('warehouseId', warehouseId);
         formData.append('supplierId', supplierId);
-        formData.append('items', JSON.stringify(items));
+
+        // Calculate total units for server
+        const itemsForServer = validItems.map(it => {
+            const product = products.find(p => p.id === it.productId);
+            return {
+                productId: it.productId,
+                quantity: (it.cartons * (product?.unitsPerCarton || 1)) + it.units,
+                cost: it.cost
+            };
+        });
+
+        formData.append('items', JSON.stringify(itemsForServer));
         formData.append('paidAmount', paidAmount.toString());
         formData.append('note', note);
         formData.append('date', date);
@@ -131,50 +166,71 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                             </Button>
                         </div>
 
-                        {items.map((item, index) => (
-                            <div key={index} className="grid md:grid-cols-12 gap-4 items-end border-b pb-4">
-                                <div className="md:col-span-5 space-y-2">
-                                    <Label>المنتج</Label>
-                                    <Select value={item.productId} onValueChange={(val) => updateItem(index, 'productId', val)} required>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="اختر المنتج" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {products.map(p => (
-                                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                        {items.map((item, index) => {
+                            const product = products.find(p => p.id === item.productId);
+                            const upc = product?.unitsPerCarton || 1;
+
+                            return (
+                                <div key={index} className="grid md:grid-cols-12 gap-4 items-end border-b pb-4">
+                                    <div className="md:col-span-4 space-y-2">
+                                        <Label>المنتج</Label>
+                                        <Select value={item.productId} onValueChange={(val) => updateItem(index, 'productId', val)} required>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="اختر المنتج" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {products.map(p => (
+                                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {product && (
+                                            <p className="text-[10px] text-gray-400">الكرتونة = {upc} علبة</p>
+                                        )}
+                                    </div>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label className="text-center block">كراتين</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            value={item.cartons}
+                                            onChange={(e) => updateItem(index, 'cartons', Number(e.target.value))}
+                                            className="text-center font-bold"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label className="text-center block">علب</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            value={item.units}
+                                            onChange={(e) => updateItem(index, 'units', Number(e.target.value))}
+                                            className="text-center font-bold"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-3 space-y-2">
+                                        <Label>سعر الشراء (للقطعة)</Label>
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={item.cost}
+                                                readOnly
+                                                className="bg-gray-100 font-mono text-blue-700"
+                                            />
+                                            <span className="absolute left-2 top-2 text-[10px] text-gray-400">سعر المنتج الأساسي</span>
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-1 flex justify-end">
+                                        {items.length > 1 && (
+                                            <Button type="button" variant="destructive" size="icon" onClick={() => removeItem(index)}>
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="md:col-span-2 space-y-2">
-                                    <Label>الكمية</Label>
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        value={item.quantity}
-                                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
-                                        required
-                                    />
-                                </div>
-                                <div className="md:col-span-3 space-y-2">
-                                    <Label>سعر الشراء (للوحدة)</Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={item.cost}
-                                        onChange={(e) => updateItem(index, 'cost', Number(e.target.value))}
-                                        required
-                                    />
-                                </div>
-                                <div className="md:col-span-2 flex justify-end">
-                                    {items.length > 1 && (
-                                        <Button type="button" variant="destructive" size="icon" onClick={() => removeItem(index)}>
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     <div className="bg-slate-50 p-6 rounded-lg space-y-4">

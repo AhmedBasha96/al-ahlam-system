@@ -83,6 +83,7 @@ type Props = {
 
 import { updateTransaction } from "@/lib/actions";
 import TransactionModal from "@/components/shared/transaction-modal";
+import { formatUnits, cn } from "@/lib/utils";
 
 export default function WarehouseOperations({
     warehouseId,
@@ -210,13 +211,11 @@ export default function WarehouseOperations({
                                             <td className="p-4 text-center">
                                                 <div className="flex flex-col items-center">
                                                     <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-sm">
-                                                        {currentStock} علبة
+                                                        {formatUnits(currentStock, product.unitsPerCarton)}
                                                     </span>
-                                                    {product.unitsPerCarton > 1 && (
-                                                        <span className="text-[10px] text-gray-500 mt-1 font-bold">
-                                                            ({Math.floor(currentStock / product.unitsPerCarton)} ك + {currentStock % product.unitsPerCarton} ع)
-                                                        </span>
-                                                    )}
+                                                    <span className="text-[10px] text-gray-500 mt-1 font-bold">
+                                                        ({currentStock} علبة إجمالي)
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="p-4 text-center text-xs text-gray-500 font-medium">

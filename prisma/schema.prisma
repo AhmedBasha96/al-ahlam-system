@@ -25,6 +25,8 @@ model User {
   agency         Agency?         @relation(fields: [agencyId], references: [id])
   warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id])
   agencies       Agency[]        @relation("UserAgencies")
+  journalEntries JournalEntry[]
+  dailyClosings  DailyClosing[]
 
   @@index([agencyId], map: "User_agencyId_fkey")
   @@index([warehouseId], map: "User_warehouseId_fkey")
@@ -46,6 +48,9 @@ model Agency {
   warehouses   Warehouse[]
   users        User[]          @relation("UserAgencies")
   suppliers    Supplier[]
+  banks        Bank[]
+  journalEntries JournalEntry[]
+  dailyClosings  DailyClosing[]
 }
 
 model Supplier {
@@ -207,11 +212,15 @@ model Bank {
   id            String            @id @default(uuid())
   name          String
   accountNumber String?
+  agencyId      String?
   balance       Decimal           @default(0.000000000000000000000000000000)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   transactions  BankTransaction[]
   loans         Loan[]
+  agency        Agency?           @relation(fields: [agencyId], references: [id])
+
+  @@index([agencyId])
 }
 
 model BankTransaction {
@@ -307,4 +316,53 @@ enum InstallmentStatus {
   PENDING
   PAID
   OVERDUE
+}
+
+model JournalEntry {
+  id              String            @id @default(uuid())
+  amount          Decimal
+  type            JournalEntryType
+  description     String
+  referenceId     String?           // ID of the original transaction or record
+  referenceType   String?           // "SALE", "PURCHASE", "EXPENSE", etc.
+  agencyId        String?
+  userId          String            // The user who performed the entry
+  createdAt       DateTime          @default(now())
+  
+  agency          Agency?           @relation(fields: [agencyId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+
+  @@index([agencyId])
+  @@index([userId])
+  @@index([referenceId])
+}
+
+model DailyClosing {
+  id              String            @id @default(uuid())
+  userId          String            // The representative or accountant
+  agencyId        String
+  openingBalance  Decimal
+  closingBalance  Decimal?          // Actual cash reported
+  expectedBalance Decimal?          // System calculated balance
+  status          ClosingStatus     @default(OPEN)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  closedAt        DateTime?
+
+  agency          Agency            @relation(fields: [agencyId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+
+  @@index([agencyId])
+  @@index([userId])
+}
+
+enum JournalEntryType {
+  DEBIT   // Cash In
+  CREDIT  // Cash Out
+}
+
+enum ClosingStatus {
+  OPEN
+  CLOSED
+  RECONCILED
 }

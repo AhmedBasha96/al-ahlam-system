@@ -58,9 +58,20 @@ export default function LoadStockForm({ warehouseId, products, reps, stocks }: P
         setItems(newItems);
     };
 
-    const handleItemChange = (index: number, field: keyof OrderItem, value: string | number) => {
+    const handleItemChange = (index: number, field: keyof OrderItem, value: any) => {
         const newItems = [...items];
-        newItems[index] = { ...newItems[index], [field]: value };
+        const product = products.find(p => p.id === (field === 'productId' ? value : newItems[index].productId));
+        const upc = product?.unitsPerCarton || 1;
+
+        let newItem = { ...newItems[index], [field]: value };
+
+        // Smart Rebalancing
+        if (field === 'units' && value >= upc && upc > 0) {
+            newItem.cartons += Math.floor(value / upc);
+            newItem.units = value % upc;
+        }
+
+        newItems[index] = newItem;
         setItems(newItems);
     };
 

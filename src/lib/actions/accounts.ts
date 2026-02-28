@@ -2,8 +2,35 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { JournalEntryType, AccountRecordType } from "@prisma/client";
 import { getCurrentUser } from "../actions";
-import { AccountRecordType } from "@prisma/client";
+
+// --- Helper for Professional Accounting ---
+
+export async function recordJournalEntry(
+    tx: any,
+    data: {
+        amount: number,
+        type: JournalEntryType,
+        description: string,
+        referenceId?: string,
+        referenceType?: string,
+        agencyId?: string | null,
+        userId: string
+    }
+) {
+    return await tx.journalEntry.create({
+        data: {
+            amount: data.amount,
+            type: data.type,
+            description: data.description,
+            referenceId: data.referenceId,
+            referenceType: data.referenceType,
+            agencyId: data.agencyId,
+            userId: data.userId
+        }
+    });
+}
 
 // Helper to get agencies for selection
 export async function getAgencies() {
@@ -43,20 +70,32 @@ export async function createAccountRecord(formData: FormData) {
         imageUrl = `data:${imageFile.type};base64,${base64}`;
     }
 
-    await (prisma as any).accountRecord.create({
-        data: {
+    await prisma.$transaction(async (tx) => {
+        const record = await tx.accountRecord.create({
+            data: {
+                amount,
+                description,
+                category: category || null,
+                type,
+                agencyId: agencyId,
+                userId: user.id,
+                supplierId: supplierId || null,
+                customerId: customerId || null,
+                createdAt: date ? new Date(date) : new Date(),
+                imageUrl: imageUrl,
+            }
+        });
+
+        await recordJournalEntry(tx, {
             amount,
-            description,
-            category: category || null,
-            type,
-            agencyId: agencyId, // Can be null now
-            userId: user.id,
-            supplierId: supplierId || null,
-            customerId: customerId || null,
-            createdAt: date ? new Date(date) : new Date(),
-            imageUrl: imageUrl,
-        } as any
-    });
+            type: type === 'INCOME' ? 'DEBIT' : 'CREDIT',
+            description: `${description} (${category || 'عام'})`,
+            referenceId: record.id,
+            referenceType: type,
+            agencyId: agencyId,
+            userId: user.id
+        });
+    }, { timeout: 15000 });
 
     revalidatePath('/dashboard/accounts', 'layout');
 }
@@ -130,23 +169,17 @@ export async function createPurchaseInvoice(formData: FormData) {
                 update: { quantity: { increment: item.quantity } },
                 create: { warehouseId, productId: item.productId, quantity: item.quantity }
             });
-
-            // Optionally update product factory price
-            await tx.product.update({
-                where: { id: item.productId },
-                data: { factoryPrice: item.cost }
-            });
         }
 
         // 2. Create Transaction
-        await (tx as any).transaction.create({
+        const transaction = await (tx as any).transaction.create({
             data: {
                 type: 'PURCHASE',
                 totalAmount,
                 paidAmount,
                 remainingAmount: totalAmount - paidAmount,
                 userId: user.id,
-                agencyId: warehouse.agencyId, // Auto-assign based on warehouse
+                agencyId: warehouse.agencyId,
                 warehouseId,
                 supplierId: supplierId || null,
                 note: note || 'فاتورة مشتريات',
@@ -160,9 +193,22 @@ export async function createPurchaseInvoice(formData: FormData) {
                         cost: item.cost
                     }))
                 }
-            } as any
+            }
         });
-    });
+
+        // 3. Record Journal Entry (If cash paid)
+        if (paidAmount > 0) {
+            await recordJournalEntry(tx, {
+                amount: paidAmount,
+                type: 'CREDIT',
+                description: `سداد نقدي فاتورة مشتريات رقم ${transaction.id}`,
+                referenceId: transaction.id,
+                referenceType: 'PURCHASE',
+                agencyId: warehouse.agencyId,
+                userId: user.id
+            });
+        }
+    }, { timeout: 15000 });
 
     revalidatePath('/dashboard/accounts', 'layout');
 }
@@ -183,95 +229,43 @@ export async function getPurchaseInvoices(agencyIdFilter?: string) {
 // --- Dashboard & Treasury ---
 
 export async function getTreasuryTransactions(agencyIdFilter?: string | 'GENERAL') {
-    // 1. Build Where Clauses
-    const salesWhere: any = { type: 'SALE', paidAmount: { gt: 0 } };
-    const purchasesWhere: any = { type: 'PURCHASE', paidAmount: { gt: 0 } };
-    const incomeWhere: any = { type: 'INCOME' };
-    const expensesWhere: any = { type: 'EXPENSE' };
-
+    // 1. Build Where Clause
+    const where: any = {};
     if (agencyIdFilter === 'GENERAL') {
-        // Sales/Purchases are always Agency-bound, so General Treasury only has Income/Expenses
-        // actually maybe "General" means "No Agency".
-        salesWhere.agencyId = 'NONE'; // Impossible, just to return empty
-        purchasesWhere.agencyId = 'NONE';
-        incomeWhere.agencyId = null;
-        expensesWhere.agencyId = null;
+        where.agencyId = null;
     } else if (agencyIdFilter) {
-        salesWhere.agencyId = agencyIdFilter;
-        purchasesWhere.agencyId = agencyIdFilter;
-        incomeWhere.agencyId = agencyIdFilter;
-        expensesWhere.agencyId = agencyIdFilter;
+        where.agencyId = agencyIdFilter;
     }
 
-    // 2. Fetch Data
-    const sales = await prisma.transaction.findMany({
-        where: salesWhere,
-        select: { id: true, createdAt: true, paidAmount: true, note: true, agency: { select: { name: true } } }
+    // 2. Fetch from JournalEntry (The Centralized Ledger)
+    const journalEntries = await prisma.journalEntry.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: { agency: { select: { name: true } } }
     });
 
-    const purchases = await prisma.transaction.findMany({
-        where: purchasesWhere,
-        select: { id: true, createdAt: true, paidAmount: true, note: true, warehouse: { select: { name: true } }, agency: { select: { name: true } } }
-    });
+    // 2. Map to UI Format (Ascending for balance calculation)
+    const sortedEntries = [...journalEntries].reverse();
 
-    const income = await prisma.accountRecord.findMany({
-        where: incomeWhere,
-        select: { id: true, createdAt: true, amount: true, description: true, category: true, agency: { select: { name: true } } }
-    });
-
-    const expenses = await prisma.accountRecord.findMany({
-        where: expensesWhere,
-        select: { id: true, createdAt: true, amount: true, description: true, category: true, agency: { select: { name: true } } }
-    });
-
-    // 3. Merge
-    const transactions = [
-        ...sales.map(t => ({
-            id: t.id,
-            date: t.createdAt,
-            amount: Number(t.paidAmount),
-            type: 'SALE',
-            description: `مبيعات (${t.agency?.name || 'غير معروف'}) ` + (t.note || ''),
-            agencyName: t.agency?.name || 'غير معروف'
-        })),
-        ...purchases.map(t => ({
-            id: t.id,
-            date: t.createdAt,
-            amount: -Number(t.paidAmount),
-            type: 'PURCHASE',
-            description: `شراء (${t.agency?.name || 'غير معروف'}) ` + (t.note || ''),
-            warehouseName: t.warehouse?.name || 'غير معروف',
-            agencyName: t.agency?.name || 'غير معروف'
-        })),
-        ...income.map(t => ({
-            id: t.id,
-            date: t.createdAt,
-            amount: Number(t.amount),
-            type: 'INCOME',
-            description: `${t.description} (${t.category || 'عام'})`,
-            agencyName: t.agency?.name || 'عام'
-        })),
-        ...expenses.map(t => ({
-            id: t.id,
-            date: t.createdAt,
-            amount: -Number(t.amount),
-            type: 'EXPENSE',
-            description: `${t.description} (${t.category || 'عام'})`,
-            agencyName: t.agency?.name || 'عام'
-        }))
-    ];
-
-    // 4. Sort
-    transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // 5. Calculate Balance
     let currentBalance = 0;
-    const transactionsWithBalance = transactions.map(t => {
-        currentBalance += t.amount;
-        return { ...t, balance: currentBalance };
+    const transactions = sortedEntries.map(entry => {
+        const amount = Number(entry.amount);
+        const signedAmount = entry.type === 'DEBIT' ? amount : -amount;
+        currentBalance += signedAmount;
+
+        return {
+            id: entry.id,
+            date: entry.createdAt,
+            amount: signedAmount,
+            type: entry.referenceType || 'ENTRY',
+            description: entry.description,
+            agencyName: entry.agency?.name || 'عام',
+            balance: currentBalance
+        };
     });
 
-    return transactionsWithBalance.reverse();
+    // 4. Return for UI (Descending)
+    return transactions.reverse();
 }
 
 export async function getFinancialSummary(startDate: Date, endDate: Date, agencyIdFilter?: string) {

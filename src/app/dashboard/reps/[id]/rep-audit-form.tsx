@@ -66,14 +66,25 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
         const stock = repStocks.find(s => s.productId === productId);
         if (!product || !stock) return;
 
+        const upc = product.unitsPerCarton || 1;
+
         setAuditData(prev => {
             const current = prev[productId] || {
-                cartons: Math.floor(stock.quantity / (product.unitsPerCarton || 1)),
-                units: stock.quantity % (product.unitsPerCarton || 1)
+                cartons: Math.floor(stock.quantity / upc),
+                units: stock.quantity % upc
             };
+
+            let newData = { ...current, [field]: val };
+
+            // Smart Rebalancing
+            if (field === 'units' && val >= upc) {
+                newData.cartons += Math.floor(val / upc);
+                newData.units = val % upc;
+            }
+
             return {
                 ...prev,
-                [productId]: { ...current, [field]: val }
+                [productId]: newData
             };
         });
     };

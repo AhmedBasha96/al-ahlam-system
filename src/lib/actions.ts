@@ -1,10 +1,11 @@
 'use server';
 
 import prisma from "@/lib/db";
-import { Role } from "@prisma/client";
+import { Role, TransactionType, PaymentType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { recordJournalEntry } from "./actions/accounts";
 
 const g = global as any;
 
@@ -1188,6 +1189,20 @@ export async function finalizeRepAudit(
                         }
                     }
                 });
+
+                // Record Journal Entry (Only if paid amount > 0)
+                if ((paymentInfo.paidAmount || 0) > 0) {
+                    await recordJournalEntry(tx, {
+                        amount: Number(paymentInfo.paidAmount),
+                        type: 'DEBIT',
+                        description: `مبيعات نقدية (عن طريق المندوب ${user.name})`,
+                        referenceId: transaction.id,
+                        referenceType: 'SALE',
+                        agencyId: user.agencyId,
+                        userId: repId
+                    });
+                }
+
                 return { sessionId: transaction.id, soldItems: soldItems };
             }
             return { sessionId: null, soldItems: [] };
@@ -1328,33 +1343,81 @@ export async function recordDebtCollection(
     customerId: string,
     amount: number,
     note?: string,
-    repId?: string // Optional repId to attribute some collections to a specific rep
+    repId?: string
 ) {
     try {
         const user = await getCurrentUser();
         const customer = await prisma.customer.findUnique({ where: { id: customerId } });
-        if (!customer) throw new Error("Customer not found");
+        if (!customer) throw new Error("العميل غير موجود");
 
-        const transaction = await prisma.transaction.create({
-            data: {
-                type: 'COLLECTION',
-                totalAmount: 0,
-                userId: repId || customer.representativeId || user.id, // Attribute to rep if provided or assigned
-                agencyId: customer.agencyId,
-                customerId: customerId,
-                paymentType: 'CASH',
-                paidAmount: amount,
-                remainingAmount: -amount,
-                note: note || "تحصيل مديونية"
+        return await prisma.$transaction(async (tx) => {
+            // 1. Create the COLLECTION transaction
+            const transaction = await tx.transaction.create({
+                data: {
+                    type: 'COLLECTION',
+                    totalAmount: 0,
+                    userId: repId || customer.representativeId || user.id,
+                    agencyId: customer.agencyId,
+                    customerId: customerId,
+                    paymentType: 'CASH',
+                    paidAmount: amount,
+                    remainingAmount: 0, // We will reduce the sales instead
+                    note: note || `تحصيل مديونية من ${customer.name}`
+                }
+            });
+
+            // 2. Find outstanding sales and reduce remainingAmount (FIFO)
+            const outstandingSales = await tx.transaction.findMany({
+                where: {
+                    customerId,
+                    type: 'SALE',
+                    remainingAmount: { gt: 0 }
+                },
+                orderBy: { createdAt: 'asc' }
+            });
+
+            let balanceToApply = amount;
+            for (const sale of outstandingSales) {
+                if (balanceToApply <= 0) break;
+
+                const saleRemaining = Number(sale.remainingAmount);
+                const reduction = Math.min(saleRemaining, balanceToApply);
+
+                await tx.transaction.update({
+                    where: { id: sale.id },
+                    data: {
+                        paidAmount: { increment: reduction },
+                        remainingAmount: { decrement: reduction }
+                    }
+                });
+
+                balanceToApply -= reduction;
             }
-        });
 
-        revalidatePath('/dashboard', 'layout');
-        revalidatePath(`/dashboard/customers/${customerId}`);
-        if (repId || customer.representativeId) {
-            revalidatePath(`/dashboard/reps/${repId || customer.representativeId}`);
-        }
-        return { success: true, sessionId: transaction.id };
+            // 3. If there's still balance left (overpayment), we could potentially create a credit entry
+            // For now, we'll just log it or adjust the transaction itself if we had a field for it
+            // but standardizing on reducing sales is key.
+
+            revalidatePath('/dashboard', 'layout');
+            revalidatePath(`/dashboard/customers/${customerId}`);
+            const revalidateRepId = repId || customer.representativeId;
+            if (revalidateRepId) {
+                revalidatePath(`/dashboard/reps/${revalidateRepId}`);
+            }
+
+            // 4. Record Journal Entry
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'DEBIT',
+                description: `تحصيل مديونية من ${customer.name} - ${note || ''}`,
+                referenceId: transaction.id,
+                referenceType: 'COLLECTION',
+                agencyId: customer.agencyId,
+                userId: user.id
+            });
+
+            return { success: true, sessionId: transaction.id };
+        }, { timeout: 15000 });
     } catch (error) {
         console.error("recordDebtCollection error:", error);
         return { success: false, error: String(error) };
@@ -1574,6 +1637,113 @@ export async function recordOpeningStock(formData: FormData) {
         return { success: true };
     } catch (error) {
         console.error("recordOpeningStock error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+// --- Daily Closing Actions ---
+
+export async function openDailyClosing(agencyId: string, openingBalance: number) {
+    try {
+        const user = await getCurrentUser();
+
+        // Check if there's already an open closing for this user/agency
+        const existing = await prisma.dailyClosing.findFirst({
+            where: { userId: user.id, agencyId, status: 'OPEN' }
+        });
+        if (existing) throw new Error("يوجد يومية مفتوحة بالفعل لهذا المستخدم");
+
+        const closing = await prisma.dailyClosing.create({
+            data: {
+                userId: user.id,
+                agencyId,
+                openingBalance,
+                status: 'OPEN'
+            }
+        });
+
+        revalidatePath('/dashboard/accounts/daily-closing');
+        return { success: true, id: closing.id };
+    } catch (error) {
+        console.error("openDailyClosing error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+export async function getOpenDailyClosing(agencyId: string) {
+    try {
+        const user = await getCurrentUser();
+        const closing = await prisma.dailyClosing.findFirst({
+            where: { userId: user.id, agencyId, status: 'OPEN' }
+        });
+        if (!closing) return null;
+
+        // Fetch movements since opening
+        const movements = await prisma.journalEntry.findMany({
+            where: {
+                userId: user.id,
+                agencyId,
+                createdAt: { gte: closing.createdAt }
+            }
+        });
+
+        let totalDebit = 0;
+        let totalCredit = 0;
+        movements.forEach(m => {
+            if (m.type === 'DEBIT') totalDebit += Number(m.amount);
+            else totalCredit += Number(m.amount);
+        });
+
+        return {
+            ...closing,
+            totalDebit,
+            totalCredit,
+            expectedBalance: Number(closing.openingBalance) + totalDebit - totalCredit,
+            movementsCount: movements.length
+        };
+    } catch (error) {
+        console.error("getOpenDailyClosing error:", error);
+        return null;
+    }
+}
+
+export async function finalizeDailyClosing(closingId: string, closingBalance: number, notes?: string) {
+    try {
+        const user = await getCurrentUser();
+        const closing = await prisma.dailyClosing.findUnique({ where: { id: closingId } });
+        if (!closing || closing.status !== 'OPEN') throw new Error("اليومية غير موجودة أو مغلقة بالفعل");
+
+        // Professional way: Fetch all movements and sum with sign
+        const transactionsSinceOpen = await prisma.journalEntry.findMany({
+            where: {
+                userId: closing.userId,
+                agencyId: closing.agencyId,
+                createdAt: { gte: closing.createdAt }
+            }
+        });
+
+        let movement = 0;
+        for (const entry of transactionsSinceOpen) {
+            movement += (entry.type === 'DEBIT' ? Number(entry.amount) : -Number(entry.amount));
+        }
+
+        const expectedBalance = Number(closing.openingBalance) + movement;
+
+        await prisma.dailyClosing.update({
+            where: { id: closingId },
+            data: {
+                closingBalance,
+                expectedBalance,
+                status: 'CLOSED',
+                notes,
+                closedAt: new Date()
+            }
+        });
+
+        revalidatePath('/dashboard/accounts/daily-closing');
+        return { success: true };
+    } catch (error) {
+        console.error("finalizeDailyClosing error:", error);
         return { success: false, error: String(error) };
     }
 }
