@@ -38,9 +38,10 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const totalAmount = items.reduce((sum, item) => {
         const product = products.find(p => p.id === item.productId);
         const upc = product?.unitsPerCarton || 1;
-        const totalUnits = (item.cartons * upc) + item.units;
-        // The cost stored is per UNIT (factoryPrice)
-        return sum + (totalUnits * item.cost);
+        // The cost stored in 'item.cost' is the CARTON price (factoryPrice).
+        // Total amount = (full cartons + fractional cartons from boxes) * carton price
+        const effectiveCartons = item.cartons + (item.units / upc);
+        return sum + (effectiveCartons * item.cost);
     }, 0);
 
     const addItem = () => {
@@ -98,7 +99,8 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
             return {
                 productId: it.productId,
                 quantity: (it.cartons * (product?.unitsPerCarton || 1)) + it.units,
-                cost: it.cost
+                // Server expects cost per SINGLE UNIT. Input cost is per CARTON.
+                cost: it.cost / (product?.unitsPerCarton || 1)
             };
         });
 
@@ -209,7 +211,7 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                         />
                                     </div>
                                     <div className="md:col-span-3 space-y-2">
-                                        <Label>سعر الشراء (للقطعة)</Label>
+                                        <Label>سعر الشراء (للكرتونة)</Label>
                                         <div className="relative">
                                             <Input
                                                 type="number"
@@ -218,8 +220,13 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                                 readOnly
                                                 className="bg-gray-100 font-mono text-blue-700"
                                             />
-                                            <span className="absolute left-2 top-2 text-[10px] text-gray-400">سعر المنتج الأساسي</span>
+                                            <span className="absolute left-2 top-2 text-[10px] text-gray-400">سعر كرتونة المصنع</span>
                                         </div>
+                                        {product && upc > 0 && (
+                                            <p className="text-[10px] text-blue-500 font-bold">
+                                                تساوي {(item.cost / upc).toFixed(2)} ج.م للعلبة
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="md:col-span-1 flex justify-end">
                                         {items.length > 1 && (
