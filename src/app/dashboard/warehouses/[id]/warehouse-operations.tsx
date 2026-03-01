@@ -209,14 +209,31 @@ export default function WarehouseOperations({
                                             <td className="p-4 text-gray-600 text-center font-mono">{product.wholesalePrice.toLocaleString('en-US')} ج.م</td>
                                             <td className="p-4 text-gray-600 text-center font-mono">{product.retailPrice.toLocaleString('en-US')} ج.م</td>
                                             <td className="p-4 text-center">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-sm">
-                                                        {formatUnits(currentStock, product.unitsPerCarton)}
+                                                {currentStock === 0 ? (
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-50 text-red-500 font-bold text-sm border border-red-100">
+                                                        نفذ المخزون
                                                     </span>
-                                                    <span className="text-[10px] text-gray-500 mt-1 font-bold">
-                                                        ({currentStock} علبة إجمالي)
-                                                    </span>
-                                                </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                                                            {product.unitsPerCarton > 1 && Math.floor(currentStock / product.unitsPerCarton) > 0 && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-sm shadow-sm">
+                                                                    <span>{Math.floor(currentStock / product.unitsPerCarton)}</span>
+                                                                    <span className="text-emerald-200 text-xs">كرتونة</span>
+                                                                </span>
+                                                            )}
+                                                            {(product.unitsPerCarton <= 1 || currentStock % product.unitsPerCarton > 0 || Math.floor(currentStock / product.unitsPerCarton) === 0) && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-sm border border-emerald-200">
+                                                                    <span>{product.unitsPerCarton <= 1 ? currentStock : currentStock % product.unitsPerCarton}</span>
+                                                                    <span className="text-emerald-500 text-xs">علبة</span>
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-400">
+                                                            {currentStock} إجمالي
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-4 text-center text-xs text-gray-500 font-medium">
                                                 {product.priceUpdatedAt ? (

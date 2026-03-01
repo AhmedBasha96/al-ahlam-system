@@ -307,8 +307,21 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                                         <div className="text-[10px] text-gray-400">الكرتونة = {upc} علبة</div>
                                     </td>
                                     <td className="p-4 text-center">
-                                        <div className="font-bold text-gray-600">{formatUnits(stock.quantity, upc)}</div>
-                                        <div className="text-[10px] text-gray-400">إجمالي: {stock.quantity}</div>
+                                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                            {upc > 1 && Math.floor(stock.quantity / upc) > 0 && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold text-sm shadow-sm">
+                                                    {Math.floor(stock.quantity / upc)}
+                                                    <span className="text-emerald-200 text-[10px]">ك</span>
+                                                </span>
+                                            )}
+                                            {(upc <= 1 || stock.quantity % upc > 0 || Math.floor(stock.quantity / upc) === 0) && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-sm border border-emerald-200">
+                                                    {upc <= 1 ? stock.quantity : stock.quantity % upc}
+                                                    <span className="text-emerald-500 text-[10px]">ع</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-[9px] text-gray-400 mt-0.5">{stock.quantity} إجمالي</div>
                                     </td>
                                     <td className="p-4">
                                         <div className="flex gap-2 items-center justify-center">
@@ -334,12 +347,39 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                                             </div>
                                         </div>
                                     </td>
-                                    <td className={`p-4 text-center font-black ${soldTotal > 0 ? 'text-red-600' : 'text-gray-300'}`}>
-                                        {soldTotal > 0 ? formatUnits(soldTotal, upc) : '0'}
+                                    <td className="p-4 text-center">
+                                        {soldTotal > 0 ? (
+                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                {upc > 1 && soldCartons > 0 && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-100 text-red-700 font-bold text-sm border border-red-200">
+                                                        {soldCartons}
+                                                        <span className="text-red-400 text-[10px]">ك</span>
+                                                    </span>
+                                                )}
+                                                {(upc <= 1 || soldUnits > 0) && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 text-red-600 font-bold text-sm border border-red-100">
+                                                        {upc <= 1 ? soldTotal : soldUnits}
+                                                        <span className="text-red-400 text-[10px]">ع</span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-300 font-bold">—</span>
+                                        )}
                                     </td>
-                                    <td className="p-4 text-center text-[10px] text-gray-500 bg-gray-50/50">
-                                        <div>ك: {pricing.carton}</div>
-                                        <div>ع: {pricing.unit}</div>
+                                    <td className="p-4 text-center bg-gray-50/50">
+                                        <div className="flex flex-col gap-0.5 items-center text-[10px] font-medium">
+                                            <div className="flex items-center gap-1 text-emerald-700">
+                                                <span className="bg-emerald-100 px-1.5 py-0.5 rounded">ك</span>
+                                                <span className="font-bold">{pricing.carton.toLocaleString('en-US')}</span>
+                                                <span className="text-gray-400">ج.م</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-blue-600">
+                                                <span className="bg-blue-50 px-1.5 py-0.5 rounded">ع</span>
+                                                <span className="font-bold">{pricing.unit.toLocaleString('en-US')}</span>
+                                                <span className="text-gray-400">ج.م</span>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td className="p-4 text-center font-bold text-gray-900">
                                         {totalSoldRow.toLocaleString('en-US')} ج.م
