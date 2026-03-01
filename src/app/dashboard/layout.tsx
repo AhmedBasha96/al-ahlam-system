@@ -17,13 +17,15 @@ export default async function DashboardLayout({
     const role = currentUser.role || 'GUEST';
 
     return (
-        <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 overflow-x-hidden">
+        <div className="flex flex-col md:flex-row min-h-screen bg-aurora overflow-x-hidden">
             {/* Responsive Sidebar */}
             <Sidebar role={role} />
 
             {/* Main Content Area */}
             <main className="flex-1 w-full p-4 md:p-8 overflow-x-hidden min-h-screen">
-                {children}
+                <div className="max-w-7xl mx-auto">
+                    {children}
+                </div>
             </main>
         </div>
     );

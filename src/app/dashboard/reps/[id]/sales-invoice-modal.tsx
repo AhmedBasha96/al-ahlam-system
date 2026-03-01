@@ -160,8 +160,8 @@ export default function SalesInvoiceModal({ id, repId, repName, customerName, it
                                                         <input
                                                             type="number"
                                                             value={item.price}
-                                                            onChange={(e) => updateItem(index, 'price', parseInt(e.target.value) || 0)}
-                                                            className="w-24 border-2 border-slate-100 rounded-xl p-2 text-center font-bold text-slate-600 focus:border-indigo-500 outline-none"
+                                                            readOnly
+                                                            className="w-24 border-2 border-slate-50 rounded-xl p-2 text-center font-bold text-slate-400 bg-slate-50 cursor-not-allowed outline-none"
                                                         />
                                                     </td>
                                                     <td className="p-4 text-left font-black text-slate-900">{item.total.toLocaleString()}</td>

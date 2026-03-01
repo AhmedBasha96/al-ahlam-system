@@ -2,6 +2,8 @@ export function cn(...classes: (string | undefined | null | false)[]) {
     return classes.filter(Boolean).join(" ");
 }
 export function formatUnits(quantity: number, upc: number) {
+    if (upc <= 1) return `${quantity} ع`;
+
     const cartons = Math.floor(quantity / upc);
     const units = quantity % upc;
 

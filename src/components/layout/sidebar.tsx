@@ -80,9 +80,9 @@ export default function Sidebar({ role }: SidebarProps) {
 
             {/* Sidebar */}
             <aside className={`
-                fixed top-0 right-0 h-full bg-emerald-800 text-white w-72 z-50 transition-transform duration-300 ease-in-out flex flex-col
+                fixed inset-y-0 right-0 z-50 w-72 bg-emerald-800 text-white transition-transform duration-300 ease-in-out flex flex-col
                 ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-                md:translate-x-0 md:sticky md:top-0 md:z-auto md:w-64 md:flex-shrink-0
+                md:translate-x-0 md:sticky md:top-0 md:z-10 md:w-64 md:flex-shrink-0
             `}>
                 {/* Logo Section */}
                 <div className="p-8 border-b border-emerald-700/50 text-center flex flex-col items-center">

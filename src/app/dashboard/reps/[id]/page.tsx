@@ -103,6 +103,7 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                         customers={repCustomers}
                         products={allProducts}
                         repStocks={repStocks}
+                        pricingType={rep.pricingType}
                     />
                     <Link href="/dashboard/users" className="text-emerald-600 hover:text-emerald-800 flex items-center gap-2 font-medium">
                         <span>&larr;</span> العودة لقائمة المستخدمين

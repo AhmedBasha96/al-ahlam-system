@@ -3,6 +3,7 @@
 import { finalizeRepAudit } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { formatUnits } from "@/lib/utils";
 import SalesInvoiceModal from "./sales-invoice-modal";
 
 type Product = {
@@ -306,7 +307,7 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                                         <div className="text-[10px] text-gray-400">الكرتونة = {upc} علبة</div>
                                     </td>
                                     <td className="p-4 text-center">
-                                        <div className="font-bold text-gray-600">{Math.floor(stock.quantity / upc)} ك + {stock.quantity % upc} ع</div>
+                                        <div className="font-bold text-gray-600">{formatUnits(stock.quantity, upc)}</div>
                                         <div className="text-[10px] text-gray-400">إجمالي: {stock.quantity}</div>
                                     </td>
                                     <td className="p-4">
@@ -334,10 +335,7 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                                         </div>
                                     </td>
                                     <td className={`p-4 text-center font-black ${soldTotal > 0 ? 'text-red-600' : 'text-gray-300'}`}>
-                                        {soldCartons > 0 && <span>{soldCartons} ك</span>}
-                                        {soldCartons > 0 && soldUnits > 0 && <span> + </span>}
-                                        {soldUnits > 0 && <span>{soldUnits} ع</span>}
-                                        {soldTotal === 0 && <span>0</span>}
+                                        {soldTotal > 0 ? formatUnits(soldTotal, upc) : '0'}
                                     </td>
                                     <td className="p-4 text-center text-[10px] text-gray-500 bg-gray-50/50">
                                         <div>ك: {pricing.carton}</div>

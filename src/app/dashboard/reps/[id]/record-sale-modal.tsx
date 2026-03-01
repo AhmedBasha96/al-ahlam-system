@@ -8,6 +8,9 @@ type Product = {
     id: string;
     name: string;
     wholesalePrice: number;
+    retailPrice: number;
+    unitWholesalePrice: number;
+    unitRetailPrice: number;
 }
 
 type RepStock = {
@@ -28,9 +31,10 @@ type Props = {
     repStocks: RepStock[];
     onClose: () => void;
     initialCustomerId?: string;
+    pricingType?: 'WHOLESALE' | 'RETAIL';
 }
 
-export default function RecordSaleModal({ repId, repName, customers, products, repStocks, onClose, initialCustomerId }: Props) {
+export default function RecordSaleModal({ repId, repName, customers, products, repStocks, onClose, initialCustomerId, pricingType }: Props) {
     const [selectedCustomerId, setSelectedCustomerId] = useState(initialCustomerId || "");
     const [cart, setCart] = useState<{ productId: string, quantity: number, price: number }[]>([]);
     const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT' | 'PARTIAL'>('CASH');
@@ -49,7 +53,12 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
 
         setCart(prev => {
             if (prev.find(item => item.productId === productId)) return prev;
-            return [...prev, { productId, quantity: 1, price: product.wholesalePrice }];
+
+            const price = pricingType === 'RETAIL'
+                ? product.retailPrice
+                : product.wholesalePrice;
+
+            return [...prev, { productId, quantity: 1, price }];
         });
     };
 
@@ -204,8 +213,8 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                                                 <input
                                                     type="number"
                                                     value={item.price}
-                                                    onChange={(e) => updateCartItem(item.productId, 'price', parseInt(e.target.value) || 0)}
-                                                    className="w-20 border rounded p-1 text-center text-sm"
+                                                    readOnly
+                                                    className="w-20 border rounded p-1 text-center text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
                                                 />
                                             </td>
                                             <td className="p-3 text-center font-black">{(item.quantity * item.price).toLocaleString('en-US')}</td>
