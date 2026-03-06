@@ -15,6 +15,7 @@ type User = {
     id: string;
     name: string;
     role: string;
+    pricingType?: string | null;
 }
 
 type Customer = {
@@ -44,6 +45,23 @@ export default function RecordSalesForm({ representatives, customers, products, 
     const [paidAmount, setPaidAmount] = useState(0);
     const router = useRouter();
 
+    useEffect(() => {
+        if (!selectedRepId) return;
+        const selectedRep = representatives.find(r => r.id === selectedRepId);
+
+        setItems(prevItems => prevItems.map(item => {
+            if (!item.productId) return item;
+            const product = products.find(p => p.id === item.productId);
+            if (!product) return item;
+
+            const newPrice = selectedRep?.pricingType === 'WHOLESALE'
+                ? product.wholesalePrice
+                : product.retailPrice;
+
+            return { ...item, price: newPrice };
+        }));
+    }, [selectedRepId, products, representatives]);
+
     const handleAddItem = () => {
         setItems([...items, { productId: "", quantity: 1, price: 0 }]);
     };
@@ -58,11 +76,18 @@ export default function RecordSalesForm({ representatives, customers, products, 
         const newItems = [...items];
         newItems[index] = { ...newItems[index], [field]: value };
 
-        // If product changed, set default price (retail by default as fallback)
+        // If product changed, set default price based on rep's pricing type
         if (field === 'productId') {
             const product = products.find(p => p.id === value);
+            const selectedRep = representatives.find(r => r.id === selectedRepId);
+
             if (product) {
-                newItems[index].price = product.retailPrice;
+                if (selectedRep?.pricingType === 'WHOLESALE') {
+                    newItems[index].price = product.wholesalePrice;
+                } else {
+                    // Default to retail price
+                    newItems[index].price = product.retailPrice;
+                }
             }
         }
 
@@ -178,12 +203,13 @@ export default function RecordSalesForm({ representatives, customers, products, 
                             </div>
 
                             <div className="w-32">
-                                <label className="block text-xs text-gray-500 mb-1">السعر</label>
+                                <label className="block text-xs text-gray-500 mb-1">السعر (ثابت)</label>
                                 <input
                                     type="number"
                                     value={item.price}
                                     onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
-                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center"
+                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center bg-gray-100 cursor-not-allowed font-bold"
+                                    readOnly
                                     required
                                 />
                             </div>
