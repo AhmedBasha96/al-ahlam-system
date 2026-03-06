@@ -124,7 +124,6 @@ model Stock {
 
 model Transaction {
   id              String            @id @default(uuid())
-  invoiceNumber   Int               @unique @default(autoincrement())
   type            TransactionType
   totalAmount     Decimal
   userId          String
