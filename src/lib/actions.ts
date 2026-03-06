@@ -428,6 +428,24 @@ export async function updateUser(id: string, formData: FormData) {
     revalidatePath('/dashboard', 'layout');
 }
 
+export async function resetUserPassword(userId: string, formData: FormData) {
+    const currentUser = await getCurrentUser();
+    if (currentUser.role !== 'ADMIN') {
+        throw new Error('Unauthorized: Only Admins can reset passwords');
+    }
+
+    const newPassword = formData.get('password') as string;
+    if (!newPassword) throw new Error('Password is required');
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: { password: newPassword }
+    });
+
+    revalidatePath('/dashboard/users');
+    return { success: true };
+}
+
 export async function deleteUser(id: string) {
     const userRole = await getCurrentUser().then(u => u.role);
     if (userRole !== 'ADMIN') throw new Error('Unauthorized: Only Admins can delete users');
