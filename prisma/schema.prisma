@@ -294,6 +294,7 @@ enum TransactionType {
   COLLECTION
   SUPPLY_PAYMENT
   INITIAL_STOCK
+  REP_SUBMISSION
 }
 
 enum AccountRecordType {

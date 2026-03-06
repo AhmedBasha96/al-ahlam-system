@@ -1405,16 +1405,22 @@ export async function recordDebtCollection(
                 revalidatePath(`/dashboard/reps/${revalidateRepId}`);
             }
 
-            // 4. Record Journal Entry
-            await recordJournalEntry(tx, {
-                amount,
-                type: 'DEBIT',
-                description: `تحصيل مديونية من ${customer.name} - ${note || ''}`,
-                referenceId: transaction.id,
-                referenceType: 'COLLECTION',
-                agencyId: customer.agencyId,
-                userId: user.id
-            });
+            // 4. Record Journal Entry (Only if collected directly by office/accountant, not rep)
+            // If repId is provided or collector is a rep, it stays in their custody
+            const collector = await tx.user.findUnique({ where: { id: repId || user.id } });
+            const isRep = collector?.role === 'SALES_REPRESENTATIVE';
+
+            if (!isRep) {
+                await recordJournalEntry(tx, {
+                    amount,
+                    type: 'DEBIT',
+                    description: `تحصيل مديونية من ${customer.name} - ${note || ''}`,
+                    referenceId: transaction.id,
+                    referenceType: 'COLLECTION',
+                    agencyId: customer.agencyId,
+                    userId: user.id
+                });
+            }
 
             return { success: true, sessionId: transaction.id };
         }, { timeout: 15000 });
@@ -1583,6 +1589,81 @@ export async function getRepDebtBreakdown(repId: string) {
             debt: debt
         };
     }).filter(c => c.debt !== 0);
+}
+
+// --- Rep Accountability & Submission ---
+
+export async function getRepAccountability(repId: string) {
+    // 1. Total collections by this rep from customers
+    const collections = await prisma.transaction.aggregate({
+        where: {
+            userId: repId,
+            type: 'COLLECTION' as any
+        },
+        _sum: { paidAmount: true }
+    });
+
+    // 2. Total submissions by this rep to the office
+    const submissions = await prisma.transaction.aggregate({
+        where: {
+            userId: repId,
+            type: 'REP_SUBMISSION' as any
+        },
+        _sum: { paidAmount: true }
+    });
+
+    const totalCollected = Number(collections._sum?.paidAmount || 0);
+    const totalSubmitted = Number(submissions._sum?.paidAmount || 0);
+
+    return {
+        totalCollected,
+        totalSubmitted,
+        currentCustody: totalCollected - totalSubmitted
+    };
+}
+
+export async function recordRepSubmission(
+    repId: string,
+    amount: number,
+    note?: string
+) {
+    try {
+        const user = await getCurrentUser();
+        const rep = await prisma.user.findUnique({ where: { id: repId } });
+        if (!rep) throw new Error("المندوب غير موجود");
+
+        return await prisma.$transaction(async (tx) => {
+            // 1. Create REP_SUBMISSION transaction
+            const transaction = await tx.transaction.create({
+                data: {
+                    type: 'REP_SUBMISSION' as any,
+                    totalAmount: 0,
+                    userId: repId,
+                    agencyId: rep.agencyId!,
+                    paymentType: 'CASH',
+                    paidAmount: amount,
+                    remainingAmount: 0,
+                    note: note || `توريد عهدة نقدية من المندوب: ${rep.name}`
+                }
+            });
+
+            // 2. Record Journal Entry (Hits the office treasury)
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'DEBIT',
+                description: `توريد عهدة من المندوب ${rep.name} - ${note || ''}`,
+                referenceId: transaction.id,
+                referenceType: 'REP_SUBMISSION',
+                agencyId: rep.agencyId,
+                userId: user.id
+            });
+
+            return { success: true };
+        });
+    } catch (error) {
+        console.error("recordRepSubmission error:", error);
+        return { success: false, error: String(error) };
+    }
 }
 
 export async function recordOpeningStock(formData: FormData) {
