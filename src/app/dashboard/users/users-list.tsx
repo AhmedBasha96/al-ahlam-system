@@ -1,3 +1,5 @@
+'use client';
+
 import { updateUser, deleteUser } from "@/lib/actions";
 import { useState } from "react";
 import EditUserModal from "./edit-user-modal";

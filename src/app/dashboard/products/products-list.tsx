@@ -1,3 +1,5 @@
+'use client';
+
 import { updateProduct, deleteProduct } from "@/lib/actions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";

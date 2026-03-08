@@ -1,3 +1,5 @@
+'use client';
+
 import { updateTransaction, deleteTransaction } from "@/lib/actions";
 import { useState, Fragment } from "react";
 import TransactionModal from "@/components/shared/transaction-modal";

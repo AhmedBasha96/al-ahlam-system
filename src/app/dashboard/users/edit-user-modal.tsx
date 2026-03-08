@@ -1,3 +1,5 @@
+'use client';
+
 import { resetUserPassword } from '@/lib/actions';
 import { useState } from 'react';
 

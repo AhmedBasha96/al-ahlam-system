@@ -1,3 +1,5 @@
+'use client';
+
 import { updateAgency, deleteAgency } from "@/lib/actions";
 import { useState } from "react";
 import EditAgencyModal from "./edit-agency-modal";
