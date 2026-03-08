@@ -353,6 +353,60 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
     };
 }
 
+export async function setInitialTreasuryBalance(agencyId: string | null, amount: number) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+
+    await prisma.$transaction(async (tx) => {
+        // 1. Check if an initial balance record already exists for this agency/general
+        const existing = await tx.accountRecord.findFirst({
+            where: {
+                category: 'رصيد بداية المدة',
+                agencyId: agencyId,
+                customerId: null,
+                supplierId: null
+            }
+        });
+
+        if (existing) {
+            // Update existing
+            await tx.accountRecord.update({
+                where: { id: existing.id },
+                data: { amount }
+            });
+            // Update corresponding journal entry
+            await tx.journalEntry.updateMany({
+                where: { referenceId: existing.id },
+                data: { amount }
+            });
+        } else {
+            // Create new
+            const record = await tx.accountRecord.create({
+                data: {
+                    amount,
+                    description: 'رصيد بداية المدة - الخزينة',
+                    category: 'رصيد بداية المدة',
+                    type: 'INCOME',
+                    agencyId: agencyId,
+                    userId: user.id
+                }
+            });
+
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'DEBIT',
+                description: 'رصيد بداية المدة - الخزينة',
+                referenceId: record.id,
+                referenceType: 'INCOME',
+                agencyId: agencyId,
+                userId: user.id
+            });
+        }
+    });
+
+    revalidatePath('/dashboard/accounts/treasury');
+}
+
 export async function updateAccountRecord(id: string, updates: { amount?: number; description?: string; category?: string }) {
     try {
         const data: any = {};

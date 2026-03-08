@@ -678,6 +678,65 @@ export async function deleteTransaction(id: string) {
 
     // We use a transaction to ensure all related records are cleaned up or the deletion fails
     await prisma.$transaction(async (tx) => {
+        // 0. Fetch transaction with items to revert stock
+        const transaction = await tx.transaction.findUnique({
+            where: { id },
+            include: { items: true }
+        });
+
+        if (!transaction) throw new Error("Transaction not found");
+
+        // Revert Stock Changes
+        for (const item of transaction.items) {
+            if (transaction.type === 'SALE') {
+                // Check if it was a Load to Rep (Transfer)
+                if (transaction.warehouseId && transaction.note?.includes('تحميل للمندوب')) {
+                    // Source Warehouse was decremented, Target Rep was incremented
+                    // REVERT: Source Warehouse +, Target Rep -
+                    await tx.stock.update({
+                        where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
+                        data: { quantity: { increment: item.quantity } }
+                    });
+                    await tx.stock.update({
+                        where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
+                        data: { quantity: { decrement: item.quantity } }
+                    });
+                } else {
+                    // Direct Sale: Rep was decremented
+                    // REVERT: Rep +
+                    await tx.stock.update({
+                        where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
+                        data: { quantity: { increment: item.quantity } }
+                    });
+                }
+            } else if (transaction.type === 'PURCHASE') {
+                // Supply: Warehouse was incremented
+                // REVERT: Warehouse -
+                if (transaction.warehouseId) {
+                    await tx.stock.update({
+                        where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
+                        data: { quantity: { decrement: item.quantity } }
+                    });
+                }
+            } else if (transaction.type === 'RETURN_OUT') {
+                // Return to Supplier: Warehouse was decremented
+                // REVERT: Warehouse +
+                if (transaction.warehouseId) {
+                    await tx.stock.update({
+                        where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
+                        data: { quantity: { increment: item.quantity } }
+                    });
+                }
+            } else if (transaction.type === 'RETURN_IN') {
+                // Return from Customer: Rep was incremented
+                // REVERT: Rep -
+                await tx.stock.update({
+                    where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
+                    data: { quantity: { decrement: item.quantity } }
+                });
+            }
+        }
+
         // 1. Delete associated journal entries
         await tx.journalEntry.deleteMany({
             where: { referenceId: id }

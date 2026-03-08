@@ -81,7 +81,7 @@ type Props = {
     userRole?: string;
 }
 
-import { updateTransaction } from "@/lib/actions";
+import { updateTransaction, deleteTransaction } from "@/lib/actions";
 import TransactionModal from "@/components/shared/transaction-modal";
 import { formatUnits, cn } from "@/lib/utils";
 
@@ -475,6 +475,23 @@ export default function WarehouseOperations({
                                                                         className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-100 transition shadow-sm"
                                                                     >
                                                                         تعديل ✏️
+                                                                    </button>
+                                                                )}
+                                                                {userRole === 'ADMIN' && (
+                                                                    <button
+                                                                        onClick={async () => {
+                                                                            if (confirm(`هل أنت متأكد من حذف هذه العملية؟ سيتم استرجاع الرصيد للمخزن/المندوب تلقائياً!`)) {
+                                                                                try {
+                                                                                    await deleteTransaction(t.baseId);
+                                                                                    window.location.reload();
+                                                                                } catch (error: any) {
+                                                                                    alert(error.message || "حدث خطأ أثناء الحذف");
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                        className="bg-red-50 text-red-700 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-red-100 transition shadow-sm"
+                                                                    >
+                                                                        حذف 🗑️
                                                                     </button>
                                                                 )}
                                                             </div>

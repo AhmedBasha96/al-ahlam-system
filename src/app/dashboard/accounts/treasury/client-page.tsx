@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { getTreasuryTransactions } from '@/lib/actions/accounts';
+import { getTreasuryTransactions, setInitialTreasuryBalance } from '@/lib/actions/accounts';
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Landmark, ArrowUpRight, ArrowDownLeft, Receipt, ShoppingBag, Wallet, Filter } from "lucide-react";
+import { Landmark, ArrowUpRight, ArrowDownLeft, Receipt, ShoppingBag, Wallet, Filter, PlusCircle, Scale } from "lucide-react";
 
 interface TreasuryPageProps {
     agencies: { id: string, name: string }[];
@@ -28,6 +28,35 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
         const data = await getTreasuryTransactions(agencyId);
         setTransactions(data);
         setLoading(false);
+    };
+
+    const [isInitialModalOpen, setIsInitialModalOpen] = useState(false);
+    const [initialAmount, setInitialAmount] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSetInitialBalance = async () => {
+        if (!initialAmount || isNaN(Number(initialAmount))) {
+            alert("يرجى إدخال مبلغ صحيح");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const agencyId = filter === 'GENERAL' ? null : filter;
+            await setInitialTreasuryBalance(agencyId, Number(initialAmount));
+
+            // Refresh data
+            const data = await getTreasuryTransactions(filter === 'ALL' ? undefined : filter);
+            setTransactions(data);
+
+            setIsInitialModalOpen(false);
+            setInitialAmount("");
+            alert("تم تعيين رصيد بداية المدة بنجاح");
+        } catch (error) {
+            alert("خطأ في تعيين الرصيد");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const currentBalance = transactions.length > 0 ? transactions[0].balance : 0;
@@ -57,8 +86,8 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
                                 <SelectValue placeholder="تصفية التوكيل" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="ALL">الكل (شامل)</SelectItem>
-                                <SelectItem value="GENERAL">-- المصروفات العامة --</SelectItem>
+                                <SelectItem value="ALL">إجمالي الخزينة (المجمع)</SelectItem>
+                                <SelectItem value="GENERAL">الخزينة العامة (أخرى)</SelectItem>
                                 {agencies.map(a => (
                                     <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                                 ))}
@@ -86,16 +115,77 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
                             </div>
                         </div>
 
-                        <div className="hidden md:block text-right">
-                            <div className="text-sm font-medium text-emerald-100 bg-black/10 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
-                                {filter === 'ALL' ? 'الرصيد المجمع لجميع التوكيلات' :
-                                    filter === 'GENERAL' ? 'رصيد المصروفات العامة' :
-                                        `خزينة: ${agencies.find(a => a.id === filter)?.name}`}
+                        <div className="flex flex-col items-end gap-3">
+                            {filter !== 'ALL' && (
+                                <button
+                                    onClick={() => setIsInitialModalOpen(true)}
+                                    className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/20 transition-all text-sm font-bold group/btn"
+                                >
+                                    <Scale className="w-4 h-4 group-hover/btn:rotate-12 transition-transform" />
+                                    تعيين رصيد بداية المدة
+                                </button>
+                            )}
+                            <div className="hidden md:block text-right">
+                                <div className="text-sm font-medium text-emerald-100 bg-black/10 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
+                                    {filter === 'ALL' ? 'الرصيد المجمع لجميع التوكيلات' :
+                                        filter === 'GENERAL' ? 'الخزينة العامة (مصروفات أخرى)' :
+                                            `خزينة: ${agencies.find(a => a.id === filter)?.name}`}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Initial Balance Modal */}
+            {isInitialModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-emerald-950/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="bg-emerald-600 p-6 text-white text-center">
+                            <Landmark className="w-12 h-12 mx-auto mb-4 opacity-80" />
+                            <h3 className="text-2xl font-black">تعيين رصيد البداية</h3>
+                            <p className="text-emerald-100 font-medium mt-1">
+                                {filter === 'GENERAL' ? 'للخزينة العامة' : `لتوكيل: ${agencies.find(a => a.id === filter)?.name}`}
+                            </p>
+                        </div>
+                        <div className="p-8">
+                            <div className="space-y-4">
+                                <label className="block text-sm font-bold text-slate-700">المبلغ الإفتتاحي</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        value={initialAmount}
+                                        onChange={(e) => setInitialAmount(e.target.value)}
+                                        className="w-full text-3xl font-black text-center border-2 border-slate-100 rounded-2xl p-4 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-200"
+                                        placeholder="0"
+                                        autoFocus
+                                    />
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold">EGP</span>
+                                </div>
+                                <p className="text-xs text-slate-400 leading-relaxed">
+                                    * سيتم تسجيل هذا المبلغ كرصيد بداية المدة لهذه الخزينة. إذا كان هناك رصيد مسجل مسبقاً، سيتم تحديثه.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 mt-8">
+                                <button
+                                    onClick={handleSetInitialBalance}
+                                    disabled={isSubmitting || !initialAmount}
+                                    className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? 'جاري الحفظ...' : 'تأكيد الحفظ'}
+                                </button>
+                                <button
+                                    onClick={() => setIsInitialModalOpen(false)}
+                                    className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                                >
+                                    إلغاء
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Transactions Table */}
             <div className="relative z-10">
