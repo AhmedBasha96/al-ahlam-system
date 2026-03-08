@@ -61,9 +61,17 @@ export default function ReportsPage() {
             iconBg: "bg-red-100 text-red-600"
         },
         {
+            title: "المبيعات والفواتير",
+            description: "سجل كامل لجميع فواتير المبيعات وجلسات المناديب",
+            icon: FileText,
+            href: "/dashboard/reports/sales",
+            color: "from-blue-600 to-cyan-700",
+            iconBg: "bg-blue-100 text-blue-700"
+        },
+        {
             title: "التقرير الشامل",
             description: "نظرة عامة على الوضع المالي الكلي",
-            icon: FileText,
+            icon: BarChart3,
             href: "/dashboard/accounts/reports/summary",
             color: "from-slate-700 to-slate-900",
             iconBg: "bg-slate-100 text-slate-700"
