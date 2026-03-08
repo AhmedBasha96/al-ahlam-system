@@ -1,8 +1,13 @@
--- AlterTable (Safely update Enum - MySQL allows redundant MODIFY if current state matches)
+-- Clean up partial execution from previous failed attempts
+-- This is safe because these tables were just being created and are empty.
+DROP TABLE IF EXISTS `JournalEntry`;
+DROP TABLE IF EXISTS `DailyClosing`;
+
+-- AlterTable (Safely update Enum)
 ALTER TABLE `Transaction` MODIFY `type` ENUM('SALE', 'PURCHASE', 'RETURN_IN', 'RETURN_OUT', 'COLLECTION', 'SUPPLY_PAYMENT', 'INITIAL_STOCK', 'REP_SUBMISSION') NOT NULL;
 
--- CreateTable (If not exists with internal constraints)
-CREATE TABLE IF NOT EXISTS `JournalEntry` (
+-- CreateTable
+CREATE TABLE `JournalEntry` (
     `id` VARCHAR(191) NOT NULL,
     `amount` DECIMAL(65, 30) NOT NULL,
     `type` ENUM('DEBIT', 'CREDIT') NOT NULL,
@@ -16,13 +21,11 @@ CREATE TABLE IF NOT EXISTS `JournalEntry` (
     INDEX `JournalEntry_agencyId_idx`(`agencyId`),
     INDEX `JournalEntry_userId_idx`(`userId`),
     INDEX `JournalEntry_referenceId_idx`(`referenceId`),
-    PRIMARY KEY (`id`),
-    CONSTRAINT `JournalEntry_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT `JournalEntry_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+    PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable (If not exists with internal constraints)
-CREATE TABLE IF NOT EXISTS `DailyClosing` (
+-- CreateTable
+CREATE TABLE `DailyClosing` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
     `agencyId` VARCHAR(191) NOT NULL,
@@ -36,7 +39,11 @@ CREATE TABLE IF NOT EXISTS `DailyClosing` (
 
     INDEX `DailyClosing_agencyId_idx`(`agencyId`),
     INDEX `DailyClosing_userId_idx`(`userId`),
-    PRIMARY KEY (`id`),
-    CONSTRAINT `DailyClosing_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT `DailyClosing_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+    PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
