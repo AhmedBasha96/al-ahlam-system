@@ -1618,7 +1618,7 @@ export async function getRepAccountability(repId: string) {
     const collections = await prisma.transaction.aggregate({
         where: {
             userId: repId,
-            type: 'COLLECTION' as any
+            type: 'COLLECTION'
         },
         _sum: { paidAmount: true }
     });
@@ -1637,7 +1637,7 @@ export async function getRepAccountability(repId: string) {
     const submissions = await prisma.transaction.aggregate({
         where: {
             userId: repId,
-            type: 'REP_SUBMISSION' as any
+            type: 'REP_SUBMISSION'
         },
         _sum: { paidAmount: true }
     });
@@ -1666,7 +1666,7 @@ export async function recordRepSubmission(
             // 1. Create REP_SUBMISSION transaction
             const transaction = await tx.transaction.create({
                 data: {
-                    type: 'REP_SUBMISSION' as any,
+                    type: 'REP_SUBMISSION',
                     totalAmount: 0,
                     userId: repId,
                     agencyId: rep.agencyId!,
