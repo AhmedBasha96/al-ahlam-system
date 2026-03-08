@@ -1,5 +1,4 @@
 -- Clean up partial execution from previous failed attempts
--- This is safe because these tables were just being created and are empty.
 DROP TABLE IF EXISTS `JournalEntry`;
 DROP TABLE IF EXISTS `DailyClosing`;
 
@@ -42,8 +41,8 @@ CREATE TABLE `DailyClosing` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- AddForeignKey
-ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+-- AddForeignKey (Using UNIQUE constraint names to avoid global namespace conflicts)
+ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_agencyId_fkey_v2` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_userId_fkey_v2` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_agencyId_fkey_v2` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_userId_fkey_v2` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
