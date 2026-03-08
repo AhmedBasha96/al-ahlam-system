@@ -1,7 +1,7 @@
--- AlterTable (Safely update Enum)
+-- AlterTable (Safely update Enum - MySQL allows redundant MODIFY if current state matches)
 ALTER TABLE `Transaction` MODIFY `type` ENUM('SALE', 'PURCHASE', 'RETURN_IN', 'RETURN_OUT', 'COLLECTION', 'SUPPLY_PAYMENT', 'INITIAL_STOCK', 'REP_SUBMISSION') NOT NULL;
 
--- CreateTable (If not exists)
+-- CreateTable (If not exists with internal constraints)
 CREATE TABLE IF NOT EXISTS `JournalEntry` (
     `id` VARCHAR(191) NOT NULL,
     `amount` DECIMAL(65, 30) NOT NULL,
@@ -16,10 +16,12 @@ CREATE TABLE IF NOT EXISTS `JournalEntry` (
     INDEX `JournalEntry_agencyId_idx`(`agencyId`),
     INDEX `JournalEntry_userId_idx`(`userId`),
     INDEX `JournalEntry_referenceId_idx`(`referenceId`),
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`id`),
+    CONSTRAINT `JournalEntry_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT `JournalEntry_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable (If not exists)
+-- CreateTable (If not exists with internal constraints)
 CREATE TABLE IF NOT EXISTS `DailyClosing` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
@@ -34,13 +36,7 @@ CREATE TABLE IF NOT EXISTS `DailyClosing` (
 
     INDEX `DailyClosing_agencyId_idx`(`agencyId`),
     INDEX `DailyClosing_userId_idx`(`userId`),
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`id`),
+    CONSTRAINT `DailyClosing_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT `DailyClosing_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- Note: Foreign keys will fail if they already exist, so we'll wrap them or they'll skip if tables are created.
--- In case of partial failure, ensure these are applied.
--- AddForeignKey
-ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
