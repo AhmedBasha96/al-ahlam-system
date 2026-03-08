@@ -696,6 +696,7 @@ export async function deleteTransaction(id: string) {
 
     revalidatePath('/dashboard/reports/sales');
     revalidatePath('/dashboard', 'layout');
+    revalidatePath('/dashboard/accounts/treasury');
 }
 
 // --- Product Actions ---
@@ -1455,6 +1456,7 @@ export async function recordDebtCollection(
             if (revalidateRepId) {
                 revalidatePath(`/dashboard/reps/${revalidateRepId}`);
             }
+            revalidatePath('/dashboard/accounts/treasury');
 
             // 4. Record Journal Entry (Only if collected directly by office/accountant, not rep)
             // If repId is provided or collector is a rep, it stays in their custody
@@ -1491,22 +1493,37 @@ export async function recordAgencyPayment(
         const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
         if (!agency) throw new Error("Agency not found");
 
-        const transaction = await prisma.transaction.create({
-            data: {
-                type: 'SUPPLY_PAYMENT',
-                totalAmount: 0,
-                userId: user.id,
-                agencyId: agencyId,
-                paymentType: 'CASH',
-                paidAmount: amount,
-                remainingAmount: -amount,
-                note: note || "سداد مديونية توريد"
-            }
-        });
+        return await prisma.$transaction(async (tx) => {
+            const transaction = await tx.transaction.create({
+                data: {
+                    type: 'SUPPLY_PAYMENT',
+                    totalAmount: 0,
+                    userId: user.id,
+                    agencyId: agencyId,
+                    paymentType: 'CASH',
+                    paidAmount: amount,
+                    remainingAmount: -amount,
+                    note: note || "سداد مديونية توريد"
+                }
+            });
 
-        revalidatePath('/dashboard', 'layout');
-        revalidatePath('/dashboard/accounts/reports/purchases');
-        return { success: true, sessionId: transaction.id };
+            // 2. Record Journal Entry (Cash Out from Treasury)
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'CREDIT',
+                description: `سداد مديونية توريد للتوكيل: ${agency.name} - ${note || ''}`,
+                referenceId: transaction.id,
+                referenceType: 'SUPPLY_PAYMENT',
+                agencyId: agencyId,
+                userId: user.id
+            });
+
+            revalidatePath('/dashboard', 'layout');
+            revalidatePath('/dashboard/accounts/reports/purchases');
+            revalidatePath('/dashboard/accounts/treasury');
+
+            return { success: true, sessionId: transaction.id };
+        });
     } catch (error) {
         console.error("recordAgencyPayment error:", error);
         return { success: false, error: String(error) };
@@ -1719,6 +1736,8 @@ export async function recordRepSubmission(
                 userId: user.id
             });
 
+            revalidatePath('/dashboard', 'layout');
+            revalidatePath('/dashboard/accounts/treasury');
             return { success: true };
         });
     } catch (error) {

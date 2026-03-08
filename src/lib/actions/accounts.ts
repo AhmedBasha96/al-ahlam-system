@@ -125,8 +125,18 @@ export async function deleteAccountRecord(id: string) {
     const user = await getCurrentUser();
     if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
 
-    await prisma.accountRecord.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+        // 1. Delete associated journal entries (hits the treasury)
+        await tx.journalEntry.deleteMany({
+            where: { referenceId: id }
+        });
+
+        // 2. Delete the account record
+        await tx.accountRecord.delete({ where: { id } });
+    });
+
     revalidatePath('/dashboard/accounts', 'layout');
+    revalidatePath('/dashboard/accounts/treasury');
 }
 
 // --- Purchase Invoices ---
@@ -350,12 +360,27 @@ export async function updateAccountRecord(id: string, updates: { amount?: number
         if (updates.description !== undefined) data.description = updates.description;
         if (updates.category !== undefined) data.category = updates.category;
 
-        await prisma.accountRecord.update({
-            where: { id },
-            data
+        await prisma.$transaction(async (tx) => {
+            await tx.accountRecord.update({
+                where: { id },
+                data
+            });
+
+            // If amount or description changed, update JournalEntry to keep Treasury in sync
+            if (updates.amount !== undefined || updates.description !== undefined) {
+                const journalUpdate: any = {};
+                if (updates.amount !== undefined) journalUpdate.amount = updates.amount;
+                if (updates.description !== undefined) journalUpdate.description = updates.description;
+
+                await tx.journalEntry.updateMany({
+                    where: { referenceId: id },
+                    data: journalUpdate
+                });
+            }
         });
 
         revalidatePath('/dashboard/accounts', 'layout');
+        revalidatePath('/dashboard/accounts/treasury');
         return { success: true };
     } catch (error) {
         console.error("updateAccountRecord error:", error);
