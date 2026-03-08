@@ -1,7 +1,5 @@
-'use client';
-
+import { updateTransaction, deleteTransaction } from "@/lib/actions";
 import { useState, Fragment } from "react";
-import { updateTransaction } from "@/lib/actions";
 import TransactionModal from "@/components/shared/transaction-modal";
 
 type SoldItem = {
@@ -103,6 +101,23 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                                 className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-indigo-100 transition"
                                             >
                                                 تعديل ✏️
+                                            </button>
+                                        )}
+                                        {userRole === 'ADMIN' && (
+                                            <button
+                                                onClick={async () => {
+                                                    if (confirm(`هل أنت متأكد من حذف هذه الفاتورة؟ سيتم مسح كل الحركات المتعلقة بها في الخزينة!`)) {
+                                                        try {
+                                                            await deleteTransaction(session.id);
+                                                            window.location.reload();
+                                                        } catch (error: any) {
+                                                            alert(error.message || "حدث خطأ أثناء الحذف");
+                                                        }
+                                                    }
+                                                }}
+                                                className="bg-red-50 text-red-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-100 transition shadow-lg shadow-red-50"
+                                            >
+                                                حذف 🗑️
                                             </button>
                                         )}
                                         <button

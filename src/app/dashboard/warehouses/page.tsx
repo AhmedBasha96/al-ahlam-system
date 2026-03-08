@@ -1,5 +1,6 @@
 import { createWarehouse, getAgencies, getWarehouses, getCurrentUser } from "@/lib/actions";
 import Link from "next/link";
+import DeleteWarehouseButton from "./delete-warehouse-button";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,7 @@ export default async function WarehousesPage() {
                                                 <Link href={`/dashboard/warehouses/${warehouse.id}`} className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded text-sm hover:bg-emerald-200 transition">
                                                     إدارة الأرصدة
                                                 </Link>
+                                                <DeleteWarehouseButton id={warehouse.id} name={warehouse.name} userRole={currentUser.role} />
                                             </td>
                                         </tr>
                                     );

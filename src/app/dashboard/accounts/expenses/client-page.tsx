@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createAccountRecord } from "@/lib/actions/accounts";
-import { updateAccountRecord } from "@/lib/actions/accounts";
+import { createAccountRecord, updateAccountRecord, deleteAccountRecord } from "@/lib/actions/accounts";
 import TransactionModal from "@/components/shared/transaction-modal";
 import AccountRecordEditModal from "@/components/shared/account-record-edit-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -236,6 +235,23 @@ export default function ClientExpensesPage({ initialExpenses, agencies, supplier
                                                                 className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-100 transition shadow-sm"
                                                             >
                                                                 تعديل ✏️
+                                                            </button>
+                                                        )}
+                                                        {userRole === 'ADMIN' && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (confirm(`هل أنت متأكد من حذف هذا السجل؟`)) {
+                                                                        try {
+                                                                            await deleteAccountRecord(expense.id);
+                                                                            window.location.reload();
+                                                                        } catch (error: any) {
+                                                                            alert(error.message || "حدث خطأ أثناء الحذف");
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                className="bg-red-50 text-red-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-red-100 transition shadow-sm"
+                                                            >
+                                                                حذف 🗑️
                                                             </button>
                                                         )}
                                                     </div>

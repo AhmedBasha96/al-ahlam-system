@@ -1,6 +1,4 @@
-'use client';
-
-import { updateAgency } from "@/lib/actions";
+import { updateAgency, deleteAgency } from "@/lib/actions";
 import { useState } from "react";
 import EditAgencyModal from "./edit-agency-modal";
 import Link from "next/link";
@@ -12,8 +10,19 @@ type Agency = {
     image: string | null;
 }
 
-export default function AgenciesList({ agencies }: { agencies: Agency[] }) {
+export default function AgenciesList({ agencies, userRole }: { agencies: Agency[], userRole?: string }) {
     const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
+
+    const handleDelete = async (id: string, name: string) => {
+        if (confirm(`هل أنت متأكد من حذف التوكيل "${name}"؟ هذا سيؤدي لحذف كل البيانات المتعلقة به!`)) {
+            try {
+                await deleteAgency(id);
+                window.location.reload();
+            } catch (error: any) {
+                alert(error.message || "حدث خطأ أثناء الحذف");
+            }
+        }
+    };
 
     return (
         <>
@@ -58,11 +67,19 @@ export default function AgenciesList({ agencies }: { agencies: Agency[] }) {
                                         الحسابات
                                     </Link>
                                     <button
-                                        className="text-emerald-600 hover:text-emerald-800 font-medium"
+                                        className="text-emerald-600 hover:text-emerald-800 font-medium ml-3"
                                         onClick={() => setEditingAgency(agency)}
                                     >
                                         تعديل
                                     </button>
+                                    {userRole === 'ADMIN' && (
+                                        <button
+                                            className="text-red-600 hover:text-red-800 font-medium"
+                                            onClick={() => handleDelete(agency.id, agency.name)}
+                                        >
+                                            حذف
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

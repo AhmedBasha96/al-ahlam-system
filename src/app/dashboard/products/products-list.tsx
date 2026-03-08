@@ -1,6 +1,4 @@
-'use client';
-
-import { updateProduct } from "@/lib/actions";
+import { updateProduct, deleteProduct } from "@/lib/actions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import EditProductModal from "./edit-product-modal";
@@ -199,16 +197,33 @@ export default function ProductsList({ products, agencies, suppliers, userRole }
                                 </div>
                             </div>
 
-                            {canEdit && (
-                                <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                            <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                                {canEdit && (
                                     <button
                                         onClick={() => setEditingProduct(product)}
                                         className="flex-1 bg-emerald-50 text-emerald-600 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-100 transition"
                                     >
                                         تعديل
                                     </button>
-                                </div>
-                            )}
+                                )}
+                                {userRole === 'ADMIN' && (
+                                    <button
+                                        onClick={async () => {
+                                            if (confirm(`هل أنت متأكد من حذف المنتج "${product.name}"؟`)) {
+                                                try {
+                                                    await deleteProduct(product.id);
+                                                    window.location.reload();
+                                                } catch (error: any) {
+                                                    alert(error.message || "حدث خطأ أثناء الحذف");
+                                                }
+                                            }
+                                        }}
+                                        className="flex-1 bg-red-50 text-red-600 py-1.5 rounded-lg text-sm font-medium hover:bg-red-100 transition"
+                                    >
+                                        حذف
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 ))}

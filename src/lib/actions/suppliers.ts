@@ -74,7 +74,7 @@ export async function updateSupplier(id: string, formData: FormData) {
 
 export async function deleteSupplier(id: string) {
     const user = await getCurrentUser();
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error('Unauthorized');
+    if (user.role !== 'ADMIN') throw new Error('Unauthorized: Admin access required');
 
     await (prisma as any).supplier.delete({
         where: { id }

@@ -1,6 +1,4 @@
-'use client';
-
-import { updateUser } from "@/lib/actions";
+import { updateUser, deleteUser } from "@/lib/actions";
 import { useState } from "react";
 import EditUserModal from "./edit-user-modal";
 
@@ -105,10 +103,25 @@ export default function UsersList({ users, agencies, currentUserRole }: Props) {
                                             </a>
                                         )}
                                         <button
-                                            className="text-emerald-600 hover:text-emerald-800 text-sm font-medium transition-colors"
+                                            className="text-emerald-600 hover:text-emerald-800 text-sm font-medium transition-colors ml-3"
                                             onClick={() => setEditingUser(user)}
                                         >
                                             تعديل
+                                        </button>
+                                        <button
+                                            className="text-red-600 hover:text-red-800 text-sm font-medium transition-colors"
+                                            onClick={async () => {
+                                                if (confirm(`هل أنت متأكد من حذف المستخدم "${user.name}"؟`)) {
+                                                    try {
+                                                        await deleteUser(user.id);
+                                                        window.location.reload();
+                                                    } catch (error: any) {
+                                                        alert(error.message || "حدث خطأ أثناء الحذف");
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            حذف
                                         </button>
                                     </td>
                                 )}

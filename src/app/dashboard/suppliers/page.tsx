@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSuppliers } from "@/lib/actions/suppliers";
 import { getAgencies, getCurrentUser } from "@/lib/actions";
 import SupplierForm from "./supplier-form";
+import DeleteSupplierButton from "./supplier-delete-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Phone, MapPin, Package, History, Wallet, UserCircle } from "lucide-react";
 
@@ -124,9 +125,12 @@ export default async function SuppliersPage() {
                                             كشف حساب
                                         </Link>
                                         {canManage && (
-                                            <button className="px-6 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-all active:scale-95">
-                                                تعديل
-                                            </button>
+                                            <>
+                                                <button className="px-6 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-all active:scale-95">
+                                                    تعديل
+                                                </button>
+                                                <DeleteSupplierButton id={supplier.id} name={supplier.name} userRole={user.role} />
+                                            </>
                                         )}
                                     </div>
                                 </CardContent>

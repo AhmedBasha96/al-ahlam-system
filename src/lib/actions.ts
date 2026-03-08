@@ -147,7 +147,7 @@ export async function updateAgency(id: string, formData: FormData) {
 
 export async function deleteAgency(id: string) {
     const user = await getCurrentUser();
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error(`Unauthorized`);
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
 
     await prisma.$transaction(async (tx) => {
         // 1. Delete Stock (linked to products of this agency)
@@ -289,7 +289,7 @@ export async function createWarehouse(formData: FormData) {
 
 export async function deleteWarehouse(id: string) {
     const user = await getCurrentUser();
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error('Unauthorized');
+    if (user.role !== 'ADMIN') throw new Error('Unauthorized: Admin access required');
 
     await prisma.$transaction(async (tx) => {
         // 1. Delete associated stock records
@@ -447,8 +447,10 @@ export async function resetUserPassword(userId: string, formData: FormData) {
 }
 
 export async function deleteUser(id: string) {
-    const userRole = await getCurrentUser().then(u => u.role);
-    if (userRole !== 'ADMIN') throw new Error('Unauthorized: Only Admins can delete users');
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error('Unauthorized: Admin access required');
+
+    const userRole = user.role;
 
     await prisma.$transaction(async (tx) => {
         // Find if user is a rep to delete their virtual warehouse
@@ -663,8 +665,37 @@ export async function updateCustomer(id: string, formData: FormData) {
 }
 
 export async function deleteCustomer(id: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+
     await prisma.customer.delete({ where: { id } });
     revalidatePath('/dashboard/customers');
+}
+
+export async function deleteTransaction(id: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+
+    // We use a transaction to ensure all related records are cleaned up or the deletion fails
+    await prisma.$transaction(async (tx) => {
+        // 1. Delete associated journal entries
+        await tx.journalEntry.deleteMany({
+            where: { referenceId: id }
+        });
+
+        // 2. Delete transaction items
+        await tx.transactionItem.deleteMany({
+            where: { transactionId: id }
+        });
+
+        // 3. Delete the transaction itself
+        await tx.transaction.delete({
+            where: { id }
+        });
+    });
+
+    revalidatePath('/dashboard/reports/sales');
+    revalidatePath('/dashboard', 'layout');
 }
 
 // --- Product Actions ---
@@ -805,7 +836,7 @@ export async function updateProduct(id: string, formData: FormData) {
 
 export async function deleteProduct(id: string) {
     const user = await getCurrentUser();
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error('Unauthorized');
+    if (user.role !== 'ADMIN') throw new Error('Unauthorized: Admin access required');
 
     await prisma.product.delete({ where: { id } });
     revalidatePath('/dashboard', 'layout');

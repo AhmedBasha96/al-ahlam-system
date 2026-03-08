@@ -1,6 +1,4 @@
-'use client';
-
-import { updateCustomer } from "@/lib/actions";
+import { updateCustomer, deleteCustomer } from "@/lib/actions";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -127,6 +125,24 @@ export default function CustomersList({ customers, representatives, agencies, us
                                                 title="تعديل"
                                             >
                                                 ✏️
+                                            </button>
+                                        )}
+                                        {userRole === 'ADMIN' && (
+                                            <button
+                                                onClick={async () => {
+                                                    if (confirm(`هل أنت متأكد من حذف العميل "${customer.name}"؟`)) {
+                                                        try {
+                                                            await deleteCustomer(customer.id);
+                                                            window.location.reload();
+                                                        } catch (error: any) {
+                                                            alert(error.message || "حدث خطأ أثناء الحذف");
+                                                        }
+                                                    }
+                                                }}
+                                                className="text-red-500 hover:text-red-700 p-2 transition-colors"
+                                                title="حذف"
+                                            >
+                                                🗑️
                                             </button>
                                         )}
                                     </td>

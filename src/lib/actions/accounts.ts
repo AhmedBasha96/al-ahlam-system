@@ -122,6 +122,9 @@ export async function getAccountRecords(type?: AccountRecordType, agencyIdFilter
 }
 
 export async function deleteAccountRecord(id: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+
     await prisma.accountRecord.delete({ where: { id } });
     revalidatePath('/dashboard/accounts', 'layout');
 }
