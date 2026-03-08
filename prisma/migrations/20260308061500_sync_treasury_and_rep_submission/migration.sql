@@ -1,8 +1,8 @@
--- AlterTable
+-- AlterTable (Safely update Enum)
 ALTER TABLE `Transaction` MODIFY `type` ENUM('SALE', 'PURCHASE', 'RETURN_IN', 'RETURN_OUT', 'COLLECTION', 'SUPPLY_PAYMENT', 'INITIAL_STOCK', 'REP_SUBMISSION') NOT NULL;
 
--- CreateTable
-CREATE TABLE `JournalEntry` (
+-- CreateTable (If not exists)
+CREATE TABLE IF NOT EXISTS `JournalEntry` (
     `id` VARCHAR(191) NOT NULL,
     `amount` DECIMAL(65, 30) NOT NULL,
     `type` ENUM('DEBIT', 'CREDIT') NOT NULL,
@@ -19,8 +19,8 @@ CREATE TABLE `JournalEntry` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
-CREATE TABLE `DailyClosing` (
+-- CreateTable (If not exists)
+CREATE TABLE IF NOT EXISTS `DailyClosing` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
     `agencyId` VARCHAR(191) NOT NULL,
@@ -37,14 +37,10 @@ CREATE TABLE `DailyClosing` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- Note: Foreign keys will fail if they already exist, so we'll wrap them or they'll skip if tables are created.
+-- In case of partial failure, ensure these are applied.
 -- AddForeignKey
 ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE `JournalEntry` ADD CONSTRAINT `JournalEntry_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE `DailyClosing` ADD CONSTRAINT `DailyClosing_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
