@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getFinancialSummary } from "@/lib/actions/accounts";
+import { getRepAccountability } from "@/lib/actions";
 import prisma from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Wallet, TrendingUp, TrendingDown, DollarSign, Activity, ArrowUpRight, Zap, PieChart, Users, Building2 } from "lucide-react";
@@ -58,6 +59,18 @@ export default async function AccountsDashboard() {
     }, 0);
 
     const totalCustomerDebt = Number(totalCustomerDebtAgg._sum.remainingAmount || 0) + customerAccountAdjustment;
+
+    // Calculate total rep custody (Cash with reps)
+    const reps = await prisma.user.findMany({
+        where: { role: 'SALES_REPRESENTATIVE' },
+        select: { id: true }
+    });
+
+    const repAccountabilities = await Promise.all(
+        reps.map(rep => getRepAccountability(rep.id))
+    );
+
+    const totalRepCustody = repAccountabilities.reduce((sum, acc) => sum + acc.currentCustody, 0);
 
     return (
         <div className="relative min-h-screen -m-6 p-8 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-rose-50/30 overflow-hidden">
@@ -134,10 +147,18 @@ export default async function AccountsDashboard() {
                                 <h2 className="text-4xl font-black tracking-tight mb-2 text-white drop-shadow-lg">
                                     {formatMoney(totalCustomerDebt)}
                                 </h2>
-                                <p className="text-emerald-200 text-sm font-medium flex items-center gap-2">
-                                    <ArrowUpRight className="w-4 h-4" />
-                                    إدارة وتحصيل المديونيات
-                                </p>
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-emerald-200 text-sm font-medium flex items-center gap-2">
+                                        <ArrowUpRight className="w-4 h-4" />
+                                        إدارة وتحصيل المديونيات
+                                    </p>
+                                    {totalRepCustody > 0 && (
+                                        <p className="text-amber-300 text-sm font-bold flex items-center gap-2 bg-black/20 px-3 py-1 rounded-lg w-fit">
+                                            <Activity className="w-4 h-4" />
+                                            {formatMoney(totalRepCustody)} عهد معلقة (تحت التسوية)
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </Link>

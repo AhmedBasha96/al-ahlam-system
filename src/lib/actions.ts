@@ -1208,7 +1208,8 @@ export async function finalizeRepAudit(
                     }
                 });
 
-                // Record Journal Entry (Only if paid amount > 0)
+                // Record Journal Entry (Removed: Cash stays in rep custody until manual submission)
+                /*
                 if ((paymentInfo.paidAmount || 0) > 0) {
                     await recordJournalEntry(tx, {
                         amount: Number(paymentInfo.paidAmount),
@@ -1220,6 +1221,7 @@ export async function finalizeRepAudit(
                         userId: repId
                     });
                 }
+                */
 
                 return { sessionId: transaction.id, soldItems: soldItems };
             }
@@ -1621,7 +1623,17 @@ export async function getRepAccountability(repId: string) {
         _sum: { paidAmount: true }
     });
 
-    // 2. Total submissions by this rep to the office
+    // 2. Total cash sales by this rep (where they received the cash)
+    const cashSales = await prisma.transaction.aggregate({
+        where: {
+            userId: repId,
+            type: 'SALE',
+            paidAmount: { gt: 0 }
+        },
+        _sum: { paidAmount: true }
+    });
+
+    // 3. Total submissions by this rep to the office
     const submissions = await prisma.transaction.aggregate({
         where: {
             userId: repId,
@@ -1630,7 +1642,7 @@ export async function getRepAccountability(repId: string) {
         _sum: { paidAmount: true }
     });
 
-    const totalCollected = Number(collections._sum?.paidAmount || 0);
+    const totalCollected = Number(collections._sum?.paidAmount || 0) + Number(cashSales._sum?.paidAmount || 0);
     const totalSubmitted = Number(submissions._sum?.paidAmount || 0);
 
     return {

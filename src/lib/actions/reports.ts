@@ -319,62 +319,68 @@ export async function getTreasuryStatusReport(
 ) {
     const dateRange = getDateRange(startDate, endDate);
 
-    // General Treasury
-    const generalIncome = await prisma.accountRecord.findMany({
-        where: {
-            type: 'INCOME',
-            agencyId: null,
-            createdAt: dateRange
-        }
+    const typeLabels: Record<string, string> = {
+        'SALE': 'مبيعات نقدية',
+        'COLLECTION': 'تحصيلات مديونية',
+        'REP_SUBMISSION': 'توريدات مناديب (تسوية)',
+        'INCOME': 'إيرادات متنوعة',
+        'PURCHASE': 'مشتريات',
+        'EXPENSE': 'مصروفات التشغيل',
+        'SUPPLY_PAYMENT': 'سداد موردين',
+        'RETURN_IN': 'مرتجع مبيعات',
+        'RETURN_OUT': 'مرتجع مشتريات',
+    };
+
+    // Fetch all Journal Entries
+    const journalEntries = await prisma.journalEntry.findMany({
+        where: { createdAt: dateRange },
+        orderBy: { createdAt: 'desc' }
     });
 
-    const generalExpenses = await prisma.accountRecord.findMany({
-        where: {
-            type: 'EXPENSE',
-            agencyId: null,
-            createdAt: dateRange
-        }
-    });
+    const processEntries = (entries: any[]) => {
+        const totalIncome = entries
+            .filter(e => e.type === 'DEBIT')
+            .reduce((sum, e) => sum + Number(e.amount), 0);
+        const totalExpenses = entries
+            .filter(e => e.type === 'CREDIT')
+            .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    const generalTotalIncome = generalIncome.reduce((sum, r) => sum + Number(r.amount), 0);
-    const generalTotalExpenses = generalExpenses.reduce((sum, r) => sum + Number(r.amount), 0);
-    const generalBalance = generalTotalIncome - generalTotalExpenses;
+        const revenueBreakdown: Record<string, number> = {};
+        entries.filter(e => e.type === 'DEBIT').forEach(e => {
+            const key = typeLabels[e.referenceType || ''] || e.description || 'أخرى';
+            revenueBreakdown[key] = (revenueBreakdown[key] || 0) + Number(e.amount);
+        });
 
-    // Agency Treasuries
-    const agencies = await prisma.agency.findMany({
-        include: {
-            accounts: {
-                where: {
-                    createdAt: dateRange
-                }
-            }
-        }
-    });
-
-    const agencyTreasuries = agencies.map(agency => {
-        const income = agency.accounts.filter(r => r.type === 'INCOME');
-        const expenses = agency.accounts.filter(r => r.type === 'EXPENSE');
-
-        const totalIncome = income.reduce((sum, r) => sum + Number(r.amount), 0);
-        const totalExpenses = expenses.reduce((sum, r) => sum + Number(r.amount), 0);
+        const expenseBreakdown: Record<string, number> = {};
+        entries.filter(e => e.type === 'CREDIT').forEach(e => {
+            const key = typeLabels[e.referenceType || ''] || e.description || 'أخرى';
+            expenseBreakdown[key] = (expenseBreakdown[key] || 0) + Number(e.amount);
+        });
 
         return {
-            agencyId: agency.id,
-            agencyName: agency.name,
             totalIncome,
             totalExpenses,
-            balance: totalIncome - totalExpenses
+            balance: totalIncome - totalExpenses,
+            revenueBreakdown: Object.entries(revenueBreakdown).map(([name, value]) => ({ name, value })),
+            expenseBreakdown: Object.entries(expenseBreakdown).map(([name, value]) => ({ name, value }))
         };
-    });
+    };
+
+    // General Treasury
+    const generalTreasury = processEntries(journalEntries.filter(e => e.agencyId === null));
+
+    // Agency Treasuries
+    const agencies = await prisma.agency.findMany();
+    const agencyTreasuries = agencies.map(agency => ({
+        agencyId: agency.id,
+        agencyName: agency.name,
+        ...processEntries(journalEntries.filter(e => e.agencyId === agency.id))
+    }));
 
     return {
-        generalTreasury: {
-            totalIncome: generalTotalIncome,
-            totalExpenses: generalTotalExpenses,
-            balance: generalBalance
-        },
+        generalTreasury,
         agencyTreasuries,
-        totalBalance: generalBalance + agencyTreasuries.reduce((sum, a) => sum + a.balance, 0)
+        totalBalance: generalTreasury.balance + agencyTreasuries.reduce((sum, a) => sum + a.balance, 0)
     };
 }
 
