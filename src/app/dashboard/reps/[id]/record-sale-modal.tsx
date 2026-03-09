@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { recordDirectSale } from "@/lib/actions";
 import SalesInvoiceModal from "./sales-invoice-modal";
 
@@ -43,6 +43,32 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
     const [paidAmount, setPaidAmount] = useState<number>(0);
     const [loading, setLoading] = useState(false);
     const [invoiceData, setInvoiceData] = useState<any>(null);
+    const [applyDiscount, setApplyDiscount] = useState(true);
+
+    // Update cart when applyDiscount toggle changes
+    useEffect(() => {
+        setCart(prev => prev.map(item => {
+            const product = products.find(p => p.id === item.productId);
+            if (!product) return item;
+
+            const originalPrice = pricingType === 'RETAIL'
+                ? Number(product.retailPrice)
+                : Number(product.wholesalePrice);
+
+            const discountPercentage = applyDiscount
+                ? (pricingType === 'RETAIL' ? Number(product.retailDiscount) : Number(product.wholesaleDiscount))
+                : 0;
+
+            const price = originalPrice * (1 - (discountPercentage / 100));
+
+            return {
+                ...item,
+                price,
+                originalPrice,
+                discountPercentage
+            };
+        }));
+    }, [applyDiscount, products, pricingType]);
 
     const availableProducts = products.filter(p => {
         const stock = repStocks.find(s => s.productId === p.id);
@@ -60,9 +86,9 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                 ? product.retailPrice
                 : product.wholesalePrice;
 
-            const discountPercentage = pricingType === 'RETAIL'
-                ? product.retailDiscount
-                : product.wholesaleDiscount;
+            const discountPercentage = applyDiscount
+                ? (pricingType === 'RETAIL' ? product.retailDiscount : product.wholesaleDiscount)
+                : 0;
 
             const price = originalPrice * (1 - (discountPercentage / 100));
 
@@ -165,25 +191,39 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">إضافة صنف من العهدة:</label>
-                            <select
-                                onChange={(e) => {
-                                    if (e.target.value) {
-                                        handleAddToCart(e.target.value);
-                                        e.target.value = "";
-                                    }
-                                }}
-                                className="w-full border rounded-xl p-3 bg-emerald-50 text-emerald-800 font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
-                            >
-                                <option value="">+ إضافة صنف للسلة...</option>
-                                {availableProducts.map(p => {
-                                    const stock = repStocks.find(s => s.productId === p.id)?.quantity || 0;
-                                    return (
-                                        <option key={p.id} value={p.id}>{p.name} (متاح: {stock})</option>
-                                    );
-                                })}
-                            </select>
+                        <div className="flex items-center gap-4">
+                            <div className="flex-1">
+                                <label className="block text-sm font-bold text-gray-700 mb-2">إضافة صنف من العهدة:</label>
+                                <select
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            handleAddToCart(e.target.value);
+                                            e.target.value = "";
+                                        }
+                                    }}
+                                    className="w-full border rounded-xl p-3 bg-emerald-50 text-emerald-800 font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                                >
+                                    <option value="">+ إضافة صنف لسلة...</option>
+                                    {availableProducts.map(p => {
+                                        const stock = repStocks.find(s => s.productId === p.id)?.quantity || 0;
+                                        return (
+                                            <option key={p.id} value={p.id}>{p.name} (متاح: {stock})</option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                            <div className="pt-8">
+                                <button
+                                    onClick={() => setApplyDiscount(!applyDiscount)}
+                                    className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-all border-2 ${applyDiscount
+                                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm'
+                                        : 'bg-gray-50 border-gray-200 text-gray-400'
+                                        }`}
+                                >
+                                    <span className="text-xl">{applyDiscount ? '🏷️' : '⚪'}</span>
+                                    {applyDiscount ? 'الخصم مفعل' : 'بدون خصم'}
+                                </button>
+                            </div>
                         </div>
                     </div>
 

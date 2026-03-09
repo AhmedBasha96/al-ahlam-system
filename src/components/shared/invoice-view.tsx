@@ -43,6 +43,9 @@ export function InvoiceView({
     const invoiceRef = useRef<HTMLDivElement>(null);
     const [isSharing, setIsSharing] = useState(false);
 
+    const totalBeforeDiscount = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
+    const totalSavings = totalBeforeDiscount - totalAmount;
+
     const isPurchase = type === 'PURCHASE' || type === 'RETURN_OUT';
     const isReturn = type === 'RETURN_IN' || type === 'RETURN_OUT';
     const isInitial = type === 'INITIAL_STOCK';
@@ -215,8 +218,21 @@ export function InvoiceView({
 
                 {/* Totals Section */}
                 <div className="bg-slate-50 rounded-3xl p-6 space-y-3">
+                    {totalSavings > 0 && (
+                        <>
+                            <div className="flex justify-between items-center text-xs font-bold text-slate-400">
+                                <span>الإجمالي قبل الخصم</span>
+                                <span>{totalBeforeDiscount.toLocaleString()} ج.م</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs font-bold text-rose-500">
+                                <span>قيمة الخصم</span>
+                                <span>- {totalSavings.toLocaleString()} ج.م</span>
+                            </div>
+                            <div className="border-t border-slate-100 my-1"></div>
+                        </>
+                    )}
                     <div className="flex justify-between items-center text-sm font-bold text-slate-500">
-                        <span>إجمالي الفاتورة</span>
+                        <span>إجمالي الفاتورة (الصافي)</span>
                         <span>{totalAmount.toLocaleString()} ج.م</span>
                     </div>
                     <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
