@@ -131,6 +131,7 @@ export default function TransactionModal({
                                                 type="number"
                                                 value={newPaymentAmount}
                                                 onChange={(e) => setNewPaymentAmount(e.target.value)}
+                                                step="0.01"
                                                 className="w-full border-2 border-emerald-200 rounded-2xl p-4 text-2xl font-black text-emerald-700 outline-none focus:ring-4 focus:ring-emerald-100 transition-all"
                                                 placeholder="0.00"
                                                 autoFocus
@@ -173,8 +174,9 @@ export default function TransactionModal({
                                                     <td className="p-4 text-center">
                                                         <input
                                                             type="number"
+                                                            step="0.01"
                                                             value={item.price}
-                                                            onChange={(e) => updateItem(index, 'price', parseInt(e.target.value) || 0)}
+                                                            onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value) || 0)}
                                                             className="w-24 border-2 border-slate-100 rounded-xl p-2 text-center font-bold text-slate-600 focus:border-indigo-500 outline-none"
                                                         />
                                                     </td>

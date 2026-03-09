@@ -115,6 +115,7 @@ export default function SalesInvoiceModal({ id, repId, repName, customerName, it
                                             <label className="block text-xs font-black text-emerald-600 uppercase tracking-widest">المبلغ المطلوب تحصيله</label>
                                             <input
                                                 type="number"
+                                                step="0.01"
                                                 value={newPaymentAmount}
                                                 onChange={(e) => setNewPaymentAmount(e.target.value)}
                                                 className="w-full border-2 border-emerald-200 rounded-2xl p-4 text-2xl font-black text-emerald-700 outline-none focus:ring-4 focus:ring-emerald-100 transition-all"

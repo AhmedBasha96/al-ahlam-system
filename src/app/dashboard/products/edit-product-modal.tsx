@@ -161,15 +161,15 @@ export default function EditProductModal({ product, agencies, suppliers, updateP
                             <div className="grid grid-cols-3 gap-3">
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-500 mb-1">المصنع</label>
-                                    <input name="factoryPrice" type="number" defaultValue={product.factoryPrice} onChange={handlePriceChange} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold shadow-sm" required />
+                                    <input name="factoryPrice" type="number" step="0.01" defaultValue={product.factoryPrice} onChange={handlePriceChange} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold shadow-sm" required />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-500 mb-1">الجملة</label>
-                                    <input name="wholesalePrice" type="number" defaultValue={product.wholesalePrice} onChange={handlePriceChange} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold shadow-sm" required />
+                                    <input name="wholesalePrice" type="number" step="0.01" defaultValue={product.wholesalePrice} onChange={handlePriceChange} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold shadow-sm" required />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-500 mb-1">القطاعي</label>
-                                    <input name="retailPrice" type="number" defaultValue={product.retailPrice} onChange={handlePriceChange} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold shadow-sm" required />
+                                    <input name="retailPrice" type="number" step="0.01" defaultValue={product.retailPrice} onChange={handlePriceChange} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold shadow-sm" required />
                                 </div>
                             </div>
 

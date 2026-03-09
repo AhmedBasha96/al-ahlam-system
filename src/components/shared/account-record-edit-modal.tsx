@@ -75,6 +75,7 @@ export default function AccountRecordEditModal({
                         <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">المبلغ</label>
                         <input
                             type="number"
+                            step="0.01"
                             value={amount}
                             onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
                             className={`w-full border-2 border-${accentColor}-200 rounded-2xl p-4 text-2xl font-black text-${accentColor}-700 outline-none focus:ring-4 focus:ring-${accentColor}-100 transition-all`}

@@ -140,15 +140,15 @@ export default function CreateProductForm({ agencies, suppliers, createProductAc
                 <div className="grid grid-cols-3 gap-3">
                     <div>
                         <label className="block text-[10px] font-bold text-gray-500 mb-1 italic">سعر المصنع</label>
-                        <input name="factoryPrice" type="number" onChange={handlePriceChange} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold" placeholder="0" required />
+                        <input name="factoryPrice" type="number" step="0.01" onChange={handlePriceChange} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold" placeholder="0" required />
                     </div>
                     <div>
                         <label className="block text-[10px] font-bold text-gray-500 mb-1 italic">سعر الجملة</label>
-                        <input name="wholesalePrice" type="number" onChange={handlePriceChange} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold" placeholder="0" required />
+                        <input name="wholesalePrice" type="number" step="0.01" onChange={handlePriceChange} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold" placeholder="0" required />
                     </div>
                     <div>
                         <label className="block text-[10px] font-bold text-gray-500 mb-1 italic">سعر القطاعي</label>
-                        <input name="retailPrice" type="number" onChange={handlePriceChange} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold" placeholder="0" required />
+                        <input name="retailPrice" type="number" step="0.01" onChange={handlePriceChange} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold" placeholder="0" required />
                     </div>
                 </div>
 
