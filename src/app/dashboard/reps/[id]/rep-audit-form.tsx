@@ -14,6 +14,8 @@ type Product = {
     unitsPerCarton: number;
     unitWholesalePrice: number;
     unitRetailPrice: number;
+    wholesaleDiscount: number;
+    retailDiscount: number;
 }
 
 type RepStock = {
@@ -92,13 +94,17 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
 
     const getPricing = (product: Product) => {
         const effectivePricing = pricingType ?? 'RETAIL';
-        if (effectivePricing === 'WHOLESALE') return {
-            carton: product.wholesalePrice,
-            unit: product.unitWholesalePrice
-        };
+        if (effectivePricing === 'WHOLESALE') {
+            const discount = Number(product.wholesaleDiscount || 0) / 100;
+            return {
+                carton: product.wholesalePrice * (1 - discount),
+                unit: product.unitWholesalePrice * (1 - discount)
+            };
+        }
+        const discount = Number(product.retailDiscount || 0) / 100;
         return {
-            carton: product.retailPrice,
-            unit: product.unitRetailPrice
+            carton: product.retailPrice * (1 - discount),
+            unit: product.unitRetailPrice * (1 - discount)
         };
     };
 

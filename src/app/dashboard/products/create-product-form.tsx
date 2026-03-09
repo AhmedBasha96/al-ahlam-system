@@ -152,6 +152,17 @@ export default function CreateProductForm({ agencies, suppliers, createProductAc
                     </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-[10px] font-bold text-orange-600 mb-1">خصم مندوب الجملة (%)</label>
+                        <input name="wholesaleDiscount" type="number" step="0.01" min="0" max="100" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-orange-500 outline-none font-bold bg-orange-50/30" placeholder="0" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-rose-600 mb-1">خصم مندوب القطاعي (%)</label>
+                        <input name="retailDiscount" type="number" step="0.01" min="0" max="100" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-rose-500 outline-none font-bold bg-rose-50/30" placeholder="0" />
+                    </div>
+                </div>
+
                 <div className="pt-2">
                     <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
@@ -193,6 +204,6 @@ export default function CreateProductForm({ agencies, suppliers, createProductAc
             <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-4 rounded-2xl hover:bg-emerald-700 transition disabled:opacity-50 font-black shadow-lg shadow-emerald-100 text-lg">
                 {loading ? 'جاري الإضافة...' : 'حفظ المنتج الجديد'}
             </button>
-        </form>
+        </form >
     );
 }

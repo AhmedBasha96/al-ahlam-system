@@ -102,6 +102,8 @@ model Product {
   unitFactoryPrice Decimal           @default(0)
   unitWholesalePrice Decimal         @default(0)
   unitRetailPrice   Decimal          @default(0)
+  wholesaleDiscount Decimal          @default(0)
+  retailDiscount    Decimal          @default(0)
   agency           Agency            @relation(fields: [agencyId], references: [id])
   supplier         Supplier?         @relation(fields: [supplierId], references: [id])
   stocks           Stock[]

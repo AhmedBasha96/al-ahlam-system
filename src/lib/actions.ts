@@ -807,6 +807,8 @@ export async function createProduct(formData: FormData) {
         const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
         const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
         const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
+        const wholesaleDiscount = Number(formData.get('wholesaleDiscount')) || 0;
+        const retailDiscount = Number(formData.get('retailDiscount')) || 0;
 
         console.log('[createProduct] Creating product in database...');
         const product = await (prisma as any).product.create({
@@ -824,6 +826,8 @@ export async function createProduct(formData: FormData) {
                 unitFactoryPrice: new Decimal(unitFactoryPrice),
                 unitWholesalePrice: new Decimal(unitWholesalePrice),
                 unitRetailPrice: new Decimal(unitRetailPrice),
+                wholesaleDiscount: new Decimal(wholesaleDiscount),
+                retailDiscount: new Decimal(retailDiscount),
             } as any
         });
 
@@ -865,6 +869,8 @@ export async function updateProduct(id: string, formData: FormData) {
         const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
         const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
         const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
+        const wholesaleDiscount = Number(formData.get('wholesaleDiscount')) || 0;
+        const retailDiscount = Number(formData.get('retailDiscount')) || 0;
 
         console.log('[updateProduct] Updating product in database...');
         await (prisma as any).product.update({
@@ -882,6 +888,8 @@ export async function updateProduct(id: string, formData: FormData) {
                 unitFactoryPrice: new Decimal(unitFactoryPrice),
                 unitWholesalePrice: new Decimal(unitWholesalePrice),
                 unitRetailPrice: new Decimal(unitRetailPrice),
+                wholesaleDiscount: new Decimal(wholesaleDiscount),
+                retailDiscount: new Decimal(retailDiscount),
                 ...(imageBase64 ? { image: imageBase64 } : {})
             } as any
         });

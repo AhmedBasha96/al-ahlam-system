@@ -11,6 +11,8 @@ type Product = {
     factoryPrice: number;
     wholesalePrice: number;
     retailPrice: number;
+    wholesaleDiscount: number;
+    retailDiscount: number;
     agencyId: string;
     supplierId?: string | null;
     image: string | null;
@@ -170,6 +172,17 @@ export default function EditProductModal({ product, agencies, suppliers, updateP
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-500 mb-1">القطاعي</label>
                                     <input name="retailPrice" type="number" step="0.01" defaultValue={product.retailPrice} onChange={handlePriceChange} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-bold shadow-sm" required />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 pt-2">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-orange-600 mb-1">خصم مندوب الجملة (%)</label>
+                                    <input name="wholesaleDiscount" type="number" step="0.01" min="0" max="100" defaultValue={product.wholesaleDiscount} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-orange-500 outline-none font-bold shadow-sm bg-orange-50/30" placeholder="0" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-rose-600 mb-1">خصم مندوب القطاعي (%)</label>
+                                    <input name="retailDiscount" type="number" step="0.01" min="0" max="100" defaultValue={product.retailDiscount} className="w-full border-2 border-white rounded-lg p-2 focus:ring-2 focus:ring-rose-500 outline-none font-bold shadow-sm bg-rose-50/30" placeholder="0" />
                                 </div>
                             </div>
 
