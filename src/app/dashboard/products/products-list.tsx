@@ -22,6 +22,8 @@ type Product = {
     unitFactoryPrice: number;
     unitWholesalePrice: number;
     unitRetailPrice: number;
+    wholesaleDiscount: number;
+    retailDiscount: number;
 };
 
 type Props = {
@@ -167,13 +169,34 @@ export default function ProductsList({ products, agencies, suppliers, userRole }
                                         <span className="font-semibold">{product.factoryPrice.toLocaleString('en-US')}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between text-gray-600">
-                                    <span>سعر الجملة:</span>
-                                    <span className="font-semibold">{product.wholesalePrice.toLocaleString('en-US')}</span>
-                                </div>
                                 <div className="flex justify-between text-emerald-700 bg-emerald-50 p-1 rounded px-2 mt-1">
-                                    <span>سعر القطاعي:</span>
-                                    <span className="font-bold">{product.retailPrice.toLocaleString('en-US')}ج.م</span>
+                                    <div className="flex flex-col">
+                                        <span>سعر القطاعي:</span>
+                                        {product.retailDiscount > 0 && (
+                                            <span className="text-[10px] font-black text-rose-500">خصم القطاعي: {product.retailDiscount}%</span>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="font-bold">{product.retailPrice.toLocaleString('en-US')}ج.م</span>
+                                        {product.retailDiscount > 0 && (
+                                            <div className="text-[10px] font-bold text-emerald-600">صافي: {(product.retailPrice * (1 - product.retailDiscount / 100)).toFixed(2)}</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between text-orange-700 bg-orange-50 p-1 rounded px-2 mt-1">
+                                    <div className="flex flex-col">
+                                        <span>سعر الجملة:</span>
+                                        {product.wholesaleDiscount > 0 && (
+                                            <span className="text-[10px] font-black text-orange-600">خصم الجملة: {product.wholesaleDiscount}%</span>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="font-bold">{product.wholesalePrice.toLocaleString('en-US')}ج.م</span>
+                                        {product.wholesaleDiscount > 0 && (
+                                            <div className="text-[10px] font-bold text-orange-500">صافي: {(product.wholesalePrice * (1 - product.wholesaleDiscount / 100)).toFixed(2)}</div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Sub-unit details */}

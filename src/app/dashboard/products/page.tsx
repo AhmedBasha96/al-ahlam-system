@@ -22,6 +22,8 @@ export default async function ProductsPage() {
             unitFactoryPrice: Number(p.unitFactoryPrice) || 0,
             unitWholesalePrice: Number(p.unitWholesalePrice) || 0,
             unitRetailPrice: Number(p.unitRetailPrice) || 0,
+            wholesaleDiscount: Number(p.wholesaleDiscount) || 0,
+            retailDiscount: Number(p.retailDiscount) || 0,
             createdAt: p.createdAt ? p.createdAt.toISOString() : undefined,
             updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
             priceUpdatedAt: p.priceUpdatedAt ? p.priceUpdatedAt.toISOString() : undefined,
