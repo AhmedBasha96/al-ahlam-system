@@ -22,6 +22,7 @@ interface OpeningStockModalProps {
         id: string;
         name: string;
         unitFactoryPrice: number;
+        unitsPerCarton: number;
     };
 }
 
@@ -41,6 +42,11 @@ export function OpeningStockModal({ warehouseId, product }: OpeningStockModalPro
                 <form action={async (formData) => {
                     setLoading(true);
                     try {
+                        const cartons = Number(formData.get('cartons') || 0);
+                        const units = Number(formData.get('units') || 0);
+                        const totalQuantity = (cartons * product.unitsPerCarton) + units;
+                        formData.set('quantity', totalQuantity.toString());
+
                         const res = await recordOpeningStock(formData);
                         if (res.success) {
                             setOpen(false);
@@ -65,16 +71,29 @@ export function OpeningStockModal({ warehouseId, product }: OpeningStockModalPro
                         <input type="hidden" name="warehouseId" value={warehouseId} />
                         <input type="hidden" name="productId" value={product.id} />
 
-                        <div className="space-y-2">
-                            <Label htmlFor="quantity" className="text-sm font-bold text-slate-700 font-arabic">الكمية (بالقطعة)</Label>
-                            <Input
-                                id="quantity"
-                                name="quantity"
-                                type="number"
-                                placeholder="0"
-                                className="text-2xl font-black text-emerald-600 bg-emerald-50 focus:ring-emerald-500 h-12"
-                                required
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="cartons" className="text-sm font-bold text-slate-700 font-arabic">الكمية (بالكرتون)</Label>
+                                <Input
+                                    id="cartons"
+                                    name="cartons"
+                                    type="number"
+                                    placeholder="0"
+                                    defaultValue={0}
+                                    className="text-2xl font-black text-emerald-600 bg-emerald-50 focus:ring-emerald-500 h-12"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="units" className="text-sm font-bold text-slate-700 font-arabic">الكمية (بالعلبة)</Label>
+                                <Input
+                                    id="units"
+                                    name="units"
+                                    type="number"
+                                    placeholder="0"
+                                    defaultValue={0}
+                                    className="text-2xl font-black text-emerald-600 bg-emerald-50 focus:ring-emerald-500 h-12"
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -108,6 +127,6 @@ export function OpeningStockModal({ warehouseId, product }: OpeningStockModalPro
                     </DialogFooter>
                 </form>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }

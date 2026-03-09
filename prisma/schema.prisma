@@ -26,6 +26,7 @@ model User {
   warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id])
   agencies       Agency[]        @relation("UserAgencies")
   journalEntries JournalEntry[]
+  confirmedEntries JournalEntry[] @relation("Confirmer")
   dailyClosings  DailyClosing[]
 
   @@index([agencyId], map: "User_agencyId_fkey")
@@ -328,14 +329,24 @@ model JournalEntry {
   referenceType   String?           // "SALE", "PURCHASE", "EXPENSE", etc.
   agencyId        String?
   userId          String            // The user who performed the entry
+  status          JournalEntryStatus @default(CONFIRMED)
+  confirmedAt     DateTime?
+  confirmedBy     String?           // User ID who confirmed
   createdAt       DateTime          @default(now())
   
   agency          Agency?           @relation(fields: [agencyId], references: [id])
   user            User              @relation(fields: [userId], references: [id])
+  confirmer       User?             @relation("Confirmer", fields: [confirmedBy], references: [id])
 
   @@index([agencyId])
   @@index([userId])
   @@index([referenceId])
+}
+
+enum JournalEntryStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
 }
 
 model DailyClosing {

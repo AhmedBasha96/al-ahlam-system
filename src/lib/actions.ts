@@ -1828,6 +1828,26 @@ export async function recordOpeningStock(formData: FormData) {
             });
 
             // 2. Record Transaction
+            const cartons = Math.floor(quantity / (Number((warehouse as any).product?.unitsPerCarton) || 1));
+            const units = quantity % (Number((warehouse as any).product?.unitsPerCarton) || 1);
+
+            // We need to fetch the product again or trust the front-end breakdown if we passed it
+            // For now, let's just use the quantity and optionally update the note if we want to be fancy.
+            // But since recordOpeningStock is generic, let's keep it simple or fetch product details.
+
+            const product = await tx.product.findUnique({ where: { id: productId } });
+            const upc = product?.unitsPerCarton || 1;
+            const noteCartons = Math.floor(quantity / upc);
+            const noteUnits = quantity % upc;
+
+            let detailedNote = "بضاعة أول المدة";
+            if (upc > 1) {
+                const parts = [];
+                if (noteCartons > 0) parts.push(`${noteCartons} كرتونة`);
+                if (noteUnits > 0) parts.push(`${noteUnits} علبة`);
+                detailedNote += ` (${parts.join(' و ')})`;
+            }
+
             await (tx as any).transaction.create({
                 data: {
                     type: 'INITIAL_STOCK' as any,
@@ -1838,7 +1858,7 @@ export async function recordOpeningStock(formData: FormData) {
                     paymentType: 'CASH',
                     paidAmount: 0,
                     remainingAmount: 0,
-                    note: "بضاعة أول المدة",
+                    note: detailedNote,
                     createdAt: date ? new Date(date) : new Date(),
                     items: {
                         create: [{
