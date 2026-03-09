@@ -86,15 +86,21 @@ export async function createAccountRecord(formData: FormData) {
             }
         });
 
-        await recordJournalEntry(tx, {
-            amount,
-            type: type === 'INCOME' ? 'DEBIT' : 'CREDIT',
-            description: `${description} (${category || 'عام'})`,
-            referenceId: record.id,
-            referenceType: type,
-            agencyId: agencyId,
-            userId: user.id
-        });
+        // Record Journal Entry Only if NOT a starting balance for a supplier/customer
+        // (Treasury starting balance SHOULD still hit journal to initialize cash)
+        const isDebtOpeningBalance = category === 'رصيد بداية المدة' && (supplierId || customerId);
+
+        if (!isDebtOpeningBalance) {
+            await recordJournalEntry(tx, {
+                amount,
+                type: type === 'INCOME' ? 'DEBIT' : 'CREDIT',
+                description: `${description} (${category || 'عام'})`,
+                referenceId: record.id,
+                referenceType: type,
+                agencyId: agencyId,
+                userId: user.id
+            });
+        }
     }, { timeout: 15000 });
 
     revalidatePath('/dashboard/accounts', 'layout');

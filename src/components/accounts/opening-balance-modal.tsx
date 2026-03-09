@@ -47,8 +47,8 @@ export function OpeningBalanceModal({ type, id, name, agencyId, visible = true }
     const getDescription = () => {
         switch (type) {
             case 'TREASURY': return 'سيتم إضافة هذا المبلغ كرصيد افتتاحي في الخزينة.';
-            case 'SUPPLIER': return 'سيتم تسجيل هذا المبلغ كمديونية سابقة للمورد (مبلغ يطلبه المورد).';
-            case 'CUSTOMER': return 'سيتم تسجيل هذا المبلغ كمديونية سابقة على العميل (مبلغ يطلبه المحل).';
+            case 'SUPPLIER': return 'سيتم تسجيل هذا المبلغ كمديونية سابقة للمورد (مبلغ مستحق للمورد علينا).';
+            case 'CUSTOMER': return 'سيتم تسجيل هذا المبلغ كمديونية سابقة على العميل (مبلغ مستحق لنا عند العميل).';
         }
     };
 
