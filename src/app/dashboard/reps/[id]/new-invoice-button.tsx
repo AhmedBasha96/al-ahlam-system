@@ -11,6 +11,8 @@ type Product = {
     retailPrice: number;
     unitWholesalePrice: number;
     unitRetailPrice: number;
+    wholesaleDiscount: number;
+    retailDiscount: number;
 }
 
 type RepStock = {

@@ -220,12 +220,17 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                                                 </div>
                                             </td>
                                             <td className="p-3 text-center">
-                                                <input
-                                                    type="number"
-                                                    value={item.price}
-                                                    readOnly
-                                                    className="w-20 border rounded p-1 text-center text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
-                                                />
+                                                <div className="flex flex-col items-center">
+                                                    <input
+                                                        type="number"
+                                                        value={item.price}
+                                                        readOnly
+                                                        className="w-20 border rounded p-1 text-center text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
+                                                    />
+                                                    {item.discountPercentage > 0 && (
+                                                        <span className="text-[10px] font-black text-rose-500 mt-0.5">خصم {item.discountPercentage}%</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="p-3 text-center font-black">{(item.quantity * item.price).toLocaleString('en-US')}</td>
                                             <td className="p-3 text-center">
