@@ -10,6 +10,8 @@ interface InvoiceItem {
     productName: string;
     quantity: number;
     price: number;
+    originalPrice?: number;
+    discountPercentage?: number;
     total: number;
 }
 
@@ -176,15 +178,34 @@ export function InvoiceView({
                                 <th className="py-4 text-right">الصنف</th>
                                 <th className="py-4 text-center">الكمية</th>
                                 <th className="py-4 text-center">السعر</th>
+                                <th className="py-4 text-center">الخصم</th>
                                 <th className="py-4 text-left">الإجمالي</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {items.map((item, idx) => (
                                 <tr key={idx} className="group">
-                                    <td className="py-4 font-bold text-slate-800">{item.productName}</td>
+                                    <td className="py-4">
+                                        <div className="font-bold text-slate-800">{item.productName}</div>
+                                        {item.discountPercentage && item.discountPercentage > 0 ? (
+                                            <div className="text-[10px] text-rose-500 font-bold">
+                                                السعر قبل الخصم: {item.originalPrice?.toLocaleString()} ج.م
+                                            </div>
+                                        ) : null}
+                                    </td>
                                     <td className="py-4 text-center font-black text-indigo-600">{item.quantity}</td>
-                                    <td className="py-4 text-center text-slate-500 font-medium">{item.price.toLocaleString()}</td>
+                                    <td className="py-4 text-center">
+                                        <div className="text-slate-900 font-bold">{item.price.toLocaleString()}</div>
+                                    </td>
+                                    <td className="py-4 text-center">
+                                        {item.discountPercentage && item.discountPercentage > 0 ? (
+                                            <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-lg text-[10px] font-black border border-rose-100 italic">
+                                                %{item.discountPercentage}
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-300 font-bold">—</span>
+                                        )}
+                                    </td>
                                     <td className="py-4 text-left font-black text-slate-900">{item.total.toLocaleString()}</td>
                                 </tr>
                             ))}

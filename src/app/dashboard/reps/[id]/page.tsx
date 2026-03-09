@@ -65,6 +65,8 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
         unitFactoryPrice: Number(p.unitFactoryPrice || 0),
         unitWholesalePrice: Number(p.unitWholesalePrice || 0),
         unitRetailPrice: Number(p.unitRetailPrice || 0),
+        wholesaleDiscount: Number(p.wholesaleDiscount || 0),
+        retailDiscount: Number(p.retailDiscount || 0),
         agencyId: String(p.agencyId || "")
     }));
     const repStocks = rawRepStocks.map(s => ({ productId: s.productId, quantity: s.quantity }));

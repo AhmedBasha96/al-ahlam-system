@@ -8,6 +8,8 @@ type TransactionItem = {
     productName: string;
     quantity: number;
     price: number;
+    originalPrice?: number;
+    discountPercentage?: number;
     total: number;
 }
 

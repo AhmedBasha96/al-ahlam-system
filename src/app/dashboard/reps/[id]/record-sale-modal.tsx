@@ -11,6 +11,8 @@ type Product = {
     retailPrice: number;
     unitWholesalePrice: number;
     unitRetailPrice: number;
+    wholesaleDiscount: number;
+    retailDiscount: number;
 }
 
 type RepStock = {
@@ -36,7 +38,7 @@ type Props = {
 
 export default function RecordSaleModal({ repId, repName, customers, products, repStocks, onClose, initialCustomerId, pricingType }: Props) {
     const [selectedCustomerId, setSelectedCustomerId] = useState(initialCustomerId || "");
-    const [cart, setCart] = useState<{ productId: string, quantity: number, price: number }[]>([]);
+    const [cart, setCart] = useState<{ productId: string, quantity: number, price: number, originalPrice: number, discountPercentage: number }[]>([]);
     const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT' | 'PARTIAL'>('CASH');
     const [paidAmount, setPaidAmount] = useState<number>(0);
     const [loading, setLoading] = useState(false);
@@ -54,11 +56,17 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
         setCart(prev => {
             if (prev.find(item => item.productId === productId)) return prev;
 
-            const price = pricingType === 'RETAIL'
+            const originalPrice = pricingType === 'RETAIL'
                 ? product.retailPrice
                 : product.wholesalePrice;
 
-            return [...prev, { productId, quantity: 1, price }];
+            const discountPercentage = pricingType === 'RETAIL'
+                ? product.retailDiscount
+                : product.wholesaleDiscount;
+
+            const price = originalPrice * (1 - (discountPercentage / 100));
+
+            return [...prev, { productId, quantity: 1, price, originalPrice, discountPercentage }];
         });
     };
 
@@ -99,6 +107,8 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                     productName: products.find(p => p.id === item.productId)?.name || '',
                     quantity: item.quantity,
                     price: item.price,
+                    originalPrice: item.originalPrice,
+                    discountPercentage: item.discountPercentage,
                     total: item.quantity * item.price
                 })),
                 paymentInfo: {

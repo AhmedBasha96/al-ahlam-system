@@ -587,6 +587,8 @@ export async function getCustomerDetails(id: string) {
             items: t.items.map((item: any) => ({
                 ...item,
                 price: Number(item.price),
+                originalPrice: Number(item.originalPrice || item.price),
+                discountPercentage: Number(item.discountPercentage || 0),
                 cost: Number(item.cost || 0)
             }))
         })),
@@ -1200,11 +1202,18 @@ export async function finalizeRepAudit(
                 const soldQty = currentQty - item.actualQuantity;
 
                 if (soldQty > 0) {
-                    const product = await tx.product.findUnique({ where: { id: item.productId } });
+                    const product = await tx.product.findUnique({ where: { id: item.productId } }) as any;
                     if (!product) continue;
 
                     const upc = Number(product.unitsPerCarton) || 1;
+                    const discountPercent = user.pricingType === 'WHOLESALE' ? Number(product.wholesaleDiscount || 0) : Number(product.retailDiscount || 0);
+                    const discountFactor = 1 - (discountPercent / 100);
+
                     const pricing = user.pricingType === 'WHOLESALE'
+                        ? { carton: Number(product.wholesalePrice) * discountFactor, unit: Number(product.unitWholesalePrice) * discountFactor }
+                        : { carton: Number(product.retailPrice) * discountFactor, unit: Number(product.unitRetailPrice) * discountFactor };
+
+                    const originalPricing = user.pricingType === 'WHOLESALE'
                         ? { carton: Number(product.wholesalePrice), unit: Number(product.unitWholesalePrice) }
                         : { carton: Number(product.retailPrice), unit: Number(product.unitRetailPrice) };
 
@@ -1212,15 +1221,19 @@ export async function finalizeRepAudit(
                     const soldCartons = Math.floor(soldQty / upc);
                     const soldUnitsRemaining = soldQty % upc;
                     const totalSoldRowValue = (soldCartons * pricing.carton) + (soldUnitsRemaining * pricing.unit);
+                    const totalOriginalRowValue = (soldCartons * originalPricing.carton) + (soldUnitsRemaining * originalPricing.unit);
 
-                    // Store effective unit price (total/quantity)
+                    // Store effective unit prices
                     const effectiveUnitPrice = soldQty > 0 ? (totalSoldRowValue / soldQty) : 0;
+                    const originalUnitPrice = soldQty > 0 ? (totalOriginalRowValue / soldQty) : 0;
 
                     soldItems.push({
                         productId: item.productId,
                         productName: product.name || "منتج غير معروف",
                         quantity: soldQty,
                         price: effectiveUnitPrice,
+                        originalPrice: originalUnitPrice,
+                        discountPercentage: discountPercent,
                         total: totalSoldRowValue
                     });
 
@@ -1300,6 +1313,8 @@ export async function finalizeRepAudit(
                                     productId: si.productId,
                                     quantity: si.quantity,
                                     price: si.price, // Already unit price
+                                    originalPrice: si.originalPrice || si.price,
+                                    discountPercentage: si.discountPercentage || 0,
                                     cost: prod?.unitFactoryPrice || 0
                                 };
                             }))
@@ -1342,7 +1357,7 @@ export async function finalizeRepAudit(
 export async function recordSalesSession(
     repId: string,
     repName: string,
-    items: any[],
+    items: { productId: string, quantity: number, price: number, originalPrice?: number, discountPercentage?: number }[],
     customerData?: { id: string, name: string },
     paymentInfo?: { type: 'CASH' | 'CREDIT' | 'PARTIAL', paidAmount?: number }
 ) {
@@ -1369,6 +1384,8 @@ export async function recordSalesSession(
                             productId: item.productId,
                             quantity: item.quantity,
                             price: item.price || 0,
+                            originalPrice: item.originalPrice || item.price || 0,
+                            discountPercentage: item.discountPercentage || 0,
                             cost: product?.unitFactoryPrice || 0
                         };
                     }))
@@ -1388,7 +1405,7 @@ export async function recordSalesSession(
 export async function recordDirectSale(
     repId: string,
     customerId: string,
-    items: { productId: string, quantity: number, price: number }[],
+    items: { productId: string, quantity: number, price: number, originalPrice?: number, discountPercentage?: number }[],
     paymentInfo: { type: 'CASH' | 'CREDIT' | 'PARTIAL', paidAmount?: number }
 ) {
     try {
@@ -1424,6 +1441,8 @@ export async function recordDirectSale(
                                 productId: item.productId,
                                 quantity: item.quantity,
                                 price: item.price,
+                                originalPrice: item.originalPrice || item.price,
+                                discountPercentage: item.discountPercentage || 0,
                                 cost: product?.unitFactoryPrice || 0
                             };
                         }))
@@ -1444,7 +1463,7 @@ export async function recordDirectSale(
 export async function getSalesSessions(filters?: { repId?: string; startDate?: string; endDate?: string }) {
     const user = await getCurrentUser();
 
-    return await prisma.transaction.findMany({
+    const transactions = await prisma.transaction.findMany({
         where: {
             type: 'SALE',
             userId: user.role === 'SALES_REPRESENTATIVE' ? user.id : (filters?.repId && filters.repId !== "" ? filters.repId : undefined),
@@ -1456,6 +1475,20 @@ export async function getSalesSessions(filters?: { repId?: string; startDate?: s
         include: { user: true, customer: true, items: { include: { product: true } } },
         orderBy: { createdAt: 'desc' }
     });
+
+    return transactions.map((t: any) => ({
+        ...t,
+        totalAmount: Number(t.totalAmount),
+        paidAmount: Number(t.paidAmount || 0),
+        remainingAmount: Number(t.remainingAmount || 0),
+        items: t.items.map((item: any) => ({
+            ...item,
+            price: Number(item.price),
+            originalPrice: Number(item.originalPrice || item.price),
+            discountPercentage: Number(item.discountPercentage || 0),
+            cost: Number(item.cost || 0)
+        }))
+    }));
 }
 
 export async function recordDebtCollection(
