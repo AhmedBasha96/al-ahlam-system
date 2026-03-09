@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, Phone, MapPin, Receipt, Wallet, ArrowUpRight, Arr
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OpeningBalanceModal } from "@/components/accounts/opening-balance-modal";
+import { SupplierPaymentModal } from "@/components/accounts/supplier-payment-modal";
 import SupplierLedgerTable from "./supplier-ledger-table";
 
 export const dynamic = 'force-dynamic';
@@ -32,17 +33,22 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
             items: t.items.length,
             rawTransaction: t
         })),
-        ...supplier.accounts.map((acc: any) => ({
-            id: acc.id,
-            date: acc.createdAt,
-            type: 'ACCOUNT',
-            action: acc.type === 'EXPENSE' ? 'دفعة للمورد' : 'إيراد من المورد',
-            amount: 0,
-            paid: Number(acc.amount),
-            balance: acc.type === 'EXPENSE' ? -Number(acc.amount) : Number(acc.amount),
-            note: acc.description,
-            items: null
-        }))
+        ...supplier.accounts.map((acc: any) => {
+            const isOpening = acc.category === 'رصيد بداية المدة';
+            const isPayment = acc.category === 'سداد مديونية' || acc.type === 'EXPENSE';
+
+            return {
+                id: acc.id,
+                date: acc.createdAt,
+                type: 'ACCOUNT',
+                action: isOpening ? 'رصيد افتتاحي (مديونية سابقة)' : (isPayment ? 'سداد مديونية (دفعة للمورد)' : 'إشعار دائن'),
+                amount: 0,
+                paid: Number(acc.amount),
+                balance: acc.type === 'EXPENSE' ? -Number(acc.amount) : Number(acc.amount),
+                note: acc.description,
+                items: null
+            };
+        })
     ];
 
     const currentBalance = ledger.reduce((acc, curr) => acc + curr.balance, 0);
@@ -75,6 +81,11 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                         name={supplier.name}
                         agencyId={supplier.agencyId}
                         visible={!supplier.hasInitialBalance}
+                    />
+                    <SupplierPaymentModal
+                        supplierId={supplier.id}
+                        supplierName={supplier.name}
+                        agencyId={supplier.agencyId}
                     />
                     <button className="bg-white text-slate-900 border border-slate-200 px-6 py-3 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
                         <FileText className="w-5 h-5" />
