@@ -42,8 +42,8 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                 date: acc.createdAt,
                 type: 'ACCOUNT',
                 action: isOpening ? 'رصيد افتتاحي (مديونية سابقة)' : (isPayment ? 'سداد مديونية (دفعة للمورد)' : 'إشعار دائن'),
-                amount: 0,
-                paid: Number(acc.amount),
+                amount: isOpening ? Number(acc.amount) : 0,
+                paid: isOpening ? 0 : Number(acc.amount),
                 balance: acc.type === 'EXPENSE' ? -Number(acc.amount) : Number(acc.amount),
                 note: acc.description,
                 items: null
@@ -110,7 +110,7 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">إجمالي المشتريات</span>
                         </div>
                         <div className="text-3xl font-black text-slate-800 tracking-tight">
-                            {formatMoney(ledger.filter(i => i.type === 'TRANSACTION').reduce((s, i) => s + i.amount, 0))}
+                            {formatMoney(ledger.reduce((s, i) => s + i.amount, 0))}
                         </div>
                     </CardContent>
                 </Card>
