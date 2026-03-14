@@ -7,6 +7,7 @@ import { updateStock, supplyStock } from "@/lib/actions";
 import WarehouseAuditForm from "./warehouse-audit-form";
 import RepAuditForm from "../../reps/[id]/rep-audit-form";
 import { OpeningStockModal } from "@/components/inventory/opening-stock-modal";
+import WarehouseReturnForm from "./warehouse-return-form";
 
 type Product = {
     id: string;
@@ -96,7 +97,7 @@ export default function WarehouseOperations({
     warehouses,
     userRole
 }: Props) {
-    const [activeTab, setActiveTab] = useState<'inventory' | 'loading' | 'history' | 'rep-audit'>('inventory');
+    const [activeTab, setActiveTab] = useState<'inventory' | 'loading' | 'returns' | 'history' | 'rep-audit'>('inventory');
     const [selectedRepId, setSelectedRepId] = useState<string>("");
     const [supplyModeProductId, setSupplyModeProductId] = useState<string | null>(null);
 
@@ -136,6 +137,15 @@ export default function WarehouseOperations({
                         }`}
                 >
                     تحميل المناديب (إذن صرف)
+                </button>
+                <button
+                    onClick={() => setActiveTab('returns')}
+                    className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors relative ${activeTab === 'returns'
+                        ? 'text-rose-600 border-b-2 border-rose-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                >
+                    مرتجع مصنع
                 </button>
                 <button
                     onClick={() => setActiveTab('history')}
@@ -258,6 +268,10 @@ export default function WarehouseOperations({
                 ) : activeTab === 'loading' ? (
                     <div className="max-w-4xl mx-auto">
                         <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} stocks={allStocks} />
+                    </div>
+                ) : activeTab === 'returns' ? (
+                    <div className="max-w-4xl mx-auto">
+                        <WarehouseReturnForm warehouseId={warehouseId} products={agencyProducts} stocks={allStocks} />
                     </div>
                 ) : activeTab === 'rep-audit' ? (
                     <div className="space-y-6">
