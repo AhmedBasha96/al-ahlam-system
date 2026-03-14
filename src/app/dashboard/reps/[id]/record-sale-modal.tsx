@@ -13,6 +13,7 @@ type Product = {
     unitRetailPrice: number;
     wholesaleDiscount: number;
     retailDiscount: number;
+    unitsPerCarton: number;
 }
 
 type RepStock = {
@@ -38,12 +39,29 @@ type Props = {
 
 export default function RecordSaleModal({ repId, repName, customers, products, repStocks, onClose, initialCustomerId, pricingType }: Props) {
     const [selectedCustomerId, setSelectedCustomerId] = useState(initialCustomerId || "");
-    const [cart, setCart] = useState<{ productId: string, quantity: number, price: number, originalPrice: number, discountPercentage: number }[]>([]);
+    const [cart, setCart] = useState<{ productId: string, cartons: number, units: number, price: number, originalPrice: number, discountPercentage: number }[]>([]);
     const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT' | 'PARTIAL'>('CASH');
     const [paidAmount, setPaidAmount] = useState<number>(0);
     const [loading, setLoading] = useState(false);
     const [invoiceData, setInvoiceData] = useState<any>(null);
     const [applyDiscount, setApplyDiscount] = useState(true);
+
+    const calculateItemPrice = (product: Product, cartons: number, units: number) => {
+        const isCarton = cartons > 0;
+        const basePrice = isCarton
+            ? (pricingType === 'RETAIL' ? Number(product.retailPrice) : Number(product.wholesalePrice))
+            : (pricingType === 'RETAIL' ? Number(product.unitRetailPrice) : Number(product.unitWholesalePrice));
+
+        const discountPercentage = applyDiscount
+            ? (pricingType === 'RETAIL' ? Number(product.retailDiscount) : Number(product.wholesaleDiscount))
+            : 0;
+
+        return {
+            price: basePrice * (1 - (discountPercentage / 100)),
+            originalPrice: basePrice,
+            discountPercentage
+        };
+    };
 
     // Update cart when applyDiscount toggle changes
     useEffect(() => {
@@ -51,15 +69,7 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
             const product = products.find(p => p.id === item.productId);
             if (!product) return item;
 
-            const originalPrice = pricingType === 'RETAIL'
-                ? Number(product.retailPrice)
-                : Number(product.wholesalePrice);
-
-            const discountPercentage = applyDiscount
-                ? (pricingType === 'RETAIL' ? Number(product.retailDiscount) : Number(product.wholesaleDiscount))
-                : 0;
-
-            const price = originalPrice * (1 - (discountPercentage / 100));
+            const { price, originalPrice, discountPercentage } = calculateItemPrice(product, item.cartons, item.units);
 
             return {
                 ...item,
@@ -82,31 +92,52 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
         setCart(prev => {
             if (prev.find(item => item.productId === productId)) return prev;
 
-            const originalPrice = pricingType === 'RETAIL'
-                ? product.retailPrice
-                : product.wholesalePrice;
+            const { price, originalPrice, discountPercentage } = calculateItemPrice(product, 0, 1);
 
-            const discountPercentage = applyDiscount
-                ? (pricingType === 'RETAIL' ? product.retailDiscount : product.wholesaleDiscount)
-                : 0;
-
-            const price = originalPrice * (1 - (discountPercentage / 100));
-
-            return [...prev, { productId, quantity: 1, price, originalPrice, discountPercentage }];
+            return [...prev, { productId, cartons: 0, units: 1, price, originalPrice, discountPercentage }];
         });
     };
 
-    const updateCartItem = (productId: string, field: 'quantity' | 'price', value: number) => {
-        setCart(prev => prev.map(item =>
-            item.productId === productId ? { ...item, [field]: value } : item
-        ));
+    const updateCartItem = (productId: string, field: 'cartons' | 'units', value: number) => {
+        setCart(prev => prev.map(item => {
+            if (item.productId !== productId) return item;
+
+            const product = products.find(p => p.id === item.productId);
+            if (!product) return item;
+
+            let updatedItem = { ...item, [field]: value };
+            const upc = product.unitsPerCarton || 1;
+
+            // Smart Rebalancing
+            if (field === 'units' && value >= upc) {
+                updatedItem.cartons += Math.floor(value / upc);
+                updatedItem.units = value % upc;
+            }
+
+            // Recalculate price based on new quantities
+            const { price, originalPrice, discountPercentage } = calculateItemPrice(product, updatedItem.cartons, updatedItem.units);
+
+            return {
+                ...updatedItem,
+                price,
+                originalPrice,
+                discountPercentage
+            };
+        }));
     };
 
     const removeFromCart = (productId: string) => {
         setCart(prev => prev.filter(item => item.productId !== productId));
     };
 
-    const totalAmount = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    const totalAmount = cart.reduce((sum, item) => {
+        const product = products.find(p => p.id === item.productId);
+        const upc = product?.unitsPerCarton || 1;
+        if (item.cartons > 0) {
+            return sum + ((item.cartons + (item.units / upc)) * item.price);
+        }
+        return sum + (item.units * item.price);
+    }, 0);
 
     const handleSubmit = async () => {
         if (!selectedCustomerId) return alert("يرجى اختيار العميل");
@@ -116,10 +147,34 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
         }
 
         setLoading(true);
+        const processedItems = cart.map(item => {
+            const product = products.find(p => p.id === item.productId);
+            const upc = product?.unitsPerCarton || 1;
+
+            let totalUnits = 0;
+            let finalUnitPrice = 0;
+
+            if (item.cartons > 0) {
+                totalUnits = (item.cartons * upc) + item.units;
+                finalUnitPrice = item.price / upc;
+            } else {
+                totalUnits = item.units;
+                finalUnitPrice = item.price;
+            }
+
+            return {
+                productId: item.productId,
+                quantity: totalUnits,
+                price: finalUnitPrice,
+                originalPrice: item.originalPrice / (item.cartons > 0 ? upc : 1),
+                discountPercentage: item.discountPercentage
+            };
+        });
+
         const result = await recordDirectSale(
             repId,
             selectedCustomerId,
-            cart,
+            processedItems,
             { type: paymentType, paidAmount: paymentType === 'PARTIAL' ? paidAmount : undefined }
         );
 
@@ -128,15 +183,23 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
             setInvoiceData({
                 repName,
                 customerName: customer?.name,
-                items: cart.map(item => ({
-                    productId: item.productId,
-                    productName: products.find(p => p.id === item.productId)?.name || '',
-                    quantity: item.quantity,
-                    price: item.price,
-                    originalPrice: item.originalPrice,
-                    discountPercentage: item.discountPercentage,
-                    total: item.quantity * item.price
-                })),
+                items: cart.map(item => {
+                    const product = products.find(p => p.id === item.productId);
+                    const upc = product?.unitsPerCarton || 1;
+                    const totalLineAmount = item.cartons > 0
+                        ? (item.cartons + (item.units / upc)) * item.price
+                        : item.units * item.price;
+
+                    return {
+                        productId: item.productId,
+                        productName: product?.name || '',
+                        quantity: item.cartons > 0 ? (item.cartons * upc + item.units) : item.units,
+                        price: item.price,
+                        originalPrice: item.originalPrice,
+                        discountPercentage: item.discountPercentage,
+                        total: totalLineAmount
+                    };
+                }),
                 paymentInfo: {
                     type: paymentType,
                     paidAmount: paymentType === 'PARTIAL' ? paidAmount : undefined,
@@ -206,8 +269,9 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                                     <option value="">+ إضافة صنف لسلة...</option>
                                     {availableProducts.map(p => {
                                         const stock = repStocks.find(s => s.productId === p.id)?.quantity || 0;
+                                        const upc = p.unitsPerCarton || 1;
                                         return (
-                                            <option key={p.id} value={p.id}>{p.name} (متاح: {stock})</option>
+                                            <option key={p.id} value={p.id}>{p.name} (متاح: {Math.floor(stock / upc)} ك + {stock % upc} ع)</option>
                                         );
                                     })}
                                 </select>
@@ -234,7 +298,7 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                                 <tr>
                                     <th className="p-3">الصنف</th>
                                     <th className="p-3 text-center">الكمية</th>
-                                    <th className="p-3 text-center">السعر</th>
+                                    <th className="p-3 text-center">السعر ({cart.some(i => i.cartons > 0) ? 'متنوع' : 'للعلبة'})</th>
                                     <th className="p-3 text-center">الإجمالي</th>
                                     <th className="p-3 text-center">حذف</th>
                                 </tr>
@@ -248,31 +312,65 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                                             <td className="p-3 font-medium text-gray-900">{product?.name}</td>
                                             <td className="p-3 text-center">
                                                 <div className="flex flex-col items-center">
-                                                    <input
-                                                        type="number"
-                                                        value={item.quantity}
-                                                        onChange={(e) => updateCartItem(item.productId, 'quantity', Math.min(max, parseInt(e.target.value) || 1))}
-                                                        min="1"
-                                                        max={max}
-                                                        className="w-16 border rounded p-1 text-center font-bold text-emerald-700"
-                                                    />
-                                                    <span className="text-[9px] text-gray-400 mt-0.5">متاح: {max}</span>
+                                                    <div className="flex gap-2">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-[8px] text-gray-400">كرتونة</span>
+                                                            <input
+                                                                type="number"
+                                                                value={item.cartons}
+                                                                onChange={(e) => {
+                                                                    const val = parseInt(e.target.value) || 0;
+                                                                    const upc = product?.unitsPerCarton || 1;
+                                                                    const requestedTotal = (val * upc) + item.units;
+                                                                    if (requestedTotal <= max) {
+                                                                        updateCartItem(item.productId, 'cartons', val);
+                                                                    }
+                                                                }}
+                                                                min="0"
+                                                                className="w-12 border rounded p-1 text-center font-bold text-emerald-700"
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-[8px] text-gray-400">علبة</span>
+                                                            <input
+                                                                type="number"
+                                                                value={item.units}
+                                                                onChange={(e) => {
+                                                                    const val = parseInt(e.target.value) || 0;
+                                                                    const upc = product?.unitsPerCarton || 1;
+                                                                    const requestedTotal = (item.cartons * upc) + val;
+                                                                    if (requestedTotal <= max) {
+                                                                        updateCartItem(item.productId, 'units', val);
+                                                                    }
+                                                                }}
+                                                                min="0"
+                                                                className="w-12 border rounded p-1 text-center font-bold text-emerald-700"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-[9px] text-gray-400 mt-0.5">متاح: {Math.floor(max / (product?.unitsPerCarton || 1))} ك + {max % (product?.unitsPerCarton || 1)} ع</span>
                                                 </div>
                                             </td>
                                             <td className="p-3 text-center">
                                                 <div className="flex flex-col items-center">
-                                                    <input
-                                                        type="number"
-                                                        value={item.price}
-                                                        readOnly
-                                                        className="w-20 border rounded p-1 text-center text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
-                                                    />
+                                                    <div className="text-sm font-bold text-gray-700">
+                                                        {item.price.toLocaleString()}
+                                                        <span className="text-[10px] text-gray-400 block font-normal">({item.cartons > 0 ? 'للكرتونة' : 'للعلبة'})</span>
+                                                    </div>
                                                     {item.discountPercentage > 0 && (
                                                         <span className="text-[10px] font-black text-rose-500 mt-0.5">خصم {item.discountPercentage}%</span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="p-3 text-center font-black">{(item.quantity * item.price).toLocaleString('en-US')}</td>
+                                            <td className="p-3 text-center font-black">
+                                                {(() => {
+                                                    const upc = product?.unitsPerCarton || 1;
+                                                    if (item.cartons > 0) {
+                                                        return ((item.cartons + (item.units / upc)) * item.price).toLocaleString('en-US');
+                                                    }
+                                                    return (item.units * item.price).toLocaleString('en-US');
+                                                })()}
+                                            </td>
                                             <td className="p-3 text-center">
                                                 <button onClick={() => removeFromCart(item.productId)} className="text-red-400 hover:text-red-600 transition-colors">🗑️</button>
                                             </td>
