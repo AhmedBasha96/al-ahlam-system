@@ -29,7 +29,11 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
         stocks: p.stocks.map((s: any) => ({ warehouseId: s.warehouseId, quantity: s.quantity }))
     }));
 
-    const warehouses = await getWarehouses();
+    const mappedWarehouses = (await getWarehouses()).map((w: any) => ({
+        id: w.id,
+        name: w.name,
+        agencyId: w.agencyId
+    }));
 
     if (!supplier) {
         notFound();
@@ -47,7 +51,21 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
             balance: Number(t.totalAmount) - Number(t.paidAmount || 0),
             note: t.note || (t.type === 'PURCHASE' ? 'فاتورة مشتريات' : 'مرتجع مشتريات'),
             items: t.items.length,
-            rawTransaction: t
+            rawTransaction: {
+                id: t.id,
+                type: t.type,
+                createdAt: t.createdAt.toISOString(),
+                user: t.user ? { name: t.user.name } : { name: "غير معروف" },
+                items: t.items.map((i: any) => ({
+                    productId: i.productId,
+                    product: { name: i.product?.name || "غير معروف" },
+                    quantity: i.quantity,
+                    price: Number(i.price)
+                })),
+                paymentType: t.paymentType,
+                paidAmount: Number(t.paidAmount || 0),
+                totalAmount: Number(t.totalAmount || 0)
+            }
         })),
         ...supplier.accounts.map((acc: any) => {
             const isOpening = acc.category === 'رصيد بداية المدة';
@@ -55,7 +73,7 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
 
             return {
                 id: acc.id,
-                date: acc.createdAt,
+                date: acc.createdAt.toISOString(),
                 type: 'ACCOUNT',
                 action: isOpening ? 'رصيد افتتاحي (مديونية سابقة)' : (isPayment ? 'سداد مديونية (دفعة للمورد)' : 'إشعار دائن'),
                 amount: isOpening ? Number(acc.amount) : 0,
@@ -107,7 +125,7 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                         supplierId={supplier.id}
                         supplierName={supplier.name}
                         products={supplierProducts}
-                        warehouses={warehouses}
+                        warehouses={mappedWarehouses}
                     />
                     <button className="bg-white text-slate-900 border border-slate-200 px-6 py-3 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
                         <FileText className="w-5 h-5" />
