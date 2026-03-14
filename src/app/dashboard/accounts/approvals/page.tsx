@@ -12,7 +12,7 @@ export default async function ApprovalsPage() {
         redirect('/dashboard');
     }
 
-    const pendingTransactions = await prisma.transaction.findMany({
+    const pendingTransactionsRaw = await prisma.transaction.findMany({
         where: { status: 'PENDING' },
         include: {
             user: true,
@@ -25,6 +25,22 @@ export default async function ApprovalsPage() {
         },
         orderBy: { createdAt: 'desc' }
     });
+
+    const pendingTransactions = pendingTransactionsRaw.map((tx: any) => ({
+        id: tx.id,
+        type: tx.type,
+        createdAt: tx.createdAt.toISOString(),
+        totalAmount: Number(tx.totalAmount),
+        user: tx.user ? { name: tx.user.name } : null,
+        supplier: tx.supplier ? { name: tx.supplier.name } : null,
+        warehouse: tx.warehouse ? { name: tx.warehouse.name } : null,
+        items: tx.items.map((item: any) => ({
+            id: item.id,
+            quantity: item.quantity,
+            price: Number(item.price),
+            product: item.product ? { name: item.product.name } : null
+        }))
+    }));
 
     return (
         <div className="space-y-8 p-6 bg-slate-50 min-h-screen" dir="rtl">
