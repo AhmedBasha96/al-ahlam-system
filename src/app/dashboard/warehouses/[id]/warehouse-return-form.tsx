@@ -247,19 +247,7 @@ export default function WarehouseReturnForm({ warehouseId, products, stocks }: P
                                             disabled={!item.productId}
                                         />
                                     </div>
-                                    <div className="w-24">
-                                        <label className="block text-[10px] text-blue-500 font-bold mb-1">السعر (للوحدة)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={item.price}
-                                            onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
-                                            className="w-full border border-blue-200 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none text-center font-bold bg-blue-50 text-blue-700"
-                                            placeholder="0"
-                                            disabled={!item.productId}
-                                        />
-                                    </div>
+
                                 </div>
 
                                 {items.length > 1 && (
@@ -275,10 +263,7 @@ export default function WarehouseReturnForm({ warehouseId, products, stocks }: P
                             </div>
                         ))}
 
-                        <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <span className="font-bold text-slate-600">القيمة التقديرية لإجمالي المرتجع:</span>
-                            <span className="text-2xl font-black text-rose-600">{totalAmount.toLocaleString('en-US')} ج.م</span>
-                        </div>
+
                     </div>
                 )}
 
