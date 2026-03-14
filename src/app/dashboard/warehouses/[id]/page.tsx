@@ -56,9 +56,9 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
         allRepStocks = repStocksData || [];
         allCustomers = customersData || [];
         allWarehouses = (warehousesData || []).map((w: any) => ({
-            id: w.id,
-            name: w.name,
-            agencyId: w.agencyId
+            id: String(w.id),
+            name: String(w.name || ""),
+            agencyId: w.agencyId ? String(w.agencyId) : null
         }));
     } catch (e) {
         console.error("Warehouse details fetch error:", e);
@@ -133,12 +133,12 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                     note: t.note || '',
                     partyName,
                     userName: t.user?.name || 'غير معروف',
-                    items: t.items.map((i: any) => ({
-                        productId: i.productId,
-                        productName: i.product.name,
-                        quantity: i.quantity,
-                        price: Number(i.price),
-                        total: i.quantity * Number(i.price)
+                    items: (t.items || []).map((i: any) => ({
+                        productId: String(i.productId),
+                        productName: String(i.product?.name || "صنف محذوف"),
+                        quantity: Number(i.quantity || 0),
+                        price: Number(i.price || 0),
+                        total: Number(i.quantity || 0) * Number(i.price || 0)
                     })),
                     paymentInfo: {
                         type: t.paymentType,

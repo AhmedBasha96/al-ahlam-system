@@ -170,6 +170,8 @@ export async function createSupplierReturnRequest(
 
     revalidatePath(`/dashboard/suppliers/${supplierId}`);
     revalidatePath('/dashboard/accounts/approvals');
+    revalidatePath(`/dashboard/warehouses/${warehouseId}`);
+    revalidatePath('/dashboard', 'layout');
 }
 
 export async function approveSupplierReturn(transactionId: string) {
