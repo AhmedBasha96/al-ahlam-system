@@ -124,9 +124,14 @@ export async function createSupplierReturnRequest(
     totalAmount: number
 ) {
     const user = await getCurrentUser();
-    if (!user.agencyId) throw new Error("Agency not found");
 
     await prisma.$transaction(async (tx) => {
+        // Find warehouse to get agencyId if user doesn't have one (e.g. Admin)
+        const warehouse = await tx.warehouse.findUnique({ where: { id: warehouseId } });
+        if (!warehouse) throw new Error("Warehouse not found");
+
+        const targetAgencyId = user.agencyId || warehouse.agencyId;
+
         // 1. Create PENDING transaction
         await tx.transaction.create({
             data: {
@@ -134,7 +139,7 @@ export async function createSupplierReturnRequest(
                 status: 'PENDING',
                 totalAmount,
                 userId: user.id,
-                agencyId: user.agencyId,
+                agencyId: targetAgencyId,
                 supplierId: supplierId,
                 warehouseId: warehouseId,
                 paymentType: 'CREDIT',
