@@ -14,11 +14,15 @@ export default async function RecordSalesPage() {
 
     // Convert products Decimal to number for serialization
     const rawProducts = await getProducts();
-    const products = rawProducts.map(p => ({
+    const products = rawProducts.map((p: any) => ({
         ...p,
         factoryPrice: Number(p.factoryPrice),
         wholesalePrice: Number(p.wholesalePrice),
-        retailPrice: Number(p.retailPrice)
+        retailPrice: Number(p.retailPrice),
+        unitFactoryPrice: Number(p.unitFactoryPrice),
+        unitWholesalePrice: Number(p.unitWholesalePrice),
+        unitRetailPrice: Number(p.unitRetailPrice),
+        unitsPerCarton: Number(p.unitsPerCarton || 1)
     }));
 
     const rawCustomers = await prisma.customer.findMany({

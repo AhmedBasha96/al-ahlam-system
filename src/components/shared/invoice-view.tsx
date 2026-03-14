@@ -114,17 +114,25 @@ export function InvoiceView({
             >
                 {/* Header */}
                 <div className="flex justify-between items-start mb-8">
-                    <div>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-2">{title}</h1>
-                        <div className="flex items-center gap-2 text-slate-500 font-bold">
-                            <Hash className="w-4 h-4" />
-                            <span>رقم الفاتورة: {invoiceId.slice(0, 8)}</span>
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-white rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm print:shadow-none">
+                            <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                            <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-1">{title}</h1>
+                            <div className="flex items-center gap-2 text-slate-500 font-bold">
+                                <Hash className="w-4 h-4" />
+                                <span>رقم الفاتورة: {invoiceId.slice(0, 8)}</span>
+                            </div>
                         </div>
                     </div>
                     <div className="text-right">
                         <div className="text-2xl font-black text-indigo-600 mb-1">الاحلام للتجارة</div>
                         <div className="text-sm text-slate-400 font-bold tracking-widest uppercase">
                             {type === 'SALE' ? 'Sales Invoice' : type === 'PURCHASE' ? 'Purchase Invoice' : type === 'INCOME' ? 'Income Voucher' : type === 'EXPENSE' ? 'Expense Voucher' : 'Transaction Record'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-bold mt-1">
+                            H&M For Agencies
                         </div>
                     </div>
                 </div>

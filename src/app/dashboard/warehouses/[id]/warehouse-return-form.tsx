@@ -73,9 +73,16 @@ export default function WarehouseReturnForm({ warehouseId, products, stocks }: P
         const product = supplierProducts.find(p => p.id === (field === 'productId' ? value : newItem.productId));
         const upc = product?.unitsPerCarton || 1;
 
-        // Auto-set default price when product is selected
+        // Auto-set default price when product is selected or quantities change
+        if (product) {
+            if (newItem.cartons > 0) {
+                newItem.price = Number(product.factoryPrice);
+            } else {
+                newItem.price = Number(product.unitFactoryPrice);
+            }
+        }
+
         if (field === 'productId' && product) {
-            newItem.price = product.unitFactoryPrice > 0 ? product.unitFactoryPrice : (product.factoryPrice / upc);
             newItem.cartons = 0;
             newItem.units = 0;
         }
@@ -84,6 +91,10 @@ export default function WarehouseReturnForm({ warehouseId, products, stocks }: P
         if (field === 'units' && value >= upc && upc > 0) {
             newItem.cartons += Math.floor(value / upc);
             newItem.units = value % upc;
+            // Re-check price if cartons changed from 0 to >0
+            if (newItem.cartons > 0 && product) {
+                newItem.price = Number(product.factoryPrice);
+            }
         }
 
         newItems[index] = newItem;
@@ -93,8 +104,15 @@ export default function WarehouseReturnForm({ warehouseId, products, stocks }: P
     const totalAmount = items.reduce((sum, item) => {
         const product = supplierProducts.find(p => p.id === item.productId);
         const upc = product?.unitsPerCarton || 1;
-        const totalUnits = (item.cartons * upc) + item.units;
-        return sum + (totalUnits * item.price);
+
+        let itemTotal = 0;
+        if (item.cartons > 0) {
+            const effectiveCartons = item.cartons + (item.units / upc);
+            itemTotal = effectiveCartons * item.price;
+        } else {
+            itemTotal = item.units * item.price;
+        }
+        return sum + itemTotal;
     }, 0);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -110,11 +128,22 @@ export default function WarehouseReturnForm({ warehouseId, products, stocks }: P
             const processedItems = items.map(item => {
                 const product = supplierProducts.find(p => p.id === item.productId);
                 const upc = product?.unitsPerCarton || 1;
-                const totalUnits = (item.cartons * upc) + item.units;
+
+                let totalUnits = 0;
+                let unitPrice = 0;
+
+                if (item.cartons > 0) {
+                    totalUnits = (item.cartons * upc) + item.units;
+                    unitPrice = item.price / upc;
+                } else {
+                    totalUnits = item.units;
+                    unitPrice = item.price;
+                }
+
                 return {
                     productId: item.productId,
                     quantity: totalUnits,
-                    price: item.price
+                    price: unitPrice
                 };
             }).filter(item => item.quantity > 0);
 
@@ -248,6 +277,15 @@ export default function WarehouseReturnForm({ warehouseId, products, stocks }: P
                                         />
                                     </div>
 
+                                    <div className="w-32">
+                                        <label className="block text-[10px] text-gray-500 mb-1">السعر ({item.cartons > 0 ? 'للكرتونة' : 'للقطعة'})</label>
+                                        <input
+                                            type="number"
+                                            value={item.price}
+                                            readOnly
+                                            className="w-full border rounded-lg p-2 bg-gray-100 text-center font-bold text-blue-700 font-mono"
+                                        />
+                                    </div>
                                 </div>
 
                                 {items.length > 1 && (

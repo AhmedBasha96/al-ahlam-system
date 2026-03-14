@@ -9,6 +9,9 @@ type Product = {
     name: string;
     wholesalePrice: number;
     retailPrice: number;
+    unitWholesalePrice: number;
+    unitRetailPrice: number;
+    unitsPerCarton: number;
 }
 
 type User = {
@@ -25,7 +28,8 @@ type Customer = {
 
 type OrderItem = {
     productId: string;
-    quantity: number;
+    cartons: number;
+    units: number;
     price: number;
 }
 
@@ -38,7 +42,7 @@ type Props = {
 
 export default function RecordSalesForm({ representatives, customers, products, recordSaleAction }: Props) {
     const [loading, setLoading] = useState(false);
-    const [items, setItems] = useState<OrderItem[]>([{ productId: "", quantity: 1, price: 0 }]);
+    const [items, setItems] = useState<OrderItem[]>([{ productId: "", cartons: 0, units: 1, price: 0 }]);
     const [selectedRepId, setSelectedRepId] = useState("");
     const [selectedCustomerId, setSelectedCustomerId] = useState("");
     const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT' | 'PARTIAL'>('CASH');
@@ -54,16 +58,19 @@ export default function RecordSalesForm({ representatives, customers, products, 
             const product = products.find(p => p.id === item.productId);
             if (!product) return item;
 
-            const newPrice = selectedRep?.pricingType === 'WHOLESALE'
-                ? product.wholesalePrice
-                : product.retailPrice;
+            let newPrice = 0;
+            if (item.cartons > 0) {
+                newPrice = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
+            } else {
+                newPrice = selectedRep?.pricingType === 'WHOLESALE' ? product.unitWholesalePrice : product.unitRetailPrice;
+            }
 
             return { ...item, price: newPrice };
         }));
     }, [selectedRepId, products, representatives]);
 
     const handleAddItem = () => {
-        setItems([...items, { productId: "", quantity: 1, price: 0 }]);
+        setItems([...items, { productId: "", cartons: 0, units: 1, price: 0 }]);
     };
 
     const handleRemoveItem = (index: number) => {
@@ -74,28 +81,52 @@ export default function RecordSalesForm({ representatives, customers, products, 
 
     const handleItemChange = (index: number, field: keyof OrderItem, value: any) => {
         const newItems = [...items];
-        newItems[index] = { ...newItems[index], [field]: value };
+        let newItem = { ...newItems[index], [field]: value };
 
-        // If product changed, set default price based on rep's pricing type
-        if (field === 'productId') {
-            const product = products.find(p => p.id === value);
-            const selectedRep = representatives.find(r => r.id === selectedRepId);
+        const product = products.find(p => p.id === (field === 'productId' ? value : newItem.productId));
+        const selectedRep = representatives.find(r => r.id === selectedRepId);
+        const upc = product?.unitsPerCarton || 1;
 
-            if (product) {
-                if (selectedRep?.pricingType === 'WHOLESALE') {
-                    newItems[index].price = product.wholesalePrice;
-                } else {
-                    // Default to retail price
-                    newItems[index].price = product.retailPrice;
-                }
+        if (product) {
+            // Auto-fill price based on cartons input and rep type
+            if (newItem.cartons > 0) {
+                newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
+            } else {
+                newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.unitWholesalePrice : product.unitRetailPrice;
             }
         }
 
+        if (field === 'productId') {
+            newItem.cartons = 0;
+            newItem.units = 1;
+        }
+
+        // Smart Rebalancing
+        if (field === 'units' && value >= upc && upc > 0) {
+            newItem.cartons += Math.floor(value / upc);
+            newItem.units = value % upc;
+            // Update price if we just added a carton
+            if (newItem.cartons > 0 && product) {
+                newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
+            }
+        }
+
+        newItems[index] = newItem;
         setItems(newItems);
     };
 
     const calculateTotal = () => {
-        return items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        return items.reduce((sum, item) => {
+            const product = products.find(p => p.id === item.productId);
+            const upc = product?.unitsPerCarton || 1;
+
+            if (item.cartons > 0) {
+                const effectiveCartons = item.cartons + (item.units / upc);
+                return sum + (effectiveCartons * item.price);
+            } else {
+                return sum + (item.units * item.price);
+            }
+        }, 0);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -110,17 +141,39 @@ export default function RecordSalesForm({ representatives, customers, products, 
             const totalAmount = calculateTotal();
             const finalPaidAmount = paymentType === 'CASH' ? totalAmount : (paymentType === 'CREDIT' ? 0 : paidAmount);
 
+            const processedItems = items.map(item => {
+                const product = products.find(p => p.id === item.productId);
+                const upc = product?.unitsPerCarton || 1;
+
+                let totalUnits = 0;
+                let finalPrice = 0;
+
+                if (item.cartons > 0) {
+                    totalUnits = (item.cartons * upc) + item.units;
+                    finalPrice = item.price / upc;
+                } else {
+                    totalUnits = item.units;
+                    finalPrice = item.price;
+                }
+
+                return {
+                    productId: item.productId,
+                    quantity: totalUnits,
+                    price: finalPrice
+                };
+            });
+
             const result = await recordSaleAction(
                 selectedRepId,
                 selectedCustomerId,
-                items,
+                processedItems,
                 { type: paymentType, paidAmount: finalPaidAmount }
             );
 
             if (result.success) {
                 alert("تم تسجيل الفاتورة بنجاح");
                 router.refresh();
-                setItems([{ productId: "", quantity: 1, price: 0 }]);
+                setItems([{ productId: "", cartons: 0, units: 1, price: 0 }]);
                 setSelectedRepId("");
                 setSelectedCustomerId("");
             } else {
@@ -190,33 +243,55 @@ export default function RecordSalesForm({ representatives, customers, products, 
                                 </select>
                             </div>
 
-                            <div className="w-24">
-                                <label className="block text-xs text-gray-500 mb-1">الكمية</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={item.quantity}
-                                    onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
-                                    required
-                                />
+                            <div className="flex gap-4">
+                                <div className="w-24">
+                                    <label className="block text-xs text-gray-500 mb-1">كرتونة</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={item.cartons}
+                                        onChange={(e) => handleItemChange(index, 'cartons', Number(e.target.value))}
+                                        className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="w-24">
+                                    <label className="block text-xs text-gray-500 mb-1">قطع</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={item.units}
+                                        onChange={(e) => handleItemChange(index, 'units', Number(e.target.value))}
+                                        className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
+                                        required
+                                    />
+                                </div>
                             </div>
 
                             <div className="w-32">
-                                <label className="block text-xs text-gray-500 mb-1">السعر (ثابت)</label>
+                                <label className="block text-xs text-gray-500 mb-1">السعر ({item.cartons > 0 ? 'كرتونة' : 'قطعة'})</label>
                                 <input
                                     type="number"
                                     value={item.price}
-                                    onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
-                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center bg-gray-100 cursor-not-allowed font-bold"
                                     readOnly
+                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center bg-gray-100 cursor-not-allowed font-bold"
                                     required
                                 />
                             </div>
 
                             <div className="w-32 pt-6">
                                 <div className="text-xs text-gray-400 mb-1">الإجمالي</div>
-                                <div className="p-2 font-bold text-emerald-700">{(item.quantity * item.price).toLocaleString('en-US')}</div>
+                                <div className="p-2 font-bold text-emerald-700">
+                                    {(() => {
+                                        const product = products.find(p => p.id === item.productId);
+                                        const upc = product?.unitsPerCarton || 1;
+                                        if (item.cartons > 0) {
+                                            return ((item.cartons + item.units / upc) * item.price).toLocaleString();
+                                        }
+                                        return (item.units * item.price).toLocaleString();
+                                    })()}
+                                </div>
                             </div>
 
                             {items.length > 1 && (

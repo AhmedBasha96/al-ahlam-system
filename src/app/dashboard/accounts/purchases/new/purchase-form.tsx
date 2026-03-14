@@ -38,10 +38,15 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const totalAmount = items.reduce((sum, item) => {
         const product = products.find(p => p.id === item.productId);
         const upc = product?.unitsPerCarton || 1;
-        // The cost stored in 'item.cost' is the CARTON price (factoryPrice).
-        // Total amount = (full cartons + fractional cartons from boxes) * carton price
-        const effectiveCartons = item.cartons + (item.units / upc);
-        return sum + (effectiveCartons * item.cost);
+
+        let itemTotal = 0;
+        if (item.cartons > 0) {
+            const effectiveCartons = item.cartons + (item.units / upc);
+            itemTotal = (effectiveCartons * item.cost);
+        } else {
+            itemTotal = (item.units * item.cost);
+        }
+        return sum + itemTotal;
     }, 0);
 
     const addItem = () => {
@@ -59,10 +64,16 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
 
         let newItem = { ...newItems[index], [field]: value };
 
-        // Auto-fill cost if product changed
+        // Auto-fill cost if product changed or quantity switched between units/cartons
+        if (product) {
+            if (newItem.cartons > 0) {
+                newItem.cost = Number(product.factoryPrice);
+            } else {
+                newItem.cost = Number(product.unitFactoryPrice);
+            }
+        }
+
         if (field === 'productId' && product) {
-            newItem.cost = Number(product.factoryPrice);
-            // Reset quantities to maintain sanity
             newItem.cartons = 0;
             newItem.units = 0;
         }
@@ -71,6 +82,10 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         if (field === 'units' && value >= upc && upc > 0) {
             newItem.cartons += Math.floor(value / upc);
             newItem.units = value % upc;
+            // Update cost if we just added a carton
+            if (newItem.cartons > 0 && product) {
+                newItem.cost = Number(product.factoryPrice);
+            }
         }
 
         newItems[index] = newItem;
@@ -96,11 +111,23 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         // Calculate total units for server
         const itemsForServer = validItems.map(it => {
             const product = products.find(p => p.id === it.productId);
+            const upc = product?.unitsPerCarton || 1;
+
+            let totalUnits = 0;
+            let unitCost = 0;
+
+            if (it.cartons > 0) {
+                totalUnits = (it.cartons * upc) + it.units;
+                unitCost = it.cost / upc;
+            } else {
+                totalUnits = it.units;
+                unitCost = it.cost;
+            }
+
             return {
                 productId: it.productId,
-                quantity: (it.cartons * (product?.unitsPerCarton || 1)) + it.units,
-                // Server expects cost per SINGLE UNIT. Input cost is per CARTON.
-                cost: it.cost / (product?.unitsPerCarton || 1)
+                quantity: totalUnits,
+                cost: unitCost
             };
         });
 
@@ -211,18 +238,18 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                         />
                                     </div>
                                     <div className="md:col-span-3 space-y-2">
-                                        <Label>سعر الشراء (للكرتونة)</Label>
+                                        <Label>سعر الشراء ({item.cartons > 0 ? 'للكرتونة' : 'للقطعة'})</Label>
                                         <div className="relative">
                                             <Input
                                                 type="number"
                                                 step="0.01"
                                                 value={item.cost}
                                                 readOnly
-                                                className="bg-gray-100 font-mono text-blue-700"
+                                                className="bg-gray-100 font-mono text-blue-700 font-bold"
                                             />
-                                            <span className="absolute left-2 top-2 text-[10px] text-gray-400">سعر كرتونة المصنع</span>
+                                            <span className="absolute left-2 top-2 text-[10px] text-gray-400">سعر المصنع</span>
                                         </div>
-                                        {product && upc > 0 && (
+                                        {product && upc > 0 && item.cartons > 0 && (
                                             <p className="text-[10px] text-blue-500 font-bold">
                                                 تساوي {(item.cost / upc).toFixed(2)} ج.م للعلبة
                                             </p>
