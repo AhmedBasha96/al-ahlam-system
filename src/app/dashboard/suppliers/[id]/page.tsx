@@ -1,12 +1,15 @@
 import { getSupplierDetails } from "@/lib/actions/suppliers";
 import { getCurrentUser } from "@/lib/actions";
+import { getProducts } from "@/lib/actions";
+import { getWarehouses } from "@/lib/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Building2, Phone, MapPin, Receipt, Wallet, ArrowUpRight, ArrowDownLeft, FileText } from "lucide-react";
+import { ArrowLeft, Building2, Phone, MapPin, Receipt, Wallet, ArrowUpRight, ArrowDownLeft, FileText, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OpeningBalanceModal } from "@/components/accounts/opening-balance-modal";
 import { SupplierPaymentModal } from "@/components/accounts/supplier-payment-modal";
 import SupplierLedgerTable from "./supplier-ledger-table";
+import SupplierReturnWrapper from "./supplier-return-wrapper";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +17,19 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
     const { id } = await params;
     const supplier = await getSupplierDetails(id);
     const user = await getCurrentUser();
+
+    // Fetch products belonging to this supplier and available warehouses
+    const allProducts = await getProducts();
+    const supplierProducts = allProducts.filter(p => p.supplierId === id).map(p => ({
+        id: p.id,
+        name: p.name,
+        wholesalePrice: Number(p.wholesalePrice),
+        unitWholesalePrice: Number(p.unitWholesalePrice),
+        unitsPerCarton: p.unitsPerCarton,
+        stocks: p.stocks.map((s: any) => ({ warehouseId: s.warehouseId, quantity: s.quantity }))
+    }));
+
+    const warehouses = await getWarehouses();
 
     if (!supplier) {
         notFound();
@@ -86,6 +102,12 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                         supplierId={supplier.id}
                         supplierName={supplier.name}
                         agencyId={supplier.agencyId}
+                    />
+                    <SupplierReturnWrapper
+                        supplierId={supplier.id}
+                        supplierName={supplier.name}
+                        products={supplierProducts}
+                        warehouses={warehouses}
                     />
                     <button className="bg-white text-slate-900 border border-slate-200 px-6 py-3 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
                         <FileText className="w-5 h-5" />

@@ -116,3 +116,106 @@ export async function getSupplierDetails(id: string) {
         hasInitialBalance
     };
 }
+
+export async function createSupplierReturnRequest(
+    supplierId: string,
+    warehouseId: string,
+    items: { productId: string, quantity: number, price: number }[],
+    totalAmount: number
+) {
+    const user = await getCurrentUser();
+    if (!user.agencyId) throw new Error("Agency not found");
+
+    await prisma.$transaction(async (tx) => {
+        // 1. Create PENDING transaction
+        await tx.transaction.create({
+            data: {
+                type: 'RETURN_OUT',
+                status: 'PENDING',
+                totalAmount,
+                userId: user.id,
+                agencyId: user.agencyId,
+                supplierId: supplierId,
+                warehouseId: warehouseId,
+                paymentType: 'CREDIT',
+                remainingAmount: -totalAmount,
+                items: {
+                    create: await Promise.all(items.map(async (item: any) => {
+                        const product = await tx.product.findUnique({ where: { id: item.productId } });
+                        return {
+                            productId: item.productId,
+                            quantity: item.quantity,
+                            price: item.price,
+                            originalPrice: item.price,
+                            cost: product?.unitFactoryPrice || 0
+                        };
+                    }))
+                }
+            }
+        });
+
+        // 2. Decrement Stock immediately
+        for (const item of items) {
+            await tx.stock.update({
+                where: { warehouseId_productId: { warehouseId, productId: item.productId } },
+                data: { quantity: { decrement: item.quantity } }
+            });
+        }
+    });
+
+    revalidatePath(`/dashboard/suppliers/${supplierId}`);
+    revalidatePath('/dashboard/accounts/approvals');
+}
+
+export async function approveSupplierReturn(transactionId: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN' && user.role !== 'MANAGER' && user.role !== 'ACCOUNTANT') {
+        throw new Error('Unauthorized');
+    }
+
+    await prisma.transaction.update({
+        where: { id: transactionId },
+        data: { status: 'ACTIVE' }
+    });
+
+    revalidatePath('/dashboard/accounts/approvals');
+    revalidatePath('/dashboard/suppliers');
+}
+
+export async function rejectSupplierReturn(transactionId: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN' && user.role !== 'MANAGER' && user.role !== 'ACCOUNTANT') {
+        throw new Error('Unauthorized');
+    }
+
+    await prisma.$transaction(async (tx) => {
+        const transaction = await tx.transaction.findUnique({
+            where: { id: transactionId },
+            include: { items: true }
+        });
+
+        if (!transaction || transaction.status !== 'PENDING') {
+            throw new Error('Invalid transaction state');
+        }
+
+        // 1. Mark as CANCELED
+        await tx.transaction.update({
+            where: { id: transactionId },
+            data: { status: 'CANCELED' }
+        });
+
+        // 2. Increment Stock back to warehouse
+        if (transaction.warehouseId) {
+            for (const item of transaction.items) {
+                await tx.stock.upsert({
+                    where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
+                    update: { quantity: { increment: item.quantity } },
+                    create: { warehouseId: transaction.warehouseId, productId: item.productId, quantity: item.quantity }
+                });
+            }
+        }
+    });
+
+    revalidatePath('/dashboard/accounts/approvals');
+    revalidatePath('/dashboard/suppliers');
+}

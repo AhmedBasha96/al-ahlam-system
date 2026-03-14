@@ -721,8 +721,8 @@ export async function deleteTransaction(id: string) {
                     });
                 }
             } else if (transaction.type === 'RETURN_OUT') {
-                // Return to Supplier: Warehouse was decremented
-                // REVERT: Warehouse +
+                // Return to Supplier
+                // Stock was decremented (for both PENDING and ACTIVE) -> REVERT: Warehouse +
                 if (transaction.warehouseId) {
                     await tx.stock.update({
                         where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
