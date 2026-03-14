@@ -45,6 +45,11 @@ export default async function RecordSalesPage() {
         };
     });
 
+    // Fetch representative stocks
+    const repStocks = await prisma.stock.findMany({
+        where: { warehouseId: { in: representatives.map(r => r.id) } }
+    });
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -56,6 +61,7 @@ export default async function RecordSalesPage() {
                     representatives={representatives}
                     customers={customers}
                     products={products}
+                    stocks={repStocks}
                     recordSaleAction={recordDirectSale}
                 />
             </div>

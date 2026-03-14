@@ -26,6 +26,12 @@ type Customer = {
     name: string;
 }
 
+type Stock = {
+    warehouseId: string;
+    productId: string;
+    quantity: number;
+}
+
 type OrderItem = {
     productId: string;
     cartons: number;
@@ -37,10 +43,11 @@ type Props = {
     representatives: User[];
     customers: Customer[];
     products: Product[];
+    stocks: Stock[];
     recordSaleAction: (repId: string, customerId: string, items: any[], paymentInfo: any) => Promise<any>;
 }
 
-export default function RecordSalesForm({ representatives, customers, products, recordSaleAction }: Props) {
+export default function RecordSalesForm({ representatives, customers, products, stocks, recordSaleAction }: Props) {
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<OrderItem[]>([{ productId: "", cartons: 0, units: 1, price: 0 }]);
     const [selectedRepId, setSelectedRepId] = useState("");
@@ -87,6 +94,10 @@ export default function RecordSalesForm({ representatives, customers, products, 
         const selectedRep = representatives.find(r => r.id === selectedRepId);
         const upc = product?.unitsPerCarton || 1;
 
+        // Stock Calculation
+        const stockEntry = stocks.find(s => s.warehouseId === selectedRepId && s.productId === newItem.productId);
+        const totalAvailableUnits = stockEntry?.quantity || 0;
+
         if (product) {
             // Auto-fill price based on cartons input and rep type
             if (newItem.cartons > 0) {
@@ -98,7 +109,7 @@ export default function RecordSalesForm({ representatives, customers, products, 
 
         if (field === 'productId') {
             newItem.cartons = 0;
-            newItem.units = 1;
+            newItem.units = 0;
         }
 
         // Smart Rebalancing
@@ -109,6 +120,13 @@ export default function RecordSalesForm({ representatives, customers, products, 
             if (newItem.cartons > 0 && product) {
                 newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
             }
+        }
+
+        // Validate vs Stock
+        const totalRequestedUnits = (newItem.cartons * upc) + newItem.units;
+        if (totalRequestedUnits > totalAvailableUnits) {
+            alert(`الكمية المدخلة تجاوزت المتاح مع المندوب (${Math.floor(totalAvailableUnits / upc)} كرتونة و ${totalAvailableUnits % upc} قطعة)`);
+            return; // Don't allow change
         }
 
         newItems[index] = newItem;
@@ -134,6 +152,20 @@ export default function RecordSalesForm({ representatives, customers, products, 
         if (!selectedRepId || !selectedCustomerId || items.some(i => !i.productId)) {
             alert("يرجى إكمال جميع البيانات");
             return;
+        }
+
+        // Validate stock before submission
+        for (const item of items) {
+            const product = products.find(p => p.id === item.productId);
+            const upc = product?.unitsPerCarton || 1;
+            const stockEntry = stocks.find(s => s.warehouseId === selectedRepId && s.productId === item.productId);
+            const totalAvailableUnits = stockEntry?.quantity || 0;
+            const totalRequestedUnits = (item.cartons * upc) + item.units;
+
+            if (totalRequestedUnits > totalAvailableUnits) {
+                alert(`الكمية المطلوبة من ${product?.name} (${Math.floor(totalRequestedUnits / upc)} كرتونة و ${totalRequestedUnits % upc} قطعة) تتجاوز المتاح مع المندوب (${Math.floor(totalAvailableUnits / upc)} كرتونة و ${totalAvailableUnits % upc} قطعة). يرجى تعديل الكمية.`);
+                return;
+            }
         }
 
         setLoading(true);
@@ -235,11 +267,21 @@ export default function RecordSalesForm({ representatives, customers, products, 
                                     onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
                                     className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
                                     required
+                                    disabled={!selectedRepId}
                                 >
                                     <option value="">اختر المنتج...</option>
-                                    {products.map(product => (
-                                        <option key={product.id} value={product.id}>{product.name}</option>
-                                    ))}
+                                    {products.map(product => {
+                                        const s = stocks.find(stock => stock.warehouseId === selectedRepId && stock.productId === product.id);
+                                        const qty = s?.quantity || 0;
+                                        const upc = product.unitsPerCarton || 1;
+                                        if (qty <= 0) return null;
+
+                                        return (
+                                            <option key={product.id} value={product.id}>
+                                                {product.name} (المتاح: {Math.floor(qty / upc)} ك + {qty % upc} ق)
+                                            </option>
+                                        );
+                                    })}
                                 </select>
                             </div>
 
