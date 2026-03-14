@@ -79,9 +79,9 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
             unitWholesalePrice: Number(p.unitWholesalePrice || 0),
             unitRetailPrice: Number(p.unitRetailPrice || 0),
             agencyId: p.agencyId,
-            priceUpdatedAt: p.priceUpdatedAt ? p.priceUpdatedAt.toISOString() : undefined,
-            agency: p.agency ? { id: p.agency.id, name: p.agency.name } : undefined,
-            supplier: p.supplier ? { id: p.supplier.id, name: p.supplier.name } : undefined
+            ...(p.priceUpdatedAt && { priceUpdatedAt: p.priceUpdatedAt.toISOString() }),
+            ...(p.agency && { agency: { id: p.agency.id, name: p.agency.name } }),
+            ...(p.supplier && { supplier: { id: p.supplier.id, name: p.supplier.name } })
         }));
 
     // Sanitize Stocks - SUPER SANITIZE
@@ -99,9 +99,9 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
             name: u.name,
             email: u.email,
             role: u.role,
-            agencyId: u.agencyId || undefined,
-            pricingType: u.pricingType || undefined,
-            warehouseId: u.warehouseId || undefined
+            ...(u.agencyId && { agencyId: u.agencyId }),
+            ...(u.pricingType && { pricingType: u.pricingType }),
+            ...(u.warehouseId && { warehouseId: u.warehouseId })
         }));
 
     // Map transactions to the UI format
@@ -161,9 +161,9 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
     const mappedCustomers = (allCustomers || []).map((c: any) => ({
         id: String(c.id),
         name: String(c.name || ""),
-        phone: c.phone ? String(c.phone) : undefined,
-        address: c.address ? String(c.address) : undefined,
-        representativeId: c.representativeId ? String(c.representativeId) : undefined,
+        ...(c.phone && { phone: String(c.phone) }),
+        ...(c.address && { address: String(c.address) }),
+        ...(c.representativeId && { representativeId: String(c.representativeId) }),
         agencyId: String(c.agencyId)
     }));
     const sanitizedCustomers = mappedCustomers;

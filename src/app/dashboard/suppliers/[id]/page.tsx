@@ -43,7 +43,7 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
     const ledger = [
         ...supplier.transactions.map((t: any) => ({
             id: t.id,
-            date: t.createdAt,
+            date: t.createdAt.toISOString(),
             type: 'TRANSACTION',
             action: t.type === 'PURCHASE' ? 'شراء بضاعة' : 'مرتجع',
             amount: Number(t.totalAmount),
