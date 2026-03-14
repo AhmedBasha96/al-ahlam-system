@@ -90,16 +90,24 @@ export default function RecordSalesForm({ representatives, customers, products, 
         const newItems = [...items];
         let newItem = { ...newItems[index], [field]: value };
 
-        const product = products.find(p => p.id === (field === 'productId' ? value : newItem.productId));
+        // 1. Reset quantities if product changes
+        if (field === 'productId') {
+            newItem.cartons = 0;
+            newItem.units = 0;
+        }
+
+        const product = products.find(p => p.id === newItem.productId);
         const selectedRep = representatives.find(r => r.id === selectedRepId);
         const upc = product?.unitsPerCarton || 1;
 
-        // Stock Calculation
-        const stockEntry = stocks.find(s => s.warehouseId === selectedRepId && s.productId === newItem.productId);
-        const totalAvailableUnits = stockEntry?.quantity || 0;
+        // Smart Rebalancing (if units entered, convert to cartons if needed)
+        if (field === 'units' && value >= upc && upc > 0) {
+            newItem.cartons += Math.floor(value / upc);
+            newItem.units = value % upc;
+        }
 
+        // 2. Auto-fill price based on the FINAL quantities and rep type
         if (product) {
-            // Auto-fill price based on cartons input and rep type
             if (newItem.cartons > 0) {
                 newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
             } else {
@@ -107,26 +115,14 @@ export default function RecordSalesForm({ representatives, customers, products, 
             }
         }
 
-        if (field === 'productId') {
-            newItem.cartons = 0;
-            newItem.units = 0;
-        }
-
-        // Smart Rebalancing
-        if (field === 'units' && value >= upc && upc > 0) {
-            newItem.cartons += Math.floor(value / upc);
-            newItem.units = value % upc;
-            // Update price if we just added a carton
-            if (newItem.cartons > 0 && product) {
-                newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
-            }
-        }
-
-        // Validate vs Stock
+        // 3. Stock Calculation & Validation
+        const stockEntry = stocks.find(s => s.warehouseId === selectedRepId && s.productId === newItem.productId);
+        const totalAvailableUnits = stockEntry?.quantity || 0;
         const totalRequestedUnits = (newItem.cartons * upc) + newItem.units;
+
         if (totalRequestedUnits > totalAvailableUnits) {
             alert(`الكمية المدخلة تجاوزت المتاح مع المندوب (${Math.floor(totalAvailableUnits / upc)} كرتونة و ${totalAvailableUnits % upc} قطعة)`);
-            return; // Don't allow change
+            return;
         }
 
         newItems[index] = newItem;
@@ -205,7 +201,7 @@ export default function RecordSalesForm({ representatives, customers, products, 
             if (result.success) {
                 alert("تم تسجيل الفاتورة بنجاح");
                 router.refresh();
-                setItems([{ productId: "", cartons: 0, units: 1, price: 0 }]);
+                setItems([{ productId: "", cartons: 0, units: 0, price: 0 }]);
                 setSelectedRepId("");
                 setSelectedCustomerId("");
             } else {

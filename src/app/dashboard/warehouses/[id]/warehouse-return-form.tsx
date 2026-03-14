@@ -70,30 +70,27 @@ export default function WarehouseReturnForm({ warehouseId, products, stocks }: P
         const newItems = [...items];
         let newItem = { ...newItems[index], [field]: value };
 
-        const product = supplierProducts.find(p => p.id === (field === 'productId' ? value : newItem.productId));
+        // 1. Reset quantities if product changes
+        if (field === 'productId') {
+            newItem.cartons = 0;
+            newItem.units = 0;
+        }
+
+        const product = supplierProducts.find(p => p.id === newItem.productId);
         const upc = product?.unitsPerCarton || 1;
 
-        // Auto-set default price when product is selected or quantities change
+        // Smart Rebalancing
+        if (field === 'units' && value >= upc && upc > 0) {
+            newItem.cartons += Math.floor(value / upc);
+            newItem.units = value % upc;
+        }
+
+        // 2. Auto-set default price based on the FINAL quantities
         if (product) {
             if (newItem.cartons > 0) {
                 newItem.price = Number(product.factoryPrice);
             } else {
                 newItem.price = Number(product.unitFactoryPrice);
-            }
-        }
-
-        if (field === 'productId' && product) {
-            newItem.cartons = 0;
-            newItem.units = 0;
-        }
-
-        // Smart Rebalancing for units -> cartons
-        if (field === 'units' && value >= upc && upc > 0) {
-            newItem.cartons += Math.floor(value / upc);
-            newItem.units = value % upc;
-            // Re-check price if cartons changed from 0 to >0
-            if (newItem.cartons > 0 && product) {
-                newItem.price = Number(product.factoryPrice);
             }
         }
 

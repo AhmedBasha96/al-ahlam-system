@@ -59,32 +59,29 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
 
     const updateItem = (index: number, field: string, value: any) => {
         const newItems = [...items];
-        const product = products.find(p => p.id === (field === 'productId' ? value : newItems[index].productId));
-        const upc = product?.unitsPerCarton || 1;
-
         let newItem = { ...newItems[index], [field]: value };
 
-        // Auto-fill cost if product changed or quantity switched between units/cartons
-        if (product) {
-            if (newItem.cartons > 0) {
-                newItem.cost = Number(product.factoryPrice);
-            } else {
-                newItem.cost = Number(product.unitFactoryPrice);
-            }
-        }
-
-        if (field === 'productId' && product) {
+        // 1. Reset quantities if product changes
+        if (field === 'productId') {
             newItem.cartons = 0;
             newItem.units = 0;
         }
+
+        const product = products.find(p => p.id === newItem.productId);
+        const upc = product?.unitsPerCarton || 1;
 
         // Smart Rebalancing
         if (field === 'units' && value >= upc && upc > 0) {
             newItem.cartons += Math.floor(value / upc);
             newItem.units = value % upc;
-            // Update cost if we just added a carton
-            if (newItem.cartons > 0 && product) {
+        }
+
+        // 2. Auto-fill cost based on the FINAL quantities
+        if (product) {
+            if (newItem.cartons > 0) {
                 newItem.cost = Number(product.factoryPrice);
+            } else {
+                newItem.cost = Number(product.unitFactoryPrice);
             }
         }
 
