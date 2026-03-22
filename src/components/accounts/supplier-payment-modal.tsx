@@ -14,20 +14,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createAccountRecord } from "@/lib/actions/accounts";
-import { Wallet, DollarSign } from "lucide-react";
+import { Wallet, DollarSign, AlertCircle } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui-custom/confirm-dialog";
 
 interface SupplierPaymentModalProps {
     supplierId: string;
     supplierName: string;
     agencyId: string;
+    currentBalance: number;
 }
 
-export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: SupplierPaymentModalProps) {
+export function SupplierPaymentModal({ supplierId, supplierName, agencyId, currentBalance }: SupplierPaymentModalProps) {
     const [open, setOpen] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState<FormData | null>(null);
+    const [paymentAmount, setPaymentAmount] = useState<number>(0);
 
     const handleConfirmSubmit = async () => {
         if (!formData) return;
@@ -41,6 +43,9 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: Sup
             setLoading(false);
         }
     };
+
+    const isOverpaying = paymentAmount > currentBalance && currentBalance > 0;
+    const hasNoDebt = currentBalance <= 0;
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -60,6 +65,15 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: Sup
                         </DialogDescription>
                     </DialogHeader>
 
+                    {hasNoDebt && (
+                        <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-start gap-3 mt-4">
+                            <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5" />
+                            <div className="text-sm text-rose-800 font-bold leading-relaxed">
+                                تنبيه: لا توجد مديونية حالية لهذا المورد. أي مبلغ يتم دفعه سيُسجل كزيادة في رصيدك (Overpayment).
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid gap-6 py-6">
                         <input type="hidden" name="type" value="EXPENSE" />
                         <input type="hidden" name="category" value="سداد مديونية" />
@@ -67,16 +81,25 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: Sup
                         <input type="hidden" name="supplierId" value={supplierId} />
 
                         <div className="space-y-2">
-                            <Label htmlFor="amount" className="text-sm font-bold text-slate-700">المبلغ المدفوع (ج.م)</Label>
+                            <div className="flex justify-between items-center px-1">
+                                <Label htmlFor="amount" className="text-sm font-bold text-slate-700">المبلغ المدفوع (ج.م)</Label>
+                                <span className="text-xs font-bold text-slate-400">المديونية الحالية: {currentBalance.toLocaleString()} ج.م</span>
+                            </div>
                             <Input
                                 id="amount"
                                 name="amount"
                                 type="number"
                                 step="0.01"
                                 placeholder="0.00"
+                                onChange={(e) => setPaymentAmount(Number(e.target.value))}
                                 className="text-2xl font-black text-rose-600 bg-rose-50 border-rose-100 focus:ring-rose-500 h-14"
                                 required
                             />
+                            {isOverpaying && (
+                                <p className="text-[10px] text-rose-600 font-bold animate-pulse">
+                                    ⚠️ تنبيه: المبلغ المدفوع يتجاوز إجمالي المديونية!
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -116,7 +139,7 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: Sup
                             }}
                             className="w-full bg-slate-900 hover:bg-black text-white font-bold py-6 rounded-2xl text-lg shadow-xl"
                         >
-                            {loading ? 'جاري تسجيل الدفعة...' : 'تأكيد عملية الدفع 💸'}
+                            {loading ? 'جاري تسجيل الدفعة...' : (hasNoDebt ? 'دفع فائض (Overpayment)' : 'تأكيد عملية الدفع 💸')}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -125,8 +148,15 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: Sup
                     open={showConfirm}
                     onOpenChange={setShowConfirm}
                     onConfirm={handleConfirmSubmit}
-                    title="تأكيد عملية السداد"
-                    description="هل أنت متأكد من دفع هذا المبلغ للمورد؟ سيتم خصم المبلغ من الخزينة."
+                    title={hasNoDebt ? "تأكيد دفع فائض" : (isOverpaying ? "تأكيد دفع مبلغ زائد" : "تأكيد عملية السداد")}
+                    description={
+                        hasNoDebt
+                            ? "أنت على وشك دفع مبلغ لمورد ليس له مديونية. هل أنت متأكد؟ سيتحول رصيدك عنده ليكون فائضاً."
+                            : (isOverpaying
+                                ? `المبلغ (${paymentAmount.toLocaleString()}) أكبر من المديونية (${currentBalance.toLocaleString()}). هل تريد الاستمرار؟`
+                                : "هل أنت متأكد من دفع هذا المبلغ للمورد؟ سيتم خصم المبلغ من الخزينة.")
+                    }
+                    variant={hasNoDebt || isOverpaying ? 'warning' : 'default'}
                     confirmText="نعم، تأكيد الدفع"
                 />
             </DialogContent>

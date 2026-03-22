@@ -120,6 +120,7 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                         supplierId={supplier.id}
                         supplierName={supplier.name}
                         agencyId={supplier.agencyId}
+                        currentBalance={currentBalance}
                     />
                     <SupplierReturnWrapper
                         supplierId={supplier.id}
