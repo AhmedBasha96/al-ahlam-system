@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus } from 'lucide-react';
+import { ConfirmDialog } from "@/components/ui-custom/confirm-dialog";
 
 interface PurchaseFormProps {
     warehouses: any[];
@@ -27,6 +28,7 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const [note, setNote] = useState("");
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
 
     // Get agencyId of selected warehouse
     const selectedWarehouse = warehouses.find(w => w.id === warehouseId);
@@ -61,7 +63,6 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         const newItems = [...items];
         let newItem = { ...newItems[index], [field]: value };
 
-        // 1. Reset quantities if product changes
         if (field === 'productId') {
             newItem.cartons = 0;
             newItem.units = 0;
@@ -70,13 +71,11 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         const product = products.find(p => p.id === newItem.productId);
         const upc = product?.unitsPerCarton || 1;
 
-        // Smart Rebalancing
         if (field === 'units' && value >= upc && upc > 0) {
             newItem.cartons += Math.floor(value / upc);
             newItem.units = value % upc;
         }
 
-        // 2. Auto-fill cost based on the FINAL quantities
         if (product) {
             if (newItem.cartons > 0) {
                 newItem.cost = Number(product.factoryPrice);
@@ -92,20 +91,24 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        // Final validation: check if all items have products and quantities
         const validItems = items.filter(it => it.productId && (it.cartons > 0 || it.units > 0));
         if (validItems.length === 0) {
             alert("يرجى إضافة صنف واحد على الأقل بكمية صحيحة");
             return;
         }
 
-        setIsSubmitting(true);
+        setShowConfirm(true);
+    };
 
-        const formData = new FormData(e.currentTarget);
+    const handleConfirmSubmit = async () => {
+        setIsSubmitting(true);
+        setShowConfirm(false);
+
+        const validItems = items.filter(it => it.productId && (it.cartons > 0 || it.units > 0));
+        const formData = new FormData();
         formData.append('warehouseId', warehouseId);
         formData.append('supplierId', supplierId);
 
-        // Calculate total units for server
         const itemsForServer = validItems.map(it => {
             const product = products.find(p => p.id === it.productId);
             const upc = product?.unitsPerCarton || 1;
@@ -299,10 +302,19 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                         </div>
                     </div>
 
-                    <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-                        {isSubmitting ? 'جاري الحفظ...' : 'حفظ الفاتورة'}
+                    <Button type="submit" className="w-full bg-slate-900 hover:bg-black font-bold h-12 rounded-xl" size="lg" disabled={isSubmitting}>
+                        {isSubmitting ? 'جاري الحفظ...' : 'تأكيد وحفظ فاتورة الشراء'}
                     </Button>
                 </form>
+
+                <ConfirmDialog
+                    open={showConfirm}
+                    onOpenChange={setShowConfirm}
+                    onConfirm={handleConfirmSubmit}
+                    title="تأكيد فاتورة مشتريات"
+                    description="هل أنت متأكد من صحة الكميات والأسعار؟ سيتم إضافة الأصناف للمخزن وتحديث حساب المورد."
+                    confirmText="نعم، حفظ الفاتورة"
+                />
             </CardContent>
         </Card>
     );

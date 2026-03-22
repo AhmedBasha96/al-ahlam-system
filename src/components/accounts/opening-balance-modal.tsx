@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createAccountRecord } from "@/lib/actions/accounts";
 import { Landmark, Wallet, Users, Building2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui-custom/confirm-dialog";
 
 interface OpeningBalanceModalProps {
     type: 'TREASURY' | 'SUPPLIER' | 'CUSTOMER';
@@ -26,15 +27,11 @@ interface OpeningBalanceModalProps {
 
 export function OpeningBalanceModal({ type, id, name, agencyId, visible = true }: OpeningBalanceModalProps) {
     const [open, setOpen] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState<FormData | null>(null);
 
     if (!visible) return null;
-
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        setLoading(true);
-        // Form will be handled by the action, but we want to close the dialog
-        // Actually, we can use a client-side wrapper to call the action and then close
-    };
 
     const getTitle = () => {
         switch (type) {
@@ -52,6 +49,18 @@ export function OpeningBalanceModal({ type, id, name, agencyId, visible = true }
         }
     };
 
+    const handleConfirmSubmit = async () => {
+        if (!formData) return;
+        setLoading(true);
+        try {
+            await createAccountRecord(formData);
+            setOpen(false);
+            setShowConfirm(false);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -61,15 +70,7 @@ export function OpeningBalanceModal({ type, id, name, agencyId, visible = true }
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]" dir="rtl">
-                <form action={async (formData) => {
-                    setLoading(true);
-                    try {
-                        await createAccountRecord(formData);
-                        setOpen(false);
-                    } finally {
-                        setLoading(false);
-                    }
-                }}>
+                <form id="opening-balance-form">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-slate-900">{getTitle()}</DialogTitle>
                         <DialogDescription className="text-slate-500 font-medium">
@@ -120,11 +121,33 @@ export function OpeningBalanceModal({ type, id, name, agencyId, visible = true }
                     </div>
 
                     <DialogFooter className="gap-2 sm:gap-0">
-                        <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-xl text-lg">
+                        <Button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => {
+                                const form = document.getElementById('opening-balance-form') as HTMLFormElement;
+                                if (form.checkValidity()) {
+                                    setFormData(new FormData(form));
+                                    setShowConfirm(true);
+                                } else {
+                                    form.reportValidity();
+                                }
+                            }}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-xl text-lg"
+                        >
                             {loading ? 'جاري الحفظ...' : 'حفظ الرصيد الافتتاحي'}
                         </Button>
                     </DialogFooter>
                 </form>
+
+                <ConfirmDialog
+                    open={showConfirm}
+                    onOpenChange={setShowConfirm}
+                    onConfirm={handleConfirmSubmit}
+                    title="تأكيد حفظ الرصيد"
+                    description="هل أنت متأكد من صحة المبلغ المدخل؟ سيتم تسجيله كرصيد بداية المدة."
+                    confirmText="نعم، تأكيد الحفظ"
+                />
             </DialogContent>
         </Dialog>
     );

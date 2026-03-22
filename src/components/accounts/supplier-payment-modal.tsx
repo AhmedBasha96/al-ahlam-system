@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createAccountRecord } from "@/lib/actions/accounts";
 import { Wallet, DollarSign } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui-custom/confirm-dialog";
 
 interface SupplierPaymentModalProps {
     supplierId: string;
@@ -24,7 +25,22 @@ interface SupplierPaymentModalProps {
 
 export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: SupplierPaymentModalProps) {
     const [open, setOpen] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState<FormData | null>(null);
+
+    const handleConfirmSubmit = async () => {
+        if (!formData) return;
+        setLoading(true);
+        try {
+            await createAccountRecord(formData);
+            setOpen(false);
+            setShowConfirm(false);
+            window.location.reload();
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -35,16 +51,7 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: Sup
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]" dir="rtl">
-                <form action={async (formData) => {
-                    setLoading(true);
-                    try {
-                        await createAccountRecord(formData);
-                        setOpen(false);
-                        window.location.reload();
-                    } finally {
-                        setLoading(false);
-                    }
-                }}>
+                <form id="supplier-payment-form">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-slate-900 border-b pb-2 mb-2">تسجيل دفعة سداد للمورد</DialogTitle>
                         <DialogDescription className="text-slate-500 font-medium">
@@ -95,11 +102,33 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId }: Sup
                     </div>
 
                     <DialogFooter>
-                        <Button type="submit" disabled={loading} className="w-full bg-slate-900 hover:bg-black text-white font-bold py-6 rounded-2xl text-lg shadow-xl">
+                        <Button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => {
+                                const form = document.getElementById('supplier-payment-form') as HTMLFormElement;
+                                if (form.checkValidity()) {
+                                    setFormData(new FormData(form));
+                                    setShowConfirm(true);
+                                } else {
+                                    form.reportValidity();
+                                }
+                            }}
+                            className="w-full bg-slate-900 hover:bg-black text-white font-bold py-6 rounded-2xl text-lg shadow-xl"
+                        >
                             {loading ? 'جاري تسجيل الدفعة...' : 'تأكيد عملية الدفع 💸'}
                         </Button>
                     </DialogFooter>
                 </form>
+
+                <ConfirmDialog
+                    open={showConfirm}
+                    onOpenChange={setShowConfirm}
+                    onConfirm={handleConfirmSubmit}
+                    title="تأكيد عملية السداد"
+                    description="هل أنت متأكد من دفع هذا المبلغ للمورد؟ سيتم خصم المبلغ من الخزينة."
+                    confirmText="نعم، تأكيد الدفع"
+                />
             </DialogContent>
         </Dialog>
     );

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ui-custom/confirm-dialog";
 
 type Product = {
     id: string;
@@ -54,6 +55,7 @@ export default function RecordSalesForm({ representatives, customers, products, 
     const [selectedCustomerId, setSelectedCustomerId] = useState("");
     const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT' | 'PARTIAL'>('CASH');
     const [paidAmount, setPaidAmount] = useState(0);
+    const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -90,7 +92,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
         const newItems = [...items];
         let newItem = { ...newItems[index], [field]: value };
 
-        // 1. Reset quantities if product changes
         if (field === 'productId') {
             newItem.cartons = 0;
             newItem.units = 0;
@@ -100,13 +101,11 @@ export default function RecordSalesForm({ representatives, customers, products, 
         const selectedRep = representatives.find(r => r.id === selectedRepId);
         const upc = product?.unitsPerCarton || 1;
 
-        // Smart Rebalancing (if units entered, convert to cartons if needed)
         if (field === 'units' && value >= upc && upc > 0) {
             newItem.cartons += Math.floor(value / upc);
             newItem.units = value % upc;
         }
 
-        // 2. Auto-fill price based on the FINAL quantities and rep type
         if (product) {
             if (newItem.cartons > 0) {
                 newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
@@ -115,7 +114,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
             }
         }
 
-        // 3. Stock Calculation & Validation
         const stockEntry = stocks.find(s => s.warehouseId === selectedRepId && s.productId === newItem.productId);
         const totalAvailableUnits = stockEntry?.quantity || 0;
         const totalRequestedUnits = (newItem.cartons * upc) + newItem.units;
@@ -150,7 +148,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
             return;
         }
 
-        // Validate stock before submission
         for (const item of items) {
             const product = products.find(p => p.id === item.productId);
             const upc = product?.unitsPerCarton || 1;
@@ -164,7 +161,12 @@ export default function RecordSalesForm({ representatives, customers, products, 
             }
         }
 
+        setShowConfirm(true);
+    };
+
+    const handleConfirmSubmit = async () => {
         setLoading(true);
+        setShowConfirm(false);
         try {
             const totalAmount = calculateTotal();
             const finalPaidAmount = paymentType === 'CASH' ? totalAmount : (paymentType === 'CREDIT' ? 0 : paidAmount);
@@ -201,9 +203,11 @@ export default function RecordSalesForm({ representatives, customers, products, 
             if (result.success) {
                 alert("تم تسجيل الفاتورة بنجاح");
                 router.refresh();
-                setItems([{ productId: "", cartons: 0, units: 0, price: 0 }]);
+                setItems([{ productId: "", cartons: 0, units: 1, price: 0 }]);
                 setSelectedRepId("");
                 setSelectedCustomerId("");
+                setPaymentType('CASH');
+                setPaidAmount(0);
             } else {
                 alert(`خطأ: ${result.error}`);
             }
@@ -217,7 +221,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Select Rep */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 font-bold">المندوب (البائع)</label>
                     <select
@@ -233,7 +236,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
                     </select>
                 </div>
 
-                {/* Select Customer */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 font-bold">العميل (المشتري)</label>
                     <select
@@ -250,7 +252,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
                 </div>
             </div>
 
-            {/* Items List */}
             <div className="space-y-4">
                 <h3 className="text-md font-bold text-gray-700 border-b pb-2">تفاصيل الصنف</h3>
                 <div className="space-y-3">
@@ -354,7 +355,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
                 </button>
             </div>
 
-            {/* Payment & Summary */}
             <div className="pt-6 border-t flex flex-col md:flex-row justify-between items-start gap-8">
                 <div className="space-y-4 flex-1">
                     <h3 className="font-bold text-gray-700">طريقة الدفع</h3>
@@ -418,6 +418,15 @@ export default function RecordSalesForm({ representatives, customers, products, 
                     </button>
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={showConfirm}
+                onOpenChange={setShowConfirm}
+                onConfirm={handleConfirmSubmit}
+                title="تأكيد حفظ الفاتورة"
+                description="هل أنت متأكد من صحة كافة البيانات والكميات؟ سيتم خصم الأصناف من عهدة المندوب."
+                confirmText="نعم، حفظ الفاتورة"
+            />
         </form>
     );
 }
