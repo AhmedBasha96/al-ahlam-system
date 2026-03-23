@@ -26,7 +26,7 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
         wholesalePrice: Number(p.wholesalePrice),
         unitWholesalePrice: Number(p.unitWholesalePrice),
         unitsPerCarton: p.unitsPerCarton,
-        stocks: p.stocks.map((s: any) => ({ warehouseId: s.warehouseId, quantity: s.quantity }))
+        stocks: (p.stocks || []).map((s: any) => ({ warehouseId: s.warehouseId, quantity: s.quantity }))
     }));
 
     const mappedWarehouses = (await getWarehouses()).map((w: any) => ({
