@@ -26,11 +26,10 @@ export async function getProfitLossReport(
         where: {
             type: { in: ['SALE', 'RETURN_IN'] },
             createdAt: dateRange,
-            NOT: {
-                note: {
-                    contains: 'تحميل للمندوب'
-                }
-            },
+            OR: [
+                { note: null },
+                { NOT: { note: { contains: 'تحميل للمندوب' } } }
+            ],
             ...agencyFilter
         },
         include: {
@@ -214,11 +213,10 @@ export async function getOperationProfitReport(
         where: {
             type: { in: ['SALE', 'RETURN_IN'] },
             createdAt: dateRange,
-            NOT: {
-                note: {
-                    contains: 'تحميل للمندوب'
-                }
-            },
+            OR: [
+                { note: null },
+                { NOT: { note: { contains: 'تحميل للمندوب' } } }
+            ],
             ...agencyFilter
         },
         include: {
