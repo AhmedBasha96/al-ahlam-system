@@ -214,11 +214,12 @@ export async function getOperationProfitReport(
         where: {
             type: { in: ['SALE', 'RETURN_IN'] },
             createdAt: dateRange,
-            NOT: {
-                note: {
-                    startsWith: 'تحميل للمندوب'
-                }
-            },
+            // Temporarily disable this filter to show all sale records and debug
+            // NOT: {
+            //     note: {
+            //         startsWith: 'تحميل للمندوب'
+            //     }
+            // },
             ...agencyFilter
         },
         include: {
