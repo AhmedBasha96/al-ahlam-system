@@ -307,7 +307,16 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         accWhere.agencyId = agencyIdFilter;
     }
 
-    const salesTx = await prisma.transaction.findMany({ where: { ...txWhere, type: 'SALE' }, include: { items: true } });
+    const salesTx = await prisma.transaction.findMany({
+        where: {
+            ...txWhere,
+            type: 'SALE',
+            NOT: {
+                note: { contains: 'تحميل للمندوب' }
+            }
+        },
+        include: { items: true }
+    });
     const purchasesTx = await prisma.transaction.findMany({ where: { ...txWhere, type: 'PURCHASE' }, include: { items: true } });
 
     const expensesAgg = await prisma.accountRecord.aggregate({
