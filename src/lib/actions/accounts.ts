@@ -311,9 +311,14 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         where: {
             ...txWhere,
             type: 'SALE',
-            NOT: {
-                note: { contains: 'تحميل للمندوب' }
-            }
+            OR: [
+                { note: null },
+                {
+                    NOT: {
+                        note: { contains: 'تحميل للمندوب' }
+                    }
+                }
+            ]
         },
         include: { items: true }
     });
