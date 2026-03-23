@@ -41,44 +41,44 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
 
     // Merge transactions and account records into a single ledger for the client component
     const ledger = [
-        ...supplier.transactions.map((t: any) => ({
+        ...(supplier?.transactions || []).map((t: any) => ({
             id: t.id,
-            date: t.createdAt.toISOString(),
+            date: t.createdAt?.toISOString() || new Date().toISOString(),
             type: 'TRANSACTION',
             action: t.type === 'PURCHASE' ? 'شراء بضاعة' : 'مرتجع',
-            amount: Number(t.totalAmount),
+            amount: Number(t.totalAmount || 0),
             paid: Number(t.paidAmount || 0),
-            balance: Number(t.totalAmount) - Number(t.paidAmount || 0),
+            balance: Number(t.totalAmount || 0) - Number(t.paidAmount || 0),
             note: t.note || (t.type === 'PURCHASE' ? 'فاتورة مشتريات' : 'مرتجع مشتريات'),
-            items: t.items.length,
+            items: t.items?.length || 0,
             rawTransaction: {
                 id: t.id,
                 type: t.type,
-                createdAt: t.createdAt.toISOString(),
+                createdAt: t.createdAt?.toISOString() || new Date().toISOString(),
                 user: t.user ? { name: t.user.name } : { name: "غير معروف" },
-                items: t.items.map((i: any) => ({
+                items: (t.items || []).map((i: any) => ({
                     productId: i.productId,
                     product: { name: i.product?.name || "غير معروف" },
                     quantity: i.quantity,
-                    price: Number(i.price)
+                    price: Number(i.price || 0)
                 })),
                 paymentType: t.paymentType,
                 paidAmount: Number(t.paidAmount || 0),
                 totalAmount: Number(t.totalAmount || 0)
             }
         })),
-        ...supplier.accounts.map((acc: any) => {
+        ...(supplier?.accounts || []).map((acc: any) => {
             const isOpening = acc.category === 'رصيد بداية المدة';
             const isPayment = acc.category === 'سداد مديونية' || acc.type === 'EXPENSE';
 
             return {
                 id: acc.id,
-                date: acc.createdAt.toISOString(),
+                date: acc.createdAt?.toISOString() || new Date().toISOString(),
                 type: 'ACCOUNT',
                 action: isOpening ? 'رصيد افتتاحي (مديونية سابقة)' : (isPayment ? 'سداد مديونية (دفعة للمورد)' : 'إشعار دائن'),
-                amount: isOpening ? Number(acc.amount) : 0,
-                paid: isOpening ? 0 : Number(acc.amount),
-                balance: acc.type === 'EXPENSE' ? -Number(acc.amount) : Number(acc.amount),
+                amount: isOpening ? Number(acc.amount || 0) : 0,
+                paid: isOpening ? 0 : Number(acc.amount || 0),
+                balance: acc.type === 'EXPENSE' ? -Number(acc.amount || 0) : Number(acc.amount || 0),
                 note: acc.description,
                 items: null
             };
