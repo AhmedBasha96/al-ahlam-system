@@ -28,7 +28,7 @@ export async function getProfitLossReport(
             createdAt: dateRange,
             NOT: {
                 note: {
-                    startsWith: 'تحميل للمندوب'
+                    contains: 'تحميل للمندوب'
                 }
             },
             ...agencyFilter
@@ -214,12 +214,11 @@ export async function getOperationProfitReport(
         where: {
             type: { in: ['SALE', 'RETURN_IN'] },
             createdAt: dateRange,
-            // Temporarily disable this filter to show all sale records and debug
-            // NOT: {
-            //     note: {
-            //         startsWith: 'تحميل للمندوب'
-            //     }
-            // },
+            NOT: {
+                note: {
+                    contains: 'تحميل للمندوب'
+                }
+            },
             ...agencyFilter
         },
         include: {
