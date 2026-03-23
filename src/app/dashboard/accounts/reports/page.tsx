@@ -13,6 +13,14 @@ export default function ReportsPage() {
             iconBg: "bg-emerald-100 text-emerald-600"
         },
         {
+            title: "تفاصيل أرباح العمليات",
+            description: "تحليل الربحية لكل فاتورة بيع ومرتجع",
+            icon: TrendingUp,
+            href: "/dashboard/accounts/reports/operation-profit",
+            color: "from-indigo-500 to-blue-600",
+            iconBg: "bg-indigo-100 text-indigo-600"
+        },
+        {
             title: "الإيرادات والمصروفات",
             description: "تفاصيل جميع الحركات النقدية",
             icon: BarChart3,

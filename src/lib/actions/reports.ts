@@ -201,6 +201,81 @@ export async function getProfitLossReport(
     };
 }
 
+// ============= تقرير تفاصيل أرباح العمليات =============
+export async function getOperationProfitReport(
+    startDate?: Date,
+    endDate?: Date,
+    agencyId?: string
+) {
+    const dateRange = getDateRange(startDate, endDate);
+    const agencyFilter = agencyId && agencyId !== 'ALL' ? { agencyId } : {};
+
+    const transactions = await (prisma as any).transaction.findMany({
+        where: {
+            type: { in: ['SALE', 'RETURN_IN'] },
+            createdAt: dateRange,
+            NOT: {
+                note: {
+                    startsWith: 'تحميل للمندوب'
+                }
+            },
+            ...agencyFilter
+        },
+        include: {
+            items: {
+                include: {
+                    product: true
+                }
+            },
+            agency: true,
+            customer: true,
+            user: true
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    const report = transactions.map((tx: any) => {
+        let revenue = 0;
+        let cost = 0;
+
+        tx.items.forEach((item: any) => {
+            const itemRevenue = Number(item.price) * item.quantity;
+            const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.factoryPrice);
+            const itemCost = unitCost * item.quantity;
+
+            revenue += itemRevenue;
+            cost += itemCost;
+        });
+
+        // Determine multiplier: Sales add, Returns subtract
+        const multiplier = tx.type === 'SALE' ? 1 : -1;
+        const finalRevenue = revenue * multiplier;
+        const finalCost = cost * multiplier;
+        const profit = finalRevenue - finalCost;
+
+        return {
+            id: tx.id,
+            date: tx.createdAt,
+            type: tx.type,
+            customerName: tx.customer?.name || 'عميل نقدي',
+            repName: tx.user?.name || 'غير محدد',
+            agencyName: tx.agency?.name || 'عام',
+            revenue: finalRevenue,
+            cost: finalCost,
+            profit: profit,
+            items: tx.items.map((item: any) => ({
+                productName: item.product.name,
+                quantity: item.quantity,
+                price: Number(item.price),
+                cost: Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.factoryPrice),
+                category: item.product.category
+            }))
+        };
+    });
+
+    return report;
+}
+
 // ============= تقرير الإيرادات والمصروفات =============
 export async function getIncomeExpensesReport(
     startDate?: Date,
