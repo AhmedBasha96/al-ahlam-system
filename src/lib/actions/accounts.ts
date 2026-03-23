@@ -311,11 +311,11 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
     const purchasesTx = await prisma.transaction.findMany({ where: { ...txWhere, type: 'PURCHASE' }, include: { items: true } });
 
     const expensesAgg = await prisma.accountRecord.aggregate({
-        where: { ...accWhere, type: 'EXPENSE', category: { not: 'رصيد بداية المدة' } },
+        where: { ...accWhere, type: 'EXPENSE', category: { notIn: ['رصيد بداية المدة', 'سداد مديونية', 'دفعة للمورد'] } },
         _sum: { amount: true }
     });
     const incomeAgg = await prisma.accountRecord.aggregate({
-        where: { ...accWhere, type: 'INCOME', category: { not: 'رصيد بداية المدة' } },
+        where: { ...accWhere, type: 'INCOME', category: { notIn: ['رصيد بداية المدة', 'تحصيل مديونية', 'دفعة من عميل'] } },
         _sum: { amount: true }
     });
 
