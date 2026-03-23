@@ -4,11 +4,17 @@ import prisma from "@/lib/db";
 import { AccountRecordType } from "@prisma/client";
 import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 
-// Helper function to get date range
 function getDateRange(startDate?: Date, endDate?: Date) {
+    let finalEndDate = endDate || new Date();
+    if (endDate) {
+        // Create a new date to avoid mutating the original
+        finalEndDate = new Date(endDate);
+        // Set to the very end of the day 23:59:59.999
+        finalEndDate.setHours(23, 59, 59, 999);
+    }
     return {
         gte: startDate || new Date(0),
-        lte: endDate || new Date()
+        lte: finalEndDate
     };
 }
 
