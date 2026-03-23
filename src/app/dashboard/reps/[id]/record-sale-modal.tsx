@@ -183,22 +183,39 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
             setInvoiceData({
                 repName,
                 customerName: customer?.name,
-                items: cart.map(item => {
+                items: cart.flatMap(item => {
                     const product = products.find(p => p.id === item.productId);
                     const upc = product?.unitsPerCarton || 1;
-                    const totalLineAmount = item.cartons > 0
-                        ? (item.cartons + (item.units / upc)) * item.price
-                        : item.units * item.price;
-
-                    return {
-                        productId: item.productId,
-                        productName: product?.name || '',
-                        quantity: item.cartons > 0 ? (item.cartons * upc + item.units) : item.units,
-                        price: item.price,
-                        originalPrice: item.originalPrice,
-                        discountPercentage: item.discountPercentage,
-                        total: totalLineAmount
-                    };
+                    const rows = [];
+                    
+                    if (item.cartons > 0) {
+                        rows.push({
+                            productId: item.productId,
+                            productName: upc > 1 ? `${product?.name} (كرتونة)` : (product?.name || ''),
+                            quantity: item.cartons,
+                            // The 'item.price' is the raw CARTON price computed in calculateItemPrice
+                            price: item.price,
+                            originalPrice: item.originalPrice,
+                            discountPercentage: item.discountPercentage,
+                            total: item.cartons * item.price
+                        });
+                    }
+                    
+                    if (item.units > 0 || (item.cartons === 0 && item.units === 0)) {
+                        const unitPrice = item.price / upc;
+                        const origUnitPrice = item.originalPrice / upc;
+                        rows.push({
+                            productId: item.productId,
+                            productName: upc > 1 ? `${product?.name} (قطعة/علبة)` : (product?.name || ''),
+                            quantity: item.units,
+                            price: unitPrice,
+                            originalPrice: origUnitPrice,
+                            discountPercentage: item.discountPercentage,
+                            total: item.units * unitPrice
+                        });
+                    }
+                    
+                    return rows;
                 }),
                 paymentInfo: {
                     type: paymentType,

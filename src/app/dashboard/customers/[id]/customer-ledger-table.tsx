@@ -126,7 +126,32 @@ export default function CustomerLedgerTable({ transactions, customerName, userRo
                     id={viewingTx.id}
                     partyName={customerName}
                     userName={viewingTx.user?.name || "النظام"}
-                    items={viewingTx.items || []}
+                    items={(viewingTx.items || []).flatMap((item: any) => {
+                        const upc = item.product?.unitsPerCarton || 1;
+                        if (upc <= 1) return [item];
+                        const cartons = Math.floor(item.quantity / upc);
+                        const units = item.quantity % upc;
+                        const rows = [];
+                        if (cartons > 0) {
+                            rows.push({
+                                ...item,
+                                productName: `${item.product?.name || item.productName || 'غير معروف'} (كرتونة)`,
+                                quantity: cartons,
+                                price: item.price * upc, // Carton Price from unit price
+                                originalPrice: item.originalPrice ? item.originalPrice * upc : undefined,
+                                total: cartons * item.price * upc
+                            });
+                        }
+                        if (units > 0 || (cartons === 0 && units === 0)) {
+                            rows.push({
+                                ...item,
+                                productName: `${item.product?.name || item.productName || 'غير معروف'} (متفرق)`,
+                                quantity: units,
+                                total: units * item.price
+                            });
+                        }
+                        return rows;
+                    })}
                     paymentInfo={{
                         type: viewingTx.paymentType as any,
                         paidAmount: viewingTx.paidAmount,
