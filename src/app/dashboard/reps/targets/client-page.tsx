@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getSalesReps, upsertSalesTarget, getRepsPerformance } from "@/lib/actions/reps";
 import { TrendingUp, Target, DollarSign, Loader2, Save, User as UserIcon, Calendar as CalendarIcon } from "lucide-react";
-import { toast } from "sonner";
 
 export default function ClientTargetsPage() {
     const [reps, setReps] = useState<any[]>([]);
@@ -43,13 +42,13 @@ export default function ClientTargetsPage() {
         try {
             const result = await upsertSalesTarget(repId, month, year, salesTarget, collectionTarget);
             if (result.success) {
-                toast.success("تم حفظ التارجت بنجاح");
+                alert("تم حفظ التارجت بنجاح");
                 loadData();
             } else {
-                toast.error("فشل الحفظ: " + result.error);
+                alert("فشل الحفظ: " + result.error);
             }
         } catch (error) {
-            toast.error("حدث خطأ غير متوقع");
+            alert("حدث خطأ غير متوقع");
         } finally {
             setSaving(null);
         }
