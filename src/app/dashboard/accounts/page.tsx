@@ -102,7 +102,7 @@ export default async function AccountsDashboard() {
             <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 mb-10">
 
                 {/* Treasury Card (Main Focus) */}
-                <div className="lg:col-span-4 relative group">
+                <div className="lg:col-span-6 relative group">
                     <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl transform rotate-1 transition-transform group-hover:rotate-2 opacity-80 blur shadow-2xl"></div>
                     <div className="relative bg-slate-900 rounded-3xl p-8 h-full flex flex-col justify-between text-white shadow-2xl overflow-hidden border border-white/10">
                         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
@@ -130,7 +130,7 @@ export default async function AccountsDashboard() {
                 </div>
 
                 {/* Rep Debts Card (New Big Card) */}
-                <div className="lg:col-span-4 relative group">
+                <div className="lg:col-span-6 relative group">
                     <Link href="/dashboard/accounts/rep-debts" className="block h-full group">
                         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl transform -rotate-1 transition-transform group-hover:-rotate-2 opacity-80 blur shadow-2xl"></div>
                         <div className="relative bg-emerald-900 rounded-3xl p-8 h-full flex flex-col justify-between text-white shadow-2xl overflow-hidden border border-white/10">
@@ -163,33 +163,10 @@ export default async function AccountsDashboard() {
                         </div>
                     </Link>
                 </div>
-
-                {/* Net Profit Card */}
-                <div className="lg:col-span-4 relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-3xl transform rotate-1 transition-transform group-hover:rotate-2 opacity-60 blur shadow-xl"></div>
-                    <div className="relative glass-card bg-white/90 rounded-3xl p-8 h-full flex flex-col justify-between shadow-xl border border-white/60">
-                        <div className="flex justify-between items-start">
-                            <div className="p-3 bg-indigo-100 rounded-2xl">
-                                <Activity className="w-8 h-8 text-indigo-600" />
-                            </div>
-                            <span className="text-xs font-bold uppercase text-indigo-700 bg-indigo-100/50 px-3 py-1 rounded-full">
-                                صافي الربح (الشهر)
-                            </span>
-                        </div>
-                        <div className="mt-6">
-                            <div className="text-4xl font-black text-slate-800 tracking-tight">
-                                {formatMoney(summary.netProfit)}
-                            </div>
-                            <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-gradient-to-r from-indigo-400 to-blue-500 w-[70%] rounded-full"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                 {/* Sales */}
                 <div className="glass-card p-5 rounded-2xl flex items-center justify-between group hover:bg-white/90 transition-all border-l-4 border-l-blue-500 shadow-sm">
                     <div>
@@ -209,17 +186,6 @@ export default async function AccountsDashboard() {
                     </div>
                     <div className="h-10 w-10 bg-orange-100/50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                         <TrendingDown className="w-5 h-5 text-orange-600" />
-                    </div>
-                </div>
-
-                {/* Gross Profit */}
-                <div className="glass-card p-5 rounded-2xl flex items-center justify-between group hover:bg-white/90 transition-all border-l-4 border-l-purple-500 shadow-sm">
-                    <div>
-                        <p className="text-xs text-slate-500 font-bold uppercase mb-1">إجمالي الربح (Gross)</p>
-                        <p className="text-2xl font-black text-purple-700">{formatMoney(summary.grossProfit)}</p>
-                    </div>
-                    <div className="h-10 w-10 bg-purple-100/50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Zap className="w-5 h-5 text-purple-600" />
                     </div>
                 </div>
 
