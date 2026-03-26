@@ -193,11 +193,15 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
     return (
         <div className="space-y-6">
             {isRep && (
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-sm flex items-center gap-3 shadow-sm">
-                    <span className="text-xl">⚠️</span>
-                    <p className="font-bold">تنبيه: بيانات العهدة في هذا الجدول للمراجعة فقط. عملية تصفية العهدة (الجرد النهائي) تتم من خلال الإدارة فقط.</p>
+                <div className="bg-emerald-600 p-8 rounded-2xl shadow-lg border border-emerald-500 flex justify-between items-center text-white mb-6">
+                    <div>
+                        <h3 className="text-xl font-black mb-1">بضاعة العهدة الحالية</h3>
+                        <p className="text-emerald-100 text-sm">قائمة بالأصناف والكميات الموجودة في عهدتك حالياً.</p>
+                    </div>
+                    <div className="bg-white/20 p-4 rounded-xl text-3xl">📦</div>
                 </div>
             )}
+
 
             {/* Control Panel */}
             {!isRep && (
@@ -261,18 +265,7 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                 </div>
             )}
 
-            {isRep && (
-                <div className="bg-emerald-600 p-8 rounded-2xl shadow-lg border border-emerald-500 flex justify-between items-center text-white">
-                    <div>
-                        <h3 className="text-xl font-black mb-1">تسجيل جرد بضاعة العهدة</h3>
-                        <p className="text-emerald-100 text-sm">قم بتحديث الكميات الفعلية الموجودة معك حالياً وسيقوم النظام بحساب مبيعاتك.</p>
-                    </div>
-                    <div className="text-left">
-                        <div className="text-xs text-emerald-200 font-bold uppercase mb-1">إجمالي المبيعات المستحقة</div>
-                        <div className="text-4xl font-black">{totalSoldAmount.toLocaleString('en-US')} <span className="text-lg">ج.م</span></div>
-                    </div>
-                </div>
-            )}
+
 
             {/* Audit Table */}
             <div className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
@@ -280,11 +273,11 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                     <thead className="bg-emerald-50 text-emerald-900 border-b border-emerald-100">
                         <tr>
                             <th className="p-4 font-semibold">الصنف</th>
-                            <th className="p-4 font-semibold text-center">العهدة (المسلم)</th>
-                            <th className="p-4 font-semibold text-center w-64">الفعلي (المتبقي)</th>
-                            <th className="p-4 font-semibold text-center text-red-600">المباع</th>
+                            <th className="p-4 font-semibold text-center">{isRep ? "الكمية المتوفرة" : "العهدة (المسلم)"}</th>
+                            {!isRep && <th className="p-4 font-semibold text-center w-64">الفعلي (المتبقي)</th>}
+                            {!isRep && <th className="p-4 font-semibold text-center text-red-600">المباع</th>}
                             <th className="p-4 font-semibold text-center">التسعيرة</th>
-                            <th className="p-4 font-semibold text-center">قيمة المبيعات</th>
+                            {!isRep && <th className="p-4 font-semibold text-center">قيمة المبيعات</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -329,50 +322,52 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                                         </div>
                                         <div className="text-[9px] text-gray-400 mt-0.5">{stock.quantity} إجمالي</div>
                                     </td>
-                                    <td className="p-4">
-                                        <div className="flex gap-2 items-center justify-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[9px] text-gray-400">كرتون</span>
-                                                <input
-                                                    type="number"
-                                                    value={currentData.cartons}
-                                                    onChange={(e) => handleUnitChange(stock.productId, 'cartons', Number(e.target.value))}
-                                                    readOnly={isRep}
-                                                    className="w-16 border rounded-lg p-1 text-center font-bold text-emerald-700"
-                                                />
+                                    {!isRep && (
+                                        <td className="p-4">
+                                            <div className="flex gap-2 items-center justify-center">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[9px] text-gray-400">كرتون</span>
+                                                    <input
+                                                        type="number"
+                                                        value={currentData.cartons}
+                                                        onChange={(e) => handleUnitChange(stock.productId, 'cartons', Number(e.target.value))}
+                                                        className="w-16 border rounded-lg p-1 text-center font-bold text-emerald-700"
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[9px] text-gray-400">علبة</span>
+                                                    <input
+                                                        type="number"
+                                                        value={currentData.units}
+                                                        onChange={(e) => handleUnitChange(stock.productId, 'units', Number(e.target.value))}
+                                                        className="w-16 border rounded-lg p-1 text-center font-bold text-emerald-700"
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[9px] text-gray-400">علبة</span>
-                                                <input
-                                                    type="number"
-                                                    value={currentData.units}
-                                                    onChange={(e) => handleUnitChange(stock.productId, 'units', Number(e.target.value))}
-                                                    readOnly={isRep}
-                                                    className="w-16 border rounded-lg p-1 text-center font-bold text-emerald-700"
-                                                />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        {soldTotal > 0 ? (
-                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                                {upc > 1 && soldCartons > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-100 text-red-700 font-bold text-sm border border-red-200">
-                                                        {soldCartons}
-                                                        <span className="text-red-400 text-[10px]">ك</span>
-                                                    </span>
+                                        </td>
+                                    )}
+                                    {!isRep && (
+                                        <td className="p-4 text-center">
+                                            {soldTotal > 0 ? (
+                                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                    {upc > 1 && soldCartons > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-100 text-red-700 font-bold text-sm border border-red-200">
+                                                            {soldCartons}
+                                                            <span className="text-red-400 text-[10px]">ك</span>
+                                                        </span>
+                                                    )}
+                                                    {(upc <= 1 || soldUnits > 0) && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 text-red-600 font-bold text-sm border border-red-100">
+                                                            {upc <= 1 ? soldTotal : soldUnits}
+                                                                <span className="text-red-400 text-[10px]">ع</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-300 font-bold">—</span>
                                                 )}
-                                                {(upc <= 1 || soldUnits > 0) && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 text-red-600 font-bold text-sm border border-red-100">
-                                                        {upc <= 1 ? soldTotal : soldUnits}
-                                                        <span className="text-red-400 text-[10px]">ع</span>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-gray-300 font-bold">—</span>
-                                        )}
-                                    </td>
+                                            </td>
+                                    )}
                                     <td className="p-4 text-center bg-gray-50/50">
                                         <div className="flex flex-col gap-0.5 items-center text-[10px] font-medium">
                                             <div className="flex items-center gap-1 text-emerald-700">
@@ -387,9 +382,11 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="p-4 text-center font-bold text-gray-900">
-                                        {totalSoldRow.toLocaleString('en-US')} ج.م
-                                    </td>
+                                    {!isRep && (
+                                        <td className="p-4 text-center font-bold text-gray-900">
+                                            {totalSoldRow.toLocaleString('en-US')} ج.م
+                                        </td>
+                                    )}
                                 </tr>
                             );
                         })}
@@ -398,11 +395,15 @@ export default function RepAuditForm({ repId, repName, pricingType, products, re
                         <tr>
                             <td className="p-4">الإجمالي</td>
                             <td className="p-4 text-center">{repStocks.reduce((a, b) => a + b.quantity, 0)}</td>
-                            <td className="p-4 text-center text-gray-400 font-mono italic">{totalCustodyValue.toLocaleString('en-US')}</td>
-                            <td className="p-4 text-center">{totalItemsReturned}</td>
-                            <td className="p-4 text-center text-blue-700 font-mono">{totalRemainingValue.toLocaleString('en-US')}</td>
-                            <td className="p-4 text-center text-red-600">{totalItemsSold}</td>
-                            <td colSpan={2} className="p-4 text-center text-emerald-700">{totalSoldAmount.toLocaleString('en-US')} ج.م</td>
+                            {!isRep && <td className="p-4 text-center text-gray-400 font-mono italic">{totalCustodyValue.toLocaleString('en-US')}</td>}
+                            {!isRep && <td className="p-4 text-center">{totalItemsReturned}</td>}
+                            {!isRep && <td className="p-4 text-center text-blue-700 font-mono">{totalRemainingValue.toLocaleString('en-US')}</td>}
+                            {!isRep && <td className="p-4 text-center text-red-600">{totalItemsSold}</td>}
+                            {isRep ? (
+                                <td colSpan={1} className="p-4 text-center text-emerald-700">—</td>
+                            ) : (
+                                <td colSpan={2} className="p-4 text-center text-emerald-700">{totalSoldAmount.toLocaleString('en-US')} ج.م</td>
+                            )}
                         </tr>
                     </tfoot>
                 </table>

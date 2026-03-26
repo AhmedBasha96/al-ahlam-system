@@ -122,19 +122,24 @@ export async function getProfitLossReport(
             txCost += cost;
         });
 
+        // Calculate realized ratio based on collected amount
+        const totalAmount = Number(tx.totalAmount) || 1;
+        const paidAmount = Number(tx.paidAmount) || 0;
+        const realizationRatio = tx.type === 'SALE' ? Math.min(paidAmount / totalAmount, 1) : 1; // Assuming returns are 100% realized
+
         // Determine multiplier: Sales add, Returns subtract
         const multiplier = tx.type === 'SALE' ? 1 : -1;
 
-        totalRevenue += txRevenue * multiplier;
-        totalCost += txCost * multiplier;
+        totalRevenue += txRevenue * multiplier * realizationRatio;
+        totalCost += txCost * multiplier * realizationRatio;
 
         // Add to agency breakdown
         const bucket = tx.agencyId
             ? getBucket(tx.agencyId, tx.agency?.name || 'Unknown Agency')
             : getBucket('GENERAL', 'عام (غير محدد)');
 
-        bucket.salesRevenue += txRevenue * multiplier;
-        bucket.costOfGoodsSold += txCost * multiplier;
+        bucket.salesRevenue += txRevenue * multiplier * realizationRatio;
+        bucket.costOfGoodsSold += txCost * multiplier * realizationRatio;
 
         // Update count only for Sales
         if (tx.type === 'SALE') bucket.salesCount++;
@@ -251,10 +256,17 @@ export async function getOperationProfitReport(
             cost += itemCost;
         });
 
+        // Calculate Realization Ratio
+        const totalAmount = Number(tx.totalAmount) || 1;
+        const paidAmount = Number(tx.paidAmount) || 0;
+        const realizationRatio = tx.type === 'SALE' ? Math.min(paidAmount / totalAmount, 1) : 1;
+
         // Determine multiplier: Sales add, Returns subtract
         const multiplier = tx.type === 'SALE' ? 1 : -1;
-        const finalRevenue = revenue * multiplier;
-        const finalCost = cost * multiplier;
+        
+        // Final values consider the realization ratio (cash-basis profit)
+        const finalRevenue = revenue * multiplier * realizationRatio;
+        const finalCost = cost * multiplier * realizationRatio;
         const profit = finalRevenue - finalCost;
 
         return {

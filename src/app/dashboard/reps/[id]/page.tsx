@@ -138,13 +138,15 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                 </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-blue-800 text-sm flex items-start gap-3 shadow-sm">
-                <span className="text-xl">💡</span>
-                <div>
-                    <p className="font-bold mb-1">كيفية الجرد:</p>
-                    <p>قم بإدخال الكمية المتبقية في العربية حالياً في خانة <strong>"الكمية الموجودة فعلياً"</strong>. سيقوم النظام تلقائياً بحساب المباع بناءً على العهدة المسجلة له.</p>
+            {currentUser.role !== 'SALES_REPRESENTATIVE' && (
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-blue-800 text-sm flex items-start gap-3 shadow-sm">
+                    <span className="text-xl">💡</span>
+                    <div>
+                        <p className="font-bold mb-1">كيفية الجرد:</p>
+                        <p>قم بإدخال الكمية المتبقية في العربية حالياً في خانة <strong>"الكمية الموجودة فعلياً"</strong>. سيقوم النظام تلقائياً بحساب المباع بناءً على العهدة المسجلة له.</p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-3 space-y-6">
@@ -175,9 +177,11 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                 </div>
             </div>
 
-            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-gray-600 text-xs text-center">
-                <strong>ملاحظة تقنية:</strong> عند "تأكيد الجرد"، يتم تحديث رصيد المندوب ليصبح مساوياً للكمية الفعلية التي أدخلتها. لزيادة العهدة مجدداً، استخدم "إذن صرف" من شاشة المخازن.
-            </div>
+            {currentUser.role !== 'SALES_REPRESENTATIVE' && (
+                <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-gray-600 text-xs text-center">
+                    <strong>ملاحظة تقنية:</strong> عند "تأكيد الجرد"، يتم تحديث رصيد المندوب ليصبح مساوياً للكمية الفعلية التي أدخلتها. لزيادة العهدة مجدداً، استخدم "إذن صرف" من شاشة المخازن.
+                </div>
+            )}
 
             <DebugInfo rep={rep} products={allProducts} />
         </div>

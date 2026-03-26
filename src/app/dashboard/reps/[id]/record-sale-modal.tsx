@@ -44,7 +44,7 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
     const [paidAmount, setPaidAmount] = useState<number>(0);
     const [loading, setLoading] = useState(false);
     const [invoiceData, setInvoiceData] = useState<any>(null);
-    const [applyDiscount, setApplyDiscount] = useState(true);
+    const [applyDiscount, setApplyDiscount] = useState(false);
 
     const calculateItemPrice = (product: Product, cartons: number, units: number) => {
         const isCarton = cartons > 0;

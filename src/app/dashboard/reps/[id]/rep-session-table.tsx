@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { updateTransaction } from "@/lib/actions";
 import TransactionModal from "@/components/shared/transaction-modal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -28,11 +28,33 @@ type Props = {
 export default function RepSessionTable({ sessions, userRole }: Props) {
     const [viewingSession, setViewingSession] = useState<Session | null>(null);
     const [editingSession, setEditingSession] = useState<Session | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+
+    const filteredSessions = useMemo(() => {
+        return sessions.filter(s => {
+            const customerName = s.customer?.name?.toLowerCase() || "";
+            const type = (s.type === 'SALE' ? 'مبيعات' :
+                s.type === 'RETURN_IN' ? 'مرتجع' :
+                    s.type === 'COLLECTION' ? 'تحصيل' : 'عملية').toLowerCase();
+            const search = searchTerm.toLowerCase();
+            return customerName.includes(search) || type.includes(search);
+        });
+    }, [sessions, searchTerm]);
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <h3 className="font-bold text-gray-800">سجل العمليات والتحصيلات</h3>
+                <div className="relative w-full md:w-64">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                    <input
+                        type="text"
+                        placeholder="ابحث بالعميل أو نوع العملية..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-3 pr-10 py-2 border rounded-xl bg-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                </div>
             </div>
             <div className="overflow-x-auto">
                 <Table>
@@ -47,14 +69,14 @@ export default function RepSessionTable({ sessions, userRole }: Props) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {sessions.length === 0 ? (
+                        {filteredSessions.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="text-center py-8 text-gray-400">
-                                    لا يوجد سجل عمليات لهذا المندوب
+                                    {searchTerm ? "لا توجد نتائج مطابقة لبحثك" : "لا يوجد سجل عمليات لهذا المندوب"}
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            sessions.map((session) => (
+                            filteredSessions.map((session) => (
                                 <TableRow key={session.id} className="group hover:bg-gray-50 transition-colors">
                                     <TableCell className="font-medium text-xs text-gray-500">
                                         {new Date(session.createdAt).toLocaleDateString('ar-EG')}

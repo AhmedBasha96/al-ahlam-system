@@ -333,12 +333,19 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         _sum: { amount: true }
     });
 
-    // Calculate Sales & Cost
+    // Calculate Sales & Cost (Cash-Basis)
     let totalSales = 0;
     let totalCost = 0;
     for (const tx of salesTx) {
-        totalSales += Number(tx.totalAmount);
-        for (const item of tx.items) totalCost += (item.quantity * Number(item.cost));
+        const fullAmount = Number(tx.totalAmount) || 1;
+        const paidAmount = Number(tx.paidAmount) || 0;
+        const ratio = Math.min(paidAmount / fullAmount, 1);
+        
+        let txCost = 0;
+        for (const item of tx.items) txCost += (item.quantity * Number(item.cost));
+        
+        totalSales += (Number(tx.totalAmount) * ratio);
+        totalCost += (txCost * ratio);
     }
 
     const expenses = Number(expensesAgg._sum.amount || 0);
