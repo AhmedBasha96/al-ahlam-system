@@ -337,13 +337,43 @@ export async function getOperationProfitReport(
                 cost: realizedCost,
                 profit: collectedAmount - realizedCost,
                 note: entry.description || `دفعة من فاتورة #${sale.id.slice(-6)}`,
-                items: sale.items.map((item: any) => ({
+                items: (sale.items as any[]).map((item) => ({
                     productName: item.product.name,
                     quantity: item.quantity * ratio, // Proportional quantity
                     price: Number(item.price),
                     cost: Number(item.cost),
                     category: item.product.category
                 }))
+            });
+        } else if (sale && sale.type === 'COLLECTION' && sale.customerId) {
+            // For debt collections, we estimate profit based on customer's average margin
+            const customerSales = await prisma.transaction.findMany({
+                where: { customerId: sale.customerId, type: 'SALE' },
+                include: { items: true }
+            });
+
+            let realizedCost = 0;
+            if (customerSales.length > 0) {
+                let totalSalesValue = customerSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+                let totalSalesCost = customerSales.reduce((sum, s) => {
+                    return sum + s.items.reduce((iSum, i) => iSum + (i.quantity * Number(i.cost)), 0);
+                }, 0);
+                const avgRatio = totalSalesValue > 0 ? (totalSalesCost / totalSalesValue) : 0;
+                realizedCost = Number(entry.amount) * avgRatio;
+            }
+
+            reportItems.push({
+                id: `${entry.id}-${sale.id}`,
+                date: entry.createdAt,
+                type: 'DEBT_COLLECTION',
+                customerName: sale.customer?.name || "عميل",
+                repName: sale.user.name,
+                agencyName: sale.agency?.name || "عام",
+                revenue: Number(entry.amount),
+                cost: realizedCost,
+                profit: Number(entry.amount) - realizedCost,
+                note: entry.description || `تحصيل مديونية من ${sale.customer?.name}`,
+                items: []
             });
         }
     }

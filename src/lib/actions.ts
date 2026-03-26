@@ -1397,6 +1397,20 @@ export async function recordSalesSession(
 
         revalidatePath('/dashboard/reports/sales');
         revalidatePath('/dashboard', 'layout');
+
+        // 3. Record Journal Entry if cash was paid
+        if (transaction.paidAmount && Number(transaction.paidAmount) > 0) {
+            await recordJournalEntry(prisma, {
+                amount: Number(transaction.paidAmount),
+                type: 'DEBIT',
+                description: `مبيعات نقدية (عن طريق المندوب ${repName})`,
+                referenceId: transaction.id,
+                referenceType: 'SALE',
+                agencyId: user.agencyId,
+                userId: repId
+            });
+        }
+
         return { success: true, sessionId: transaction.id };
     } catch (error) {
         console.error("recordSalesSession error:", error);
@@ -1453,6 +1467,19 @@ export async function recordDirectSale(
                     }
                 }
             });
+            // 3. Record Journal Entry if cash was paid
+            if (transaction.paidAmount && Number(transaction.paidAmount) > 0) {
+                await recordJournalEntry(tx, {
+                    amount: Number(transaction.paidAmount),
+                    type: 'DEBIT',
+                    description: `مبيعات نقدية مباشرة (المندوب: ${user.name})`,
+                    referenceId: transaction.id,
+                    referenceType: 'SALE',
+                    agencyId: user.agencyId,
+                    userId: repId
+                });
+            }
+
             return { sessionId: transaction.id };
         });
 
@@ -1567,17 +1594,17 @@ export async function recordDebtCollection(
             const collector = await tx.user.findUnique({ where: { id: repId || user.id } });
             const isRep = collector?.role === 'SALES_REPRESENTATIVE';
 
-            if (!isRep) {
-                await recordJournalEntry(tx, {
-                    amount,
-                    type: 'DEBIT',
-                    description: `تحصيل مديونية من ${customer.name} - ${note || ''}`,
-                    referenceId: transaction.id,
-                    referenceType: 'COLLECTION',
-                    agencyId: customer.agencyId,
-                    userId: user.id
-                });
-            }
+            // 4. Record Journal Entry for all collections
+            // Profit reports rely on these entries for cash-basis accounting
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'DEBIT',
+                description: `تحصيل مديونية من ${customer.name} - ${note || ''}`,
+                referenceId: transaction.id,
+                referenceType: 'COLLECTION',
+                agencyId: customer.agencyId,
+                userId: user.id
+            });
 
             return { success: true, sessionId: transaction.id };
         }, { timeout: 15000 });
