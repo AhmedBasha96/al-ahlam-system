@@ -695,46 +695,51 @@ export async function deleteTransaction(id: string) {
                 if (transaction.warehouseId && transaction.note?.includes('تحميل للمندوب')) {
                     // Source Warehouse was decremented, Target Rep was incremented
                     // REVERT: Source Warehouse +, Target Rep -
-                    await tx.stock.update({
+                    await tx.stock.upsert({
                         where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
-                        data: { quantity: { increment: item.quantity } }
+                        create: { warehouseId: transaction.warehouseId, productId: item.productId, quantity: item.quantity },
+                        update: { quantity: { increment: item.quantity } }
                     });
-                    await tx.stock.update({
+                    // For decrement, we must ensure we don't go negative if possible, but for revert we just do it
+                    await tx.stock.upsert({
                         where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
-                        data: { quantity: { decrement: item.quantity } }
+                        create: { warehouseId: transaction.userId, productId: item.productId, quantity: -item.quantity },
+                        update: { quantity: { decrement: item.quantity } }
                     });
                 } else {
                     // Direct Sale: Rep was decremented
                     // REVERT: Rep +
-                    await tx.stock.update({
+                    await tx.stock.upsert({
                         where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
-                        data: { quantity: { increment: item.quantity } }
+                        create: { warehouseId: transaction.userId, productId: item.productId, quantity: item.quantity },
+                        update: { quantity: { increment: item.quantity } }
                     });
                 }
             } else if (transaction.type === 'PURCHASE') {
                 // Supply: Warehouse was incremented
                 // REVERT: Warehouse -
                 if (transaction.warehouseId) {
-                    await tx.stock.update({
+                    await tx.stock.upsert({
                         where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
-                        data: { quantity: { decrement: item.quantity } }
+                        create: { warehouseId: transaction.warehouseId, productId: item.productId, quantity: -item.quantity },
+                        update: { quantity: { decrement: item.quantity } }
                     });
                 }
             } else if (transaction.type === 'RETURN_OUT') {
-                // Return to Supplier
-                // Stock was decremented (for both PENDING and ACTIVE) -> REVERT: Warehouse +
+                // Return to Supplier -> REVERT: Warehouse +
                 if (transaction.warehouseId) {
-                    await tx.stock.update({
+                    await tx.stock.upsert({
                         where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
-                        data: { quantity: { increment: item.quantity } }
+                        create: { warehouseId: transaction.warehouseId, productId: item.productId, quantity: item.quantity },
+                        update: { quantity: { increment: item.quantity } }
                     });
                 }
             } else if (transaction.type === 'RETURN_IN') {
-                // Return from Customer: Rep was incremented
-                // REVERT: Rep -
-                await tx.stock.update({
+                // Return from Customer: Rep was incremented -> REVERT: Rep -
+                await tx.stock.upsert({
                     where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
-                    data: { quantity: { decrement: item.quantity } }
+                    create: { warehouseId: transaction.userId, productId: item.productId, quantity: -item.quantity },
+                    update: { quantity: { decrement: item.quantity } }
                 });
             }
         }

@@ -52,7 +52,7 @@ async function main() {
             update: {},
             create: {
                 id: 'agency-id',
-                name: 'Default Agency',
+                name: 'فرع الاحلام الرئيسي',
                 address: 'Main branch',
                 phone: '+201234567890'
             }
@@ -64,70 +64,12 @@ async function main() {
             update: {},
             create: {
                 id: 'warehouse-id',
-                name: 'Main Warehouse',
+                name: 'المخزن الرئيسي',
                 agencyId: agency.id
             }
         });
 
-        // Create default product
-        const product = await prisma.product.upsert({
-            where: { id: 'product-id' },
-            update: {},
-            create: {
-                id: 'product-id',
-                name: 'Sample Product',
-                barcode: 'SAMPLE-001',
-                factoryPrice: 50.0,
-                wholesalePrice: 60.0,
-                retailPrice: 70.0,
-                agencyId: agency.id,
-                unitsPerCarton: 1
-            }
-        });
-
-        // Ensure stock exists
-        await prisma.stock.upsert({
-            where: { warehouseId_productId: { warehouseId: warehouse.id, productId: product.id } },
-            update: { quantity: 100 },
-            create: {
-                warehouseId: warehouse.id,
-                productId: product.id,
-                quantity: 100
-            }
-        });
-
-        // Create one sale transaction with a transaction item
-        const saleTransaction = await prisma.transaction.create({
-            data: {
-                id: 'trx-sale-1',
-                type: 'SALE',
-                totalAmount: 7000.00,
-                userId: user.id,
-                agencyId: agency.id,
-                warehouseId: warehouse.id,
-                customerId: undefined,
-                paymentType: 'CASH',
-                paidAmount: 7000.00,
-                remainingAmount: 0.0,
-                status: 'ACTIVE',
-                note: 'Test sale for auto seed',
-                createdAt: new Date(),
-                items: {
-                    create: [{
-                        id: 'trx-item-1',
-                        productId: product.id,
-                        quantity: 100,
-                        price: 70.0,
-                        cost: 50.0,
-                        originalPrice: 70.0,
-                        discountPercentage: 0.0,
-                        createdAt: new Date()
-                    }]
-                }
-            }
-        });
-
-        console.log('✅ Test sale transaction seeded:', saleTransaction.id);
+        console.log('✅ Base infrastructure seeded (Admin, Agency, Warehouse)');
 
         // Verify by counting
         const userCount = await prisma.user.count()
