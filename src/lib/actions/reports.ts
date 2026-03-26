@@ -97,6 +97,15 @@ export async function getProfitLossReport(
     const breakdownMap = new Map<string, ReturnType<typeof createBucket>>();
 
     // Helper to get or create bucket
+    const journalEntries = await prisma.journalEntry.findMany({
+        where: {
+            createdAt: dateRange,
+            ...agencyFilter,
+            type: 'DEBIT',
+            referenceType: { in: ['SALE', 'COLLECTION'] }
+        }
+    });
+
     const getBucket = (agencyId: string, agencyName: string) => {
         if (!breakdownMap.has(agencyId)) {
             breakdownMap.set(agencyId, createBucket(agencyId, agencyName));
@@ -104,46 +113,103 @@ export async function getProfitLossReport(
         return breakdownMap.get(agencyId)!;
     };
 
-    // Process Transactions (Sales & Returns)
-    transactions.forEach(tx => {
-        // SKIP Internal Transfers: If Sale has 0 amount, it's likely a load-to-rep or stock transfer
-        if (tx.type === 'SALE' && Number(tx.totalAmount) === 0) return;
-
+    // Process Returns: Directly from Transaction
+    const returns = transactions.filter(tx => tx.type === 'RETURN_IN');
+    returns.forEach(tx => {
         let txRevenue = 0;
         let txCost = 0;
-
         tx.items.forEach(item => {
-            const revenue = Number(item.price) * item.quantity;
-            // Fallback: If item.cost is 0, use current factoryPrice from product
-            const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.factoryPrice);
-            const cost = unitCost * item.quantity;
-
-            txRevenue += revenue;
-            txCost += cost;
+            txRevenue += Number(item.price) * item.quantity;
+            const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.unitFactoryPrice);
+            txCost += unitCost * item.quantity;
         });
 
-        // Calculate realized ratio based on collected amount
-        const totalAmount = Number(tx.totalAmount) || 1;
-        const paidAmount = Number(tx.paidAmount) || 0;
-        const realizationRatio = tx.type === 'SALE' ? Math.min(paidAmount / totalAmount, 1) : 1; // Assuming returns are 100% realized
+        totalRevenue -= txRevenue;
+        totalCost -= txCost;
 
-        // Determine multiplier: Sales add, Returns subtract
-        const multiplier = tx.type === 'SALE' ? 1 : -1;
-
-        totalRevenue += txRevenue * multiplier * realizationRatio;
-        totalCost += txCost * multiplier * realizationRatio;
-
-        // Add to agency breakdown
         const bucket = tx.agencyId
             ? getBucket(tx.agencyId, tx.agency?.name || 'Unknown Agency')
             : getBucket('GENERAL', 'عام (غير محدد)');
 
-        bucket.salesRevenue += txRevenue * multiplier * realizationRatio;
-        bucket.costOfGoodsSold += txCost * multiplier * realizationRatio;
-
-        // Update count only for Sales
-        if (tx.type === 'SALE') bucket.salesCount++;
+        bucket.salesRevenue -= txRevenue;
+        bucket.costOfGoodsSold -= txCost;
     });
+
+    // Process Sales: Revenue from Journal Entries (Cash Received)
+    for (const entry of journalEntries) {
+        if (entry.referenceType === 'SALE') {
+            const sale = await prisma.transaction.findUnique({
+                where: { id: entry.referenceId! },
+                include: { items: { include: { product: true } }, agency: true }
+            });
+
+            if (sale && sale.type === 'SALE') {
+                const fullAmount = Number(sale.totalAmount) || 1;
+                const collectedAmount = Number(entry.amount);
+                const ratio = collectedAmount / fullAmount;
+
+                let saleTotalCost = 0;
+                for (const item of sale.items) {
+                    const qty = Number((item as any).unitQuantity) > 0 ? Number((item as any).unitQuantity) : Number(item.quantity);
+                    const unitCost = Number(item.cost) > 0 ? Number(item.cost) : (item.sellUnit === 'CARTON' ? Number(item.product.factoryPrice) : Number(item.product.unitFactoryPrice));
+                    saleTotalCost += (qty * unitCost);
+                }
+
+                const realizedRevenue = collectedAmount;
+                const realizedCost = saleTotalCost * ratio;
+
+                totalRevenue += realizedRevenue;
+                totalCost += realizedCost;
+
+                const bucket = sale.agencyId
+                    ? getBucket(sale.agencyId, sale.agency?.name || 'Unknown Agency')
+                    : getBucket('GENERAL', 'عام (غير محدد)');
+
+                bucket.salesRevenue += realizedRevenue;
+                bucket.costOfGoodsSold += realizedCost;
+                bucket.salesCount++;
+            }
+        } else if (entry.referenceType === 'COLLECTION') {
+            const collectionTx = await prisma.transaction.findUnique({
+                where: { id: entry.referenceId! },
+                include: { agency: true }
+            });
+
+            if (collectionTx && collectionTx.customerId) {
+                const customerSales = await prisma.transaction.findMany({
+                    where: { customerId: collectionTx.customerId, type: 'SALE' },
+                    include: { items: { include: { product: true } } }
+                });
+
+                if (customerSales.length > 0) {
+                    let totalSalesValue = 0;
+                    let totalSalesCost = 0;
+                    customerSales.forEach(s => {
+                        totalSalesValue += Number(s.totalAmount);
+                        s.items.forEach(i => {
+                            const qty = Number((i as any).unitQuantity) > 0 ? Number((i as any).unitQuantity) : Number(i.quantity);
+                            const unitCost = Number(i.cost) > 0 ? Number(i.cost) : (i.sellUnit === 'CARTON' ? Number(i.product.factoryPrice) : Number(i.product.unitFactoryPrice));
+                            totalSalesCost += (qty * unitCost);
+                        });
+                    });
+
+                    const avgRatio = totalSalesValue > 0 ? (totalSalesCost / totalSalesValue) : 0;
+                    const collectedAmount = Number(entry.amount);
+                    const realizedCost = collectedAmount * avgRatio;
+
+                    totalRevenue += collectedAmount;
+                    totalCost += realizedCost;
+
+                    const bucket = collectionTx.agencyId
+                        ? getBucket(collectionTx.agencyId, collectionTx.agency?.name || 'Unknown Agency')
+                        : getBucket('GENERAL', 'عام (غير محدد)');
+                    
+                    bucket.salesRevenue += collectedAmount;
+                    bucket.costOfGoodsSold += realizedCost;
+                }
+            }
+        }
+    }
 
     salesProfit = totalRevenue - totalCost;
     const otherIncomeTotal = otherIncome.reduce((sum, record) => sum + Number(record.amount), 0);
@@ -220,76 +286,110 @@ export async function getOperationProfitReport(
     const dateRange = getDateRange(startDate, endDate);
     const agencyFilter = agencyId && agencyId !== 'ALL' ? { agencyId } : {};
 
-    const transactions = await (prisma as any).transaction.findMany({
+    const journalEntries = await prisma.journalEntry.findMany({
         where: {
-            type: { in: ['SALE', 'RETURN_IN'] },
             createdAt: dateRange,
-            OR: [
-                { note: null },
-                { NOT: { note: { contains: 'تحميل للمندوب' } } }
-            ],
-            ...agencyFilter
-        },
-        include: {
-            items: {
-                include: {
-                    product: true
-                }
-            },
-            agency: true,
-            customer: true,
-            user: true
+            type: 'DEBIT',
+            referenceType: { in: ['SALE', 'COLLECTION'] },
+            ...(agencyId && agencyId !== 'ALL' ? { agencyId } : {})
         },
         orderBy: { createdAt: 'desc' }
     });
 
-    const report = transactions.map((tx: any) => {
-        let revenue = 0;
-        let cost = 0;
+    const returns = await prisma.transaction.findMany({
+        where: {
+            type: 'RETURN_IN',
+            createdAt: dateRange,
+            ...agencyFilter
+        },
+        include: { items: { include: { product: true } }, customer: true, user: true, agency: true }
+    });
 
-        tx.items.forEach((item: any) => {
-            const itemRevenue = Number(item.price) * item.quantity;
-            const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.factoryPrice);
-            const itemCost = unitCost * item.quantity;
+    const reportItems: any[] = [];
 
-            revenue += itemRevenue;
-            cost += itemCost;
+    // Process Cash Inflows (Profit realized)
+    for (const entry of journalEntries) {
+        let saleId = entry.referenceId!;
+        if (entry.referenceType === 'COLLECTION') {
+            const col = await prisma.transaction.findUnique({
+                where: { id: entry.referenceId! },
+                select: { parentTransactionId: true }
+            });
+            if (col?.parentTransactionId) saleId = col.parentTransactionId;
+        }
+
+        const sale = await prisma.transaction.findUnique({
+            where: { id: saleId },
+            include: { items: { include: { product: true } }, customer: true, user: true, agency: true }
         });
 
-        // Calculate Realization Ratio
-        const totalAmount = Number(tx.totalAmount) || 1;
-        const paidAmount = Number(tx.paidAmount) || 0;
-        const realizationRatio = tx.type === 'SALE' ? Math.min(paidAmount / totalAmount, 1) : 1;
+        if (sale && sale.type === 'SALE') {
+            const fullAmount = Number(sale.totalAmount) || 1;
+            const collectedAmount = Number(entry.amount);
+            const ratio = collectedAmount / fullAmount;
 
-        // Determine multiplier: Sales add, Returns subtract
-        const multiplier = tx.type === 'SALE' ? 1 : -1;
-        
-        // Final values consider the realization ratio (cash-basis profit)
-        const finalRevenue = revenue * multiplier * realizationRatio;
-        const finalCost = cost * multiplier * realizationRatio;
-        const profit = finalRevenue - finalCost;
+            let saleTotalCost = 0;
+            for (const item of sale.items) {
+                const qty = Number((item as any).unitQuantity) > 0 ? Number((item as any).unitQuantity) : Number(item.quantity);
+                saleTotalCost += (qty * Number(item.cost || 0));
+            }
 
-        return {
+            const realizedCost = saleTotalCost * ratio;
+
+            reportItems.push({
+                id: `${entry.id}-${sale.id}`,
+                date: entry.createdAt,
+                type: 'SALE_PAYMENT',
+                customerName: sale.customer?.name || "عميل نقدي",
+                repName: sale.user.name,
+                agencyName: sale.agency?.name || "عام",
+                revenue: collectedAmount,
+                cost: realizedCost,
+                profit: collectedAmount - realizedCost,
+                note: entry.description || `دفعة من فاتورة #${sale.id.slice(-6)}`,
+                items: (sale.items as any[]).map((item) => ({
+                    productName: (item as any).sellUnit === 'CARTON' ? `${item.product.name} (كرتونة)` : item.product.name,
+                    quantity: (Number((item as any).unitQuantity) || Number(item.quantity)) * ratio,
+                    price: Number(item.price),
+                    cost: Number(item.cost),
+                    category: item.product.category
+                }))
+            });
+        }
+    }
+
+    // Process Returns (Loss/Negative Profit)
+    returns.forEach(tx => {
+        let revenue = 0;
+        let cost = 0;
+        tx.items.forEach((item: any) => {
+            revenue += Number(item.price) * item.quantity;
+            const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.unitFactoryPrice);
+            cost += unitCost * item.quantity;
+        });
+
+        reportItems.push({
             id: tx.id,
             date: tx.createdAt,
-            type: tx.type,
-            customerName: tx.customer?.name || 'عميل نقدي',
-            repName: tx.user?.name || 'غير محدد',
-            agencyName: tx.agency?.name || 'عام',
-            revenue: finalRevenue,
-            cost: finalCost,
-            profit: profit,
+            type: 'RETURN_IN',
+            customerName: tx.customer?.name || "عميل نقدي",
+            repName: tx.user.name,
+            agencyName: tx.agency?.name || "عام",
+            revenue: -revenue,
+            cost: -cost,
+            profit: -(revenue - cost),
+            note: tx.note || "مرتجع مبيعات",
             items: tx.items.map((item: any) => ({
                 productName: item.product.name,
                 quantity: item.quantity,
                 price: Number(item.price),
-                cost: Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.factoryPrice),
+                cost: Number(item.cost),
                 category: item.product.category
             }))
-        };
+        });
     });
 
-    return report;
+    return reportItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 // ============= تقرير الإيرادات والمصروفات =============

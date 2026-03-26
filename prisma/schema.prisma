@@ -99,9 +99,9 @@ model Product {
   updatedAt        DateTime          @updatedAt
   image            String?           @db.LongText
   unitsPerCarton   Int               @default(1)
-  unitFactoryPrice Decimal           @default(0)
-  unitWholesalePrice Decimal         @default(0)
-  unitRetailPrice   Decimal          @default(0)
+  unitFactoryPrice   Decimal           @default(0) @db.Decimal(20, 10)
+  unitWholesalePrice Decimal           @default(0) @db.Decimal(20, 10)
+  unitRetailPrice    Decimal           @default(0) @db.Decimal(20, 10)
   wholesaleDiscount Decimal          @default(0)
   retailDiscount    Decimal          @default(0)
   agency           Agency            @relation(fields: [agencyId], references: [id])
@@ -174,17 +174,22 @@ model Customer {
 }
 
 model TransactionItem {
-  id            String      @id @default(uuid())
-  transactionId String
-  productId     String
-  quantity      Int
-  price             Decimal
-  originalPrice     Decimal     @default(0.00)
-  discountPercentage Decimal    @default(0.00)
-  createdAt         DateTime    @default(now())
-  cost          Decimal     @default(0.000000000000000000000000000000)
-  product       Product     @relation(fields: [productId], references: [id])
-  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  id                 String          @id @default(uuid())
+  transactionId      String
+  productId          String
+  quantity           Int             // Total in base units (for stock logic)
+  price              Decimal         @db.Decimal(20, 10)
+  originalPrice      Decimal         @default(0.00) @db.Decimal(20, 10)
+  discountPercentage Decimal         @default(0.00) @db.Decimal(20, 10)
+  createdAt          DateTime        @default(now())
+  cost               Decimal         @default(0.000000000000000000000000000000) @db.Decimal(20, 10)
+  
+  // New fields for direct carton/unit sales
+  sellUnit           String          @default("PIECE") // PIECE or CARTON
+  unitQuantity       Decimal         @default(0) @db.Decimal(20, 10) // The quantity entered by user (e.g. 3 cartons)
+  
+  product            Product         @relation(fields: [productId], references: [id])
+  transaction        Transaction     @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([productId], map: "TransactionItem_productId_fkey")
   @@index([transactionId], map: "TransactionItem_transactionId_fkey")

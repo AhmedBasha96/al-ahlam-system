@@ -307,23 +307,6 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         accWhere.agencyId = agencyIdFilter;
     }
 
-    const salesTx = await prisma.transaction.findMany({
-        where: {
-            ...txWhere,
-            type: 'SALE',
-            OR: [
-                { note: null },
-                {
-                    NOT: {
-                        note: { contains: 'تحميل للمندوب' }
-                    }
-                }
-            ]
-        },
-        include: { items: true }
-    });
-    const purchasesTx = await prisma.transaction.findMany({ where: { ...txWhere, type: 'PURCHASE' }, include: { items: true } });
-
     const expensesAgg = await prisma.accountRecord.aggregate({
         where: { ...accWhere, type: 'EXPENSE', category: { notIn: ['رصيد بداية المدة', 'سداد مديونية', 'دفعة للمورد'] } },
         _sum: { amount: true }
@@ -333,19 +316,46 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         _sum: { amount: true }
     });
 
-    // Calculate Sales & Cost (Cash-Basis)
+    const journalEntries = await prisma.journalEntry.findMany({
+        where: {
+            ...accWhere,
+            type: 'DEBIT',
+            referenceType: { in: ['SALE', 'COLLECTION'] }
+        }
+    });
+
     let totalSales = 0;
     let totalCost = 0;
-    for (const tx of salesTx) {
-        const fullAmount = Number(tx.totalAmount) || 1;
-        const paidAmount = Number(tx.paidAmount) || 0;
-        const ratio = Math.min(paidAmount / fullAmount, 1);
-        
-        let txCost = 0;
-        for (const item of tx.items) txCost += (item.quantity * Number(item.cost));
-        
-        totalSales += (Number(tx.totalAmount) * ratio);
-        totalCost += (txCost * ratio);
+
+    for (const entry of journalEntries) {
+        let saleId = entry.referenceId!;
+        if (entry.referenceType === 'COLLECTION') {
+            const col = await prisma.transaction.findUnique({
+                where: { id: entry.referenceId! },
+                select: { parentTransactionId: true }
+            });
+            if (col?.parentTransactionId) saleId = col.parentTransactionId;
+        }
+
+        const sale = await prisma.transaction.findUnique({
+            where: { id: saleId },
+            include: { items: true }
+        });
+
+        if (sale && sale.type === 'SALE') {
+            const fullAmount = Number(sale.totalAmount) || 1;
+            const collectedAmount = Number(entry.amount);
+            const ratio = collectedAmount / fullAmount;
+
+            let saleTotalCost = 0;
+            for (const item of sale.items) {
+                const qty = Number((item as any).unitQuantity) > 0 ? Number((item as any).unitQuantity) : Number(item.quantity);
+                saleTotalCost += (qty * Number(item.cost || 0));
+            }
+
+            totalSales += collectedAmount;
+            totalCost += (saleTotalCost * ratio);
+        }
     }
 
     const expenses = Number(expensesAgg._sum.amount || 0);

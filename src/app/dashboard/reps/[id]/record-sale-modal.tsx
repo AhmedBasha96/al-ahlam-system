@@ -147,28 +147,44 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
         }
 
         setLoading(true);
-        const processedItems = cart.map(item => {
+        const processedItems = cart.flatMap(item => {
             const product = products.find(p => p.id === item.productId);
             const upc = product?.unitsPerCarton || 1;
-
-            let totalUnits = 0;
-            let finalUnitPrice = 0;
-
+            const lines: any[] = [];
+            
+            // If cartons are present, create a carton line
             if (item.cartons > 0) {
-                totalUnits = (item.cartons * upc) + item.units;
-                finalUnitPrice = item.price / upc;
-            } else {
-                totalUnits = item.units;
-                finalUnitPrice = item.price;
+                // If item.cartons > 0, item.price is already the carton price
+                lines.push({
+                    productId: item.productId,
+                    quantity: item.cartons * upc, // For stock deduction purposes in backend
+                    sellUnit: 'CARTON',
+                    unitQuantity: item.cartons,
+                    price: item.price,
+                    originalPrice: item.originalPrice,
+                    discountPercentage: item.discountPercentage
+                });
             }
 
-            return {
-                productId: item.productId,
-                quantity: totalUnits,
-                price: finalUnitPrice,
-                originalPrice: item.originalPrice / (item.cartons > 0 ? upc : 1),
-                discountPercentage: item.discountPercentage
-            };
+            // If units are present, create a piece line
+            if (item.units > 0) {
+                // If item.cartons > 0, item.price is carton price, so we need to derive unit price
+                // If item.cartons is 0, item.price is already unit price
+                const unitPrice = item.cartons > 0 ? (item.price / upc) : item.price;
+                const origPrice = item.cartons > 0 ? (item.originalPrice / upc) : item.originalPrice;
+
+                lines.push({
+                    productId: item.productId,
+                    quantity: item.units,
+                    sellUnit: 'PIECE',
+                    unitQuantity: item.units,
+                    price: unitPrice,
+                    originalPrice: origPrice,
+                    discountPercentage: item.discountPercentage
+                });
+            }
+
+            return lines;
         });
 
         const result = await recordDirectSale(
