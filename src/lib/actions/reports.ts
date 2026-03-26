@@ -418,7 +418,7 @@ export async function getOperationProfitReport(
             createdAt: dateRange,
             ...agencyFilter
         },
-        include: { user: true, agency: true }
+        include: { createdBy: true, agency: true }
     });
 
     expenses.forEach((exp: any) => {
@@ -427,7 +427,7 @@ export async function getOperationProfitReport(
             date: exp.createdAt,
             type: 'EXPENSE',
             customerName: "مصروفات عامة",
-            repName: exp.user?.name || "النظام",
+            repName: exp.createdBy?.name || "النظام",
             agencyName: exp.agency?.name || "عام",
             revenue: 0,
             cost: Number(exp.amount),

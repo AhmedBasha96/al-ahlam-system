@@ -107,9 +107,9 @@ export default function ClientOperationProfitReport({
 
     const stats = useMemo(() => {
         return filteredData.reduce((acc, tx) => ({
-            totalRevenue: acc.totalRevenue + tx.revenue,
-            totalCost: acc.totalCost + tx.cost,
-            totalProfit: acc.totalProfit + tx.profit,
+            totalRevenue: acc.totalRevenue + (Number(tx.revenue) || 0),
+            totalCost: acc.totalCost + (Number(tx.cost) || 0),
+            totalProfit: acc.totalProfit + (Number(tx.profit) || 0),
             count: acc.count + 1
         }), { totalRevenue: 0, totalCost: 0, totalProfit: 0, count: 0 });
     }, [filteredData]);
