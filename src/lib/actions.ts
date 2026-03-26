@@ -1835,6 +1835,48 @@ export async function getRepAccountability(repId: string) {
     };
 }
 
+export async function getRepsWithCustody() {
+    try {
+        const reps = await prisma.user.findMany({
+            where: { role: 'SALES_REPRESENTATIVE' },
+            select: { id: true, name: true, agencyId: true }
+        });
+
+        const repsWithData = await Promise.all(reps.map(async (rep) => {
+            const data = await getRepAccountability(rep.id);
+
+            // Get last 10 collections for detail view
+            const collections = await prisma.transaction.findMany({
+                where: {
+                    userId: rep.id,
+                    type: { in: ['COLLECTION', 'SALE'] },
+                    paidAmount: { gt: 0 }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                include: { customer: true }
+            });
+
+            return {
+                ...rep,
+                ...data,
+                recentCollections: collections.map(c => ({
+                    id: c.id,
+                    date: c.createdAt,
+                    amount: Number(c.paidAmount),
+                    customerName: c.customer?.name || "مبيعات نقدية",
+                    type: c.type
+                }))
+            };
+        }));
+
+        return repsWithData;
+    } catch (e) {
+        console.error("getRepsWithCustody error:", e);
+        return [];
+    }
+}
+
 export async function recordRepSubmission(
     repId: string,
     amount: number,
@@ -1846,6 +1888,26 @@ export async function recordRepSubmission(
         if (!rep) throw new Error("المندوب غير موجود");
 
         return await prisma.$transaction(async (tx) => {
+            // 0. Check custody balance before submission
+            const collections = await tx.transaction.aggregate({
+                where: { userId: repId, type: 'COLLECTION' },
+                _sum: { paidAmount: true }
+            });
+            const cashSales = await tx.transaction.aggregate({
+                where: { userId: repId, type: 'SALE' },
+                _sum: { paidAmount: true }
+            });
+            const submissions = await tx.transaction.aggregate({
+                where: { userId: repId, type: 'REP_SUBMISSION' },
+                _sum: { paidAmount: true }
+            });
+
+            const currentCustody = (Number(collections._sum?.paidAmount || 0) + Number(cashSales._sum?.paidAmount || 0)) - Number(submissions._sum?.paidAmount || 0);
+
+            if (amount > currentCustody) {
+                throw new Error(`عذراً، المبلغ المدخل (${amount}) أكبر من إجمالي التحصيلات الموجودة مع المندوب حالياً (${currentCustody})`);
+            }
+
             // 1. Create REP_SUBMISSION transaction
             const transaction = await tx.transaction.create({
                 data: {
