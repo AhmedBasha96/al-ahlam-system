@@ -18,7 +18,9 @@ import {
     Calendar,
     User,
     Building2,
-    Package
+    Package,
+    Receipt,
+    Wallet
 } from "lucide-react";
 import Link from "next/link";
 import { getOperationProfitReport } from "@/lib/actions/reports";
@@ -237,17 +239,33 @@ export default function ClientOperationProfitReport({
                             >
                                 <div className="grid md:grid-cols-6 items-center gap-4">
                                     <div className="md:col-span-2 flex items-center gap-4">
-                                        <div className={`p-3 rounded-2xl ${tx.type === 'SALE' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                                            {tx.type === 'SALE' ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                                        <div className={`p-3 rounded-2xl ${
+                                            (tx.type as any) === 'SALE' ? 'bg-emerald-100 text-emerald-600' :
+                                            (tx.type as any) === 'EXPENSE' ? 'bg-orange-100 text-orange-600' :
+                                            (tx.type as any) === 'DEBT_COLLECTION' ? 'bg-blue-100 text-blue-600' :
+                                            'bg-red-100 text-red-600'
+                                        }`}>
+                                            {(tx.type as any) === 'SALE' ? <TrendingUp className="w-5 h-5" /> :
+                                             (tx.type as any) === 'EXPENSE' ? <Receipt className="w-5 h-5" /> :
+                                             (tx.type as any) === 'DEBT_COLLECTION' ? <Wallet className="w-5 h-5" /> :
+                                             <TrendingDown className="w-5 h-5" />}
                                         </div>
                                         <div>
-                                            <div className="font-black text-slate-800 flex items-center gap-2">
+                                            <div className="font-black text-slate-800 flex items-center gap-2 text-sm">
                                                 {tx.customerName}
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${tx.type === 'SALE' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-                                                    {tx.type === 'SALE' ? 'بيع' : 'مرتجع'}
+                                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                                                    (tx.type as any) === 'SALE' ? 'bg-emerald-50 text-emerald-700' :
+                                                    (tx.type as any) === 'EXPENSE' ? 'bg-orange-50 text-orange-700' :
+                                                    (tx.type as any) === 'DEBT_COLLECTION' ? 'bg-blue-50 text-blue-700' :
+                                                    'bg-red-50 text-red-700'
+                                                }`}>
+                                                    {(tx.type as any) === 'SALE' ? 'بيع' :
+                                                     (tx.type as any) === 'EXPENSE' ? 'مصروف' :
+                                                     (tx.type as any) === 'DEBT_COLLECTION' ? 'تحصيل' :
+                                                     'مرتجع'}
                                                 </span>
                                             </div>
-                                            <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+                                            <div className="text-[10px] text-slate-500 font-bold flex items-center gap-2 mt-1">
                                                 <Calendar className="w-3 h-3" />
                                                 {new Date(tx.date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                             </div>

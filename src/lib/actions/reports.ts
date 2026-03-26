@@ -408,17 +408,32 @@ export async function getOperationProfitReport(
             customerName: tx.customer?.name || "عميل نقدي",
             repName: tx.user.name,
             agencyName: tx.agency?.name || "عام",
-            revenue: -revenue,
-            cost: -cost,
-            profit: -(revenue - cost),
-            note: tx.note || "مرتجع مبيعات",
-            items: tx.items.map((item: any) => ({
-                productName: item.product.name,
-                quantity: item.quantity,
-                price: Number(item.price),
-                cost: Number(item.cost),
-                category: item.product.category
-            }))
+        });
+    });
+
+    // 4. Process Expenses (Operating Costs)
+    const expenses = await (prisma as any).accountRecord.findMany({
+        where: {
+            type: 'EXPENSE',
+            createdAt: dateRange,
+            ...agencyFilter
+        },
+        include: { user: true, agency: true }
+    });
+
+    expenses.forEach((exp: any) => {
+        reportItems.push({
+            id: exp.id,
+            date: exp.createdAt,
+            type: 'EXPENSE',
+            customerName: "مصروفات عامة",
+            repName: exp.user?.name || "النظام",
+            agencyName: exp.agency?.name || "عام",
+            revenue: 0,
+            cost: Number(exp.amount),
+            profit: -Number(exp.amount),
+            note: exp.description || `مصروف: ${exp.category || ''}`,
+            items: []
         });
     });
 
