@@ -47,6 +47,7 @@ export default function Sidebar({ role }: SidebarProps) {
         { href: '/dashboard/accounts/approvals', label: 'إعتمادات المرتجعات', icon: CheckCircle, visible: canSeeAccounts },
         { href: '/dashboard/accounts/banks', label: 'البنوك والقروض', icon: Building2, visible: canSeeAccounts },
         { href: '/dashboard/reports/sales', label: 'تقارير المبيعات', icon: History, visible: canSeeSalesReports },
+        { href: '/dashboard/reps/targets', label: 'أهداف المناديب', icon: TrendingUp, visible: role === 'ADMIN' || role === 'MANAGER' },
         { href: '/dashboard/record-sales', label: 'تسجيل فواتير', icon: PlusCircle, visible: false, highlighted: true },
         { href: '/dashboard/users', label: 'المستخدمين', icon: Users, visible: canSeeUsers },
         { href: '/dashboard/customers', label: 'العملاء', icon: Users, visible: canSeeCustomers },

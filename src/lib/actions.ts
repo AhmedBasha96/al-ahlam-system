@@ -1388,7 +1388,9 @@ export async function recordSalesSession(
                             price: item.price || 0,
                             originalPrice: item.originalPrice || item.price || 0,
                             discountPercentage: item.discountPercentage || 0,
-                            cost: isCarton ? (Number(product?.factoryPrice || 0) / upc) : (product?.unitFactoryPrice || 0)
+                            cost: isCarton ? (Number(product?.factoryPrice || 0) / upc) : (product?.unitFactoryPrice || 0),
+                            sellUnit: (item as any).sellUnit || 'PIECE',
+                            unitQuantity: (item as any).unitQuantity || item.quantity
                         };
                     }))
                 }
@@ -1461,7 +1463,9 @@ export async function recordDirectSale(
                                 price: item.price,
                                 originalPrice: item.originalPrice || item.price,
                                 discountPercentage: item.discountPercentage || 0,
-                                cost: isCarton ? (Number(product?.factoryPrice || 0) / upc) : (product?.unitFactoryPrice || 0)
+                                cost: isCarton ? (Number(product?.factoryPrice || 0) / upc) : (product?.unitFactoryPrice || 0),
+                                sellUnit: (item as any).sellUnit || 'PIECE',
+                                unitQuantity: (item as any).unitQuantity || item.quantity
                             };
                         }))
                     }

@@ -339,8 +339,9 @@ export async function getOperationProfitReport(
                 note: entry.description || `دفعة من فاتورة #${sale.id.slice(-6)}`,
                 items: (sale.items as any[]).map((item) => {
                     const upc = Number(item.product.unitsPerCarton) || 1;
-                    const isCarton = item.quantity > 0 && item.quantity % upc === 0;
-                    const cartonQty = item.quantity / upc;
+                    // Use stored sellUnit if available, fallback to modulo heuristic for older entries
+                    const isCarton = item.sellUnit === 'CARTON' || (item.quantity > 0 && item.quantity % upc === 0);
+                    const cartonQty = isCarton ? (item.unitQuantity ? Number(item.unitQuantity) : (item.quantity / upc)) : item.quantity;
 
                     return {
                         productName: item.product.name,
