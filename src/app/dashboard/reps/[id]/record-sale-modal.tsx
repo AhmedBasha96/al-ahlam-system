@@ -160,8 +160,8 @@ export default function RecordSaleModal({ repId, repName, customers, products, r
                     quantity: item.cartons * upc, // For stock deduction purposes in backend
                     sellUnit: 'CARTON',
                     unitQuantity: item.cartons,
-                    price: item.price,
-                    originalPrice: item.originalPrice,
+                    price: item.price / upc, // Pass unit price to maintain correct total
+                    originalPrice: item.originalPrice / upc,
                     discountPercentage: item.discountPercentage
                 });
             }

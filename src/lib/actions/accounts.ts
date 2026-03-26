@@ -329,31 +329,27 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
 
     for (const entry of journalEntries) {
         let saleId = entry.referenceId!;
-        if (entry.referenceType === 'COLLECTION') {
-            const col = await prisma.transaction.findUnique({
+        if (entry.referenceType === 'SALE') {
+            const sale = await prisma.transaction.findUnique({
                 where: { id: entry.referenceId! },
-                select: { parentTransactionId: true }
+                include: { items: true }
             });
-            if (col?.parentTransactionId) saleId = col.parentTransactionId;
-        }
 
-        const sale = await prisma.transaction.findUnique({
-            where: { id: saleId },
-            include: { items: true }
-        });
+            if (sale && sale.type === 'SALE') {
+                const fullAmount = Number(sale.totalAmount) || 1;
+                const collectedAmount = Number(entry.amount);
+                const ratio = collectedAmount / fullAmount;
 
-        if (sale && sale.type === 'SALE') {
-            const fullAmount = Number(sale.totalAmount) || 1;
-            const collectedAmount = Number(entry.amount);
-            const ratio = collectedAmount / fullAmount;
+                let saleTotalCost = 0;
+                for (const item of sale.items) {
+                    saleTotalCost += (Number(item.quantity) * Number(item.cost || 0));
+                }
 
-            let saleTotalCost = 0;
-            for (const item of sale.items) {
-                saleTotalCost += (Number(item.quantity) * Number(item.cost || 0));
+                totalSales += collectedAmount;
+                totalCost += (saleTotalCost * ratio);
             }
-
-            totalSales += collectedAmount;
-            totalCost += (saleTotalCost * ratio);
+        } else if (entry.referenceType === 'COLLECTION') {
+            totalSales += Number(entry.amount);
         }
     }
 

@@ -308,13 +308,8 @@ export async function getOperationProfitReport(
     // Process Cash Inflows (Profit realized)
     for (const entry of journalEntries) {
         let saleId = entry.referenceId!;
-        if (entry.referenceType === 'COLLECTION') {
-            const col = await prisma.transaction.findUnique({
-                where: { id: entry.referenceId! },
-                select: { parentTransactionId: true }
-            });
-            if (col?.parentTransactionId) saleId = col.parentTransactionId;
-        }
+        // Handles cases without direct transaction mapping for now to avoid crashing
+        const isCollection = entry.referenceType === 'COLLECTION';
 
         const sale = await prisma.transaction.findUnique({
             where: { id: saleId },
