@@ -71,6 +71,7 @@ export default function ClientOperationProfitReport({
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+    const [typeFilter, setTypeFilter] = useState("ALL");
 
     const handleFilter = async () => {
         setIsLoading(true);
@@ -99,12 +100,16 @@ export default function ClientOperationProfitReport({
     };
 
     const filteredData = useMemo(() => {
-        return data.filter(tx =>
-            tx.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            tx.repName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            tx.id.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [data, searchTerm]);
+        return data.filter(tx => {
+            const matchesSearch = tx.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tx.repName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tx.id.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const matchesType = typeFilter === 'ALL' || (tx.type as any) === typeFilter;
+            
+            return matchesSearch && matchesType;
+        });
+    }, [data, searchTerm, typeFilter]);
 
     const stats = useMemo(() => {
         return filteredData.reduce((acc, tx) => ({
@@ -150,7 +155,7 @@ export default function ClientOperationProfitReport({
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid md:grid-cols-4 gap-4">
+                        <div className="grid md:grid-cols-5 gap-4">
                             <div className="space-y-2">
                                 <Label>من تاريخ</Label>
                                 <Input
@@ -181,11 +186,26 @@ export default function ClientOperationProfitReport({
                                     </SelectContent>
                                 </Select>
                             </div>
+                            <div className="space-y-2">
+                                <Label>نوع العملية</Label>
+                                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">الكل</SelectItem>
+                                        <SelectItem value="SALE">مبيعات</SelectItem>
+                                        <SelectItem value="EXPENSE">مصروفات</SelectItem>
+                                        <SelectItem value="RETURN_IN">مرتجعات</SelectItem>
+                                        <SelectItem value="DEBT_COLLECTION">تحصيلات مديونية</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div className="flex items-end gap-2">
                                 <Button
                                     onClick={handleFilter}
                                     disabled={isLoading}
-                                    className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 h-10"
                                 >
                                     {isLoading ? 'جاري التحميل...' : 'تطبيق'}
                                 </Button>
