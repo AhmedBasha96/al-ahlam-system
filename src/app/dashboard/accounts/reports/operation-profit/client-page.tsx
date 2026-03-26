@@ -36,7 +36,9 @@ interface TransactionDetail {
     items: {
         productName: string;
         quantity: number;
+        formattedQuantity: string; // Added as per instruction
         price: number;
+        displayPrice: number; // Added as per instruction
         cost: number;
         category?: string;
     }[];
@@ -298,10 +300,10 @@ export default function ClientOperationProfitReport({
                                         </div>
                                         {tx.items.map((item, idx) => (
                                             <div key={idx} className="grid grid-cols-4 text-sm px-2 py-1 items-center hover:bg-white rounded-lg transition-colors">
-                                                <div className="font-bold text-slate-700">{item.productName}</div>
-                                                <div className="text-center font-mono text-indigo-600 bg-indigo-50 rounded-md py-0.5 mx-auto px-2">x {item.quantity}</div>
-                                                <div className="text-center font-bold text-slate-800">{formatMoney(item.price)}</div>
-                                                <div className="text-center text-slate-500">{formatMoney(item.cost)}</div>
+                                                <div className="font-bold text-slate-700">{(item as any).productName}</div>
+                                                <div className="text-center font-mono text-indigo-600 bg-indigo-50 rounded-md py-0.5 mx-auto px-2">x {(item as any).formattedQuantity || (item as any).quantity}</div>
+                                                <div className="text-center font-bold text-slate-800">{formatMoney((item as any).displayPrice || (item as any).price)}</div>
+                                                <div className="text-center text-slate-500">{formatMoney((item as any).displayCost || (item as any).cost)}</div>
                                             </div>
                                         ))}
                                     </div>

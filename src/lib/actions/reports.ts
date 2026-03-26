@@ -329,7 +329,7 @@ export async function getOperationProfitReport(
             reportItems.push({
                 id: `${entry.id}-${sale.id}`,
                 date: entry.createdAt,
-                type: 'SALE_PAYMENT',
+                type: 'SALE', // Change to SALE for frontend consistency
                 customerName: sale.customer?.name || "عميل نقدي",
                 repName: sale.user.name,
                 agencyName: sale.agency?.name || "عام",
@@ -337,13 +337,25 @@ export async function getOperationProfitReport(
                 cost: realizedCost,
                 profit: collectedAmount - realizedCost,
                 note: entry.description || `دفعة من فاتورة #${sale.id.slice(-6)}`,
-                items: (sale.items as any[]).map((item) => ({
-                    productName: item.product.name,
-                    quantity: item.quantity * ratio, // Proportional quantity
-                    price: Number(item.price),
-                    cost: Number(item.cost),
-                    category: item.product.category
-                }))
+                items: (sale.items as any[]).map((item) => {
+                    const upc = Number(item.product.unitsPerCarton) || 1;
+                    const isCarton = item.quantity > 0 && item.quantity % upc === 0;
+                    const cartonQty = item.quantity / upc;
+
+                    return {
+                        productName: item.product.name,
+                        quantity: item.quantity * ratio, // Proportional quantity for multi-payment
+                        rawQuantity: item.quantity,
+                        formattedQuantity: isCarton ? `${cartonQty} كرتونة` : `${item.quantity} قطعة`,
+                        unitPrice: Number(item.price),
+                        unitCost: Number(item.cost),
+                        displayPrice: isCarton ? (Number(item.price) * upc) : Number(item.price),
+                        displayCost: isCarton ? (Number(item.cost) * upc) : Number(item.cost),
+                        category: item.product.category,
+                        isCarton,
+                        upc
+                    };
+                })
             });
         } else if (sale && sale.type === 'COLLECTION' && sale.customerId) {
             // For debt collections, we estimate profit based on customer's average margin

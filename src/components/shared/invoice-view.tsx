@@ -13,6 +13,9 @@ interface InvoiceItem {
     originalPrice?: number;
     discountPercentage?: number;
     total: number;
+    formattedQuantity?: string;
+    displayPrice?: number;
+    unitsPerCarton?: number;
 }
 
 interface InvoiceViewProps {
@@ -204,9 +207,9 @@ export function InvoiceView({
                                             </div>
                                         ) : null}
                                     </td>
-                                    <td className="py-4 text-center font-black text-indigo-600">{item.quantity}</td>
+                                    <td className="py-4 text-center font-black text-indigo-600">{item.formattedQuantity || item.quantity}</td>
                                     <td className="py-4 text-center">
-                                        <div className="text-slate-900 font-bold">{item.price.toLocaleString()}</div>
+                                        <div className="text-slate-900 font-bold">{(item.displayPrice || item.price).toLocaleString()}</div>
                                     </td>
                                     <td className="py-4 text-center">
                                         {item.discountPercentage && item.discountPercentage > 0 ? (
