@@ -1839,7 +1839,12 @@ export async function getRepsWithCustody() {
     try {
         const reps = await prisma.user.findMany({
             where: { role: 'SALES_REPRESENTATIVE' },
-            select: { id: true, name: true, agencyId: true }
+            select: {
+                id: true,
+                name: true,
+                agencyId: true,
+                agency: { select: { name: true } }
+            }
         });
 
         const repsWithData = await Promise.all(reps.map(async (rep) => {
@@ -1858,7 +1863,10 @@ export async function getRepsWithCustody() {
             });
 
             return {
-                ...rep,
+                id: rep.id,
+                name: rep.name,
+                agencyId: rep.agencyId,
+                agencyName: rep.agency?.name || "عام",
                 ...data,
                 recentCollections: collections.map(c => ({
                     id: c.id,
