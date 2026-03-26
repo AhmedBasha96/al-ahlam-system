@@ -150,9 +150,8 @@ export async function getProfitLossReport(
 
                 let saleTotalCost = 0;
                 for (const item of sale.items) {
-                    const qty = Number((item as any).unitQuantity) > 0 ? Number((item as any).unitQuantity) : Number(item.quantity);
-                    const unitCost = Number(item.cost) > 0 ? Number(item.cost) : (item.sellUnit === 'CARTON' ? Number(item.product.factoryPrice) : Number(item.product.unitFactoryPrice));
-                    saleTotalCost += (qty * unitCost);
+                    const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.unitFactoryPrice);
+                    saleTotalCost += (item.quantity * unitCost);
                 }
 
                 const realizedRevenue = collectedAmount;
@@ -187,9 +186,8 @@ export async function getProfitLossReport(
                     customerSales.forEach(s => {
                         totalSalesValue += Number(s.totalAmount);
                         s.items.forEach(i => {
-                            const qty = Number((i as any).unitQuantity) > 0 ? Number((i as any).unitQuantity) : Number(i.quantity);
-                            const unitCost = Number(i.cost) > 0 ? Number(i.cost) : (i.sellUnit === 'CARTON' ? Number(i.product.factoryPrice) : Number(i.product.unitFactoryPrice));
-                            totalSalesCost += (qty * unitCost);
+                            const unitCost = Number(i.cost) > 0 ? Number(i.cost) : Number(i.product.unitFactoryPrice);
+                            totalSalesCost += (i.quantity * unitCost);
                         });
                     });
 
@@ -329,10 +327,7 @@ export async function getOperationProfitReport(
             const ratio = collectedAmount / fullAmount;
 
             let saleTotalCost = 0;
-            for (const item of sale.items) {
-                const qty = Number((item as any).unitQuantity) > 0 ? Number((item as any).unitQuantity) : Number(item.quantity);
-                saleTotalCost += (qty * Number(item.cost || 0));
-            }
+            for (const item of sale.items) saleTotalCost += (item.quantity * Number(item.cost || 0));
 
             const realizedCost = saleTotalCost * ratio;
 
@@ -347,9 +342,9 @@ export async function getOperationProfitReport(
                 cost: realizedCost,
                 profit: collectedAmount - realizedCost,
                 note: entry.description || `دفعة من فاتورة #${sale.id.slice(-6)}`,
-                items: (sale.items as any[]).map((item) => ({
-                    productName: (item as any).sellUnit === 'CARTON' ? `${item.product.name} (كرتونة)` : item.product.name,
-                    quantity: (Number((item as any).unitQuantity) || Number(item.quantity)) * ratio,
+                items: sale.items.map((item: any) => ({
+                    productName: item.product.name,
+                    quantity: item.quantity * ratio, // Proportional quantity
                     price: Number(item.price),
                     cost: Number(item.cost),
                     category: item.product.category

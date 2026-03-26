@@ -349,8 +349,7 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
 
             let saleTotalCost = 0;
             for (const item of sale.items) {
-                const qty = Number((item as any).unitQuantity) > 0 ? Number((item as any).unitQuantity) : Number(item.quantity);
-                saleTotalCost += (qty * Number(item.cost || 0));
+                saleTotalCost += (Number(item.quantity) * Number(item.cost || 0));
             }
 
             totalSales += collectedAmount;

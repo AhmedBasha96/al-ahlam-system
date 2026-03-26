@@ -1220,34 +1220,22 @@ export async function finalizeRepAudit(
                     // Calculate sold value: full cartons first, then pieces
                     const soldCartons = Math.floor(soldQty / upc);
                     const soldUnitsRemaining = soldQty % upc;
-                    
-                    if (soldCartons > 0) {
-                        soldItems.push({
-                            productId: item.productId,
-                            productName: product.name || "منتج غير معروف",
-                            quantity: soldCartons * upc,
-                            sellUnit: 'CARTON',
-                            unitQuantity: soldCartons,
-                            price: pricing.carton,
-                            originalPrice: originalPricing.carton,
-                            discountPercentage: discountPercent,
-                            total: soldCartons * pricing.carton
-                        });
-                    }
+                    const totalSoldRowValue = (soldCartons * pricing.carton) + (soldUnitsRemaining * pricing.unit);
+                    const totalOriginalRowValue = (soldCartons * originalPricing.carton) + (soldUnitsRemaining * originalPricing.unit);
 
-                    if (soldUnitsRemaining > 0) {
-                        soldItems.push({
-                            productId: item.productId,
-                            productName: product.name || "منتج غير معروف",
-                            quantity: soldUnitsRemaining,
-                            sellUnit: 'PIECE',
-                            unitQuantity: soldUnitsRemaining,
-                            price: pricing.unit,
-                            originalPrice: originalPricing.unit,
-                            discountPercentage: discountPercent,
-                            total: soldUnitsRemaining * pricing.unit
-                        });
-                    }
+                    // Store effective unit prices
+                    const effectiveUnitPrice = soldQty > 0 ? (totalSoldRowValue / soldQty) : 0;
+                    const originalUnitPrice = soldQty > 0 ? (totalOriginalRowValue / soldQty) : 0;
+
+                    soldItems.push({
+                        productId: item.productId,
+                        productName: product.name || "منتج غير معروف",
+                        quantity: soldQty,
+                        price: effectiveUnitPrice,
+                        originalPrice: originalUnitPrice,
+                        discountPercentage: discountPercent,
+                        total: totalSoldRowValue
+                    });
 
                     await tx.stock.update({
                         where: { warehouseId_productId: { warehouseId: repId, productId: item.productId } },
@@ -1327,9 +1315,7 @@ export async function finalizeRepAudit(
                                     price: si.price,
                                     originalPrice: si.originalPrice || si.price,
                                     discountPercentage: si.discountPercentage || 0,
-                                    sellUnit: si.sellUnit || 'PIECE',
-                                    unitQuantity: si.unitQuantity || si.quantity,
-                                    cost: si.sellUnit === 'CARTON' ? (prod?.factoryPrice || 0) : (prod?.unitFactoryPrice || 0)
+                                    cost: si.sellUnit === 'CARTON' ? (Number(prod?.factoryPrice || 0) / (Number(prod?.unitsPerCarton) || 1)) : (prod?.unitFactoryPrice || 0)
                                 };
                             }))
                         }
@@ -1394,6 +1380,7 @@ export async function recordSalesSession(
                 items: {
                     create: await Promise.all(items.map(async item => {
                         const product = await prisma.product.findUnique({ where: { id: item.productId } });
+                        const upc = Number(product?.unitsPerCarton) || 1;
                         const isCarton = (item as any).sellUnit === 'CARTON';
                         return {
                             productId: item.productId,
@@ -1401,9 +1388,7 @@ export async function recordSalesSession(
                             price: item.price || 0,
                             originalPrice: item.originalPrice || item.price || 0,
                             discountPercentage: item.discountPercentage || 0,
-                            sellUnit: (item as any).sellUnit || 'PIECE',
-                            unitQuantity: (item as any).unitQuantity || item.quantity,
-                            cost: isCarton ? (product?.factoryPrice || 0) : (product?.unitFactoryPrice || 0)
+                            cost: isCarton ? (Number(product?.factoryPrice || 0) / upc) : (product?.unitFactoryPrice || 0)
                         };
                     }))
                 }
@@ -1454,6 +1439,7 @@ export async function recordDirectSale(
                     items: {
                         create: await Promise.all(items.map(async item => {
                             const product = await prisma.product.findUnique({ where: { id: item.productId } });
+                            const upc = Number(product?.unitsPerCarton) || 1;
                             const isCarton = (item as any).sellUnit === 'CARTON';
                             return {
                                 productId: item.productId,
@@ -1461,9 +1447,7 @@ export async function recordDirectSale(
                                 price: item.price,
                                 originalPrice: item.originalPrice || item.price,
                                 discountPercentage: item.discountPercentage || 0,
-                                sellUnit: (item as any).sellUnit || 'PIECE',
-                                unitQuantity: (item as any).unitQuantity || item.quantity,
-                                cost: isCarton ? (product?.factoryPrice || 0) : (product?.unitFactoryPrice || 0)
+                                cost: isCarton ? (Number(product?.factoryPrice || 0) / upc) : (product?.unitFactoryPrice || 0)
                             };
                         }))
                     }
