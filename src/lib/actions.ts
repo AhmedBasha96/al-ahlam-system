@@ -48,6 +48,7 @@ export async function getCurrentUser() {
         return {
             id: mock.id as string,
             role: mock.role as string,
+            name: 'Guest',
             agencyId: mock.agencyId as string | undefined,
             agencyIds: mock.agencyId ? [mock.agencyId] : []
         };
@@ -56,6 +57,7 @@ export async function getCurrentUser() {
     return {
         id: dbUser.id,
         role: dbUser.role,
+        name: dbUser.name,
         agencyId: dbUser.agencyId || undefined,
         agencyIds: dbUser.agencies.map(a => a.id),
         warehouseId: dbUser.warehouseId || undefined

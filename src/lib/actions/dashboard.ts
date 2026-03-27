@@ -41,6 +41,19 @@ export interface DashboardStats {
     }>;
 }
 
+export interface RepDashboardStats {
+    todaySales: number;
+    todayCollections: number;
+    monthlySales: number;
+    monthlyCollections: number;
+    salesTarget: number;
+    collectionTarget: number;
+    totalCustomerDebt: number;
+    totalInventoryValue: number;
+    recentTransactions: any[];
+    inventory: any[];
+}
+
 export async function getDashboardStats(): Promise<DashboardStats> {
     try {
         const currentUser = await (await import('@/lib/actions')).getCurrentUser();
@@ -128,8 +141,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         const lowStockProducts: ProductAlert[] = [];
         const outOfStockProducts: ProductAlert[] = [];
 
-        allProducts.forEach(product => {
-            const totalQuantity = product.stocks.reduce((sum, s) => sum + s.quantity, 0);
+        allProducts.forEach((product: any) => {
+            const totalQuantity = (product.stocks as any[]).reduce((sum: number, s: any) => sum + s.quantity, 0);
 
             if (totalQuantity === 0) {
                 outOfStockProducts.push({
@@ -141,7 +154,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
                 });
             } else if (totalQuantity <= LOW_STOCK_THRESHOLD) {
                 // Find which warehouse has low stock for the alert, or just say total
-                product.stocks.forEach(s => {
+                (product.stocks as any[]).forEach((s: any) => {
                     if (s.quantity <= LOW_STOCK_THRESHOLD && s.quantity > 0) {
                         lowStockProducts.push({
                             productId: product.id,
@@ -180,17 +193,17 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         });
 
         const todaySales = todayTransactions.reduce(
-            (sum, tx) => sum + Number(tx.totalAmount),
+            (sum: number, tx: any) => sum + Number(tx.totalAmount),
             0
         );
 
         const weekSales = weekTransactions.reduce(
-            (sum, tx) => sum + Number(tx.totalAmount),
+            (sum: number, tx: any) => sum + Number(tx.totalAmount),
             0
         );
 
         const lastWeekSales = lastWeekTransactions.reduce(
-            (sum, tx) => sum + Number(tx.totalAmount),
+            (sum: number, tx: any) => sum + Number(tx.totalAmount),
             0
         );
 
@@ -217,4 +230,129 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         console.error('Error fetching dashboard stats:', error);
         throw error;
     }
+}
+
+export async function getRepDashboardData(): Promise<RepDashboardStats> {
+    const currentUser = await (await import('@/lib/actions')).getCurrentUser();
+    if (currentUser.role !== 'SALES_REPRESENTATIVE') {
+        throw new Error('Unauthorized');
+    }
+
+    const dbUser = await prisma.user.findUnique({
+        where: { id: currentUser.id },
+        select: { name: true }
+    });
+
+    if (!dbUser) throw new Error('User not found');
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const month = today.getMonth() + 1;
+    const year = today.getFullYear();
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    // 1. Target & Performance
+    const target = await prisma.salesTarget.findUnique({
+        where: { userId_month_year: { userId: currentUser.id, month, year } }
+    });
+
+    const salesEntries = await prisma.journalEntry.findMany({
+        where: {
+            userId: currentUser.id,
+            type: 'DEBIT',
+            referenceType: 'SALE',
+            createdAt: { gte: startDate, lte: endDate }
+        }
+    });
+    const monthlySales = salesEntries.reduce((sum, e) => sum + Number(e.amount), 0);
+
+    const collectionEntries = await prisma.journalEntry.findMany({
+        where: {
+            userId: currentUser.id,
+            type: 'DEBIT',
+            referenceType: 'COLLECTION',
+            createdAt: { gte: startDate, lte: endDate }
+        }
+    });
+    const monthlyCollections = collectionEntries.reduce((sum, e) => sum + Number(e.amount), 0);
+
+    // 2. Today's metrics
+    const todaySales = salesEntries
+        .filter(e => e.createdAt >= today)
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    const todayCollections = collectionEntries
+        .filter(e => e.createdAt >= today)
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    // 3. Customer Debt
+    const customers = await prisma.customer.findMany({
+        where: { representativeId: currentUser.id },
+        include: {
+            transactions: {
+                where: { status: 'ACTIVE' },
+                select: { remainingAmount: true }
+            }
+        }
+    });
+
+    const totalCustomerDebt = customers.reduce((sum, c) => {
+        return sum + c.transactions.reduce((tSum, t) => tSum + Number(t.remainingAmount || 0), 0);
+    }, 0);
+
+    // 4. Inventory (Rep Warehouse)
+    const repWarehouse = await prisma.warehouse.findFirst({
+        where: { name: `عهدة المندوب: ${dbUser.name}` }
+    });
+
+    let inventory: any[] = [];
+    let totalInventoryValue = 0;
+
+    if (repWarehouse) {
+        const stocks = await prisma.stock.findMany({
+            where: { warehouseId: repWarehouse.id, quantity: { gt: 0 } },
+            include: { product: true }
+        });
+        inventory = stocks.map(s => ({
+            productId: s.product.id,
+            productName: s.product.name,
+            quantity: s.quantity,
+            price: Number(s.product.retailPrice),
+            value: s.quantity * Number(s.product.retailPrice)
+        }));
+        totalInventoryValue = inventory.reduce((sum, item) => sum + item.value, 0);
+    }
+
+    // 5. Recent Transactions
+    const recentTransactions = await (prisma as any).transaction.findMany({
+        where: { userId: currentUser.id },
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+            customer: { select: { name: true } },
+            items: { include: { product: { select: { name: true } } } }
+        }
+    });
+
+    return {
+        todaySales,
+        todayCollections,
+        monthlySales,
+        monthlyCollections,
+        salesTarget: Number(target?.salesTarget || 0),
+        collectionTarget: Number(target?.collectionTarget || 0),
+        totalCustomerDebt,
+        totalInventoryValue,
+        recentTransactions: recentTransactions.map((tx: any) => ({
+            ...tx,
+            totalAmount: Number(tx.totalAmount),
+            items: tx.items.map((i: any) => ({
+                productName: i.product.name,
+                quantity: i.quantity
+            }))
+        })),
+        inventory: inventory.slice(0, 5) // Just top 5 for dashboard
+    };
 }

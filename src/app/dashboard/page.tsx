@@ -13,13 +13,20 @@ import {
 } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/actions';
-
+import { getRepDashboardData } from '@/lib/actions/dashboard';
+import RepresentativeDashboard from './representative-dashboard';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-    const stats = await getDashboardStats();
     const user = await getCurrentUser();
+    
+    if (user.role === 'SALES_REPRESENTATIVE') {
+        const repStats = await getRepDashboardData();
+        return <RepresentativeDashboard stats={repStats} userName={user.name || ''} />;
+    }
+
+    const stats = await getDashboardStats();
     const isAdmin = user.role === 'ADMIN';
 
     const formatDate = (date: Date) => {
