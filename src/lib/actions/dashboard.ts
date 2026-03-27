@@ -82,10 +82,13 @@ export async function getDashboardStats(): Promise<DashboardStats> {
                 warehouseFilter.agencyId = { in: agencyIds };
             }
 
-            // If warehouse keeper has specific warehouse, filter stock and possibly transactions
-            if (currentUser.role === 'WAREHOUSE_KEEPER' && (currentUser as any).warehouseId) {
-                warehouseFilter.id = (currentUser as any).warehouseId;
-                transactionFilter.warehouseId = (currentUser as any).warehouseId;
+            // If warehouse keeper has specific warehouses, filter stock and transactions
+            if (currentUser.role === 'WAREHOUSE_KEEPER') {
+                const warehouseIds = (currentUser as any).warehouseIds || [];
+                if (warehouseIds.length > 0) {
+                    warehouseFilter.id = { in: warehouseIds };
+                    transactionFilter.warehouseId = { in: warehouseIds };
+                }
             }
 
             if (currentUser.role === 'SALES_REPRESENTATIVE') {
@@ -249,53 +252,57 @@ export async function getWarehouseDashboardData(): Promise<WarehouseDashboardSta
             throw new Error('Unauthorized');
         }
 
-        if (!currentUser.warehouseId) {
+        const warehouseIds: string[] = (currentUser as any).warehouseIds || [];
+        if (warehouseIds.length === 0) {
             throw new Error('أمين المخزن غير مرتبط بأي مخزن حالياً (يرجى مراجعة الإدارة لإقرانه بمخزن من شاشة المستخدمين)');
         }
 
-    const warehouse = await prisma.warehouse.findUnique({
-        where: { id: currentUser.warehouseId },
-        include: { agency: true }
-    });
+        // Fetch all assigned warehouses
+        const assignedWarehouses = await prisma.warehouse.findMany({
+            where: { id: { in: warehouseIds } },
+            include: { agency: true }
+        });
 
-    if (!warehouse) throw new Error('Warehouse not found');
+        if (assignedWarehouses.length === 0) throw new Error('Warehouses not found');
 
-    const stocks = await prisma.stock.findMany({
-        where: { warehouseId: warehouse.id },
-        include: { product: true }
-    });
+        // Aggregate stocks from all assigned warehouses
+        const stocks = await prisma.stock.findMany({
+            where: { warehouseId: { in: warehouseIds } },
+            include: { product: true, warehouse: { select: { name: true } } }
+        });
 
-    const inventory = stocks.map(s => ({
-        productId: s.product.id,
-        productName: s.product.name,
-        quantity: s.quantity,
-        price: Number(s.product.retailPrice),
-        value: s.quantity * Number(s.product.retailPrice)
-    }));
-
-    const totalStockValue = inventory.reduce((sum, item) => sum + item.value, 0);
-    const lowStockItems: ProductAlert[] = inventory
-        .filter(item => item.quantity > 0 && item.quantity <= LOW_STOCK_THRESHOLD)
-        .map(item => ({
-            productId: item.productId,
-            productName: item.productName,
-            warehouseName: warehouse.name,
-            currentQuantity: item.quantity,
-            severity: 'warning'
+        const inventory = stocks.map(s => ({
+            productId: s.product.id,
+            productName: s.product.name,
+            warehouseName: (s as any).warehouse?.name || '',
+            quantity: s.quantity,
+            price: Number(s.product.retailPrice),
+            value: s.quantity * Number(s.product.retailPrice)
         }));
 
-    const outOfStockItems: ProductAlert[] = inventory
-        .filter(item => item.quantity === 0)
-        .map(item => ({
-            productId: item.productId,
-            productName: item.productName,
-            warehouseName: warehouse.name,
-            currentQuantity: 0,
-            severity: 'critical'
-        }));
+        const totalStockValue = inventory.reduce((sum, item) => sum + item.value, 0);
+        const lowStockItems: ProductAlert[] = inventory
+            .filter(item => item.quantity > 0 && item.quantity <= LOW_STOCK_THRESHOLD)
+            .map(item => ({
+                productId: item.productId,
+                productName: item.productName,
+                warehouseName: item.warehouseName,
+                currentQuantity: item.quantity,
+                severity: 'warning' as const
+            }));
+
+        const outOfStockItems: ProductAlert[] = inventory
+            .filter(item => item.quantity === 0)
+            .map(item => ({
+                productId: item.productId,
+                productName: item.productName,
+                warehouseName: item.warehouseName,
+                currentQuantity: 0,
+                severity: 'critical' as const
+            }));
 
         const recentTransactions = await (prisma as any).transaction.findMany({
-            where: { warehouseId: warehouse.id },
+            where: { warehouseId: { in: warehouseIds } },
             take: 10,
             orderBy: { createdAt: 'desc' },
             include: {
@@ -306,8 +313,12 @@ export async function getWarehouseDashboardData(): Promise<WarehouseDashboardSta
             }
         });
 
+        const warehouseLabel = assignedWarehouses.length === 1
+            ? assignedWarehouses[0].name
+            : `${assignedWarehouses.length} مخازن`;
+
         return {
-            warehouseName: warehouse.name,
+            warehouseName: warehouseLabel,
             totalProducts: inventory.filter(i => i.quantity > 0).length,
             totalStockValue,
             lowStockItems,
@@ -316,7 +327,7 @@ export async function getWarehouseDashboardData(): Promise<WarehouseDashboardSta
                 ...tx,
                 totalAmount: Number(tx.totalAmount),
                 items: (tx.items || []).map((i: any) => ({
-                    productName: i.product?.name || "صنف غير معروف",
+                    productName: i.product?.name || 'صنف غير معروف',
                     quantity: i.quantity
                 }))
             })),

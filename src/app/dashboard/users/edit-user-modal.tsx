@@ -12,6 +12,7 @@ type User = {
     agencyIds?: string[];
     pricingType?: 'WHOLESALE' | 'RETAIL';
     warehouseId?: string;
+    warehouseIds?: string[];
     image: string | null;
 };
 
@@ -178,25 +179,34 @@ export default function EditUserModal({ user, agencies, warehouses, updateUserAc
                         {/* Warehouse selection for WAREHOUSE_KEEPER */}
                         {role === 'WAREHOUSE_KEEPER' && (
                             <div className="pt-2 border-t mt-2 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                                <label className="block text-xs font-black text-blue-800 mb-2 uppercase tracking-wider">تعيين المخزن المسؤول عنه</label>
-                                <select
-                                    name="warehouseId"
-                                    defaultValue={user.warehouseId || ''}
-                                    className="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-blue-500 outline-none transition-all font-bold text-slate-700"
-                                    required
-                                >
-                                    <option value="">-- اختر المخزن --</option>
+                                <label className="block text-xs font-black text-blue-800 mb-2 uppercase tracking-wider">
+                                    تعيين المخازن المسؤول عنها
+                                    <span className="text-[10px] mr-1 font-normal">(يمكن اختيار أكثر من مخزن)</span>
+                                </label>
+                                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                                     {warehouses
-                                        .filter(w => selectedAgencyIds.length === 0 || selectedAgencyIds.includes(w.agencyId || ''))
-                                        .map(w => (
-                                            <option key={w.id} value={w.id}>{w.name}</option>
-                                        ))
+                                        .filter(w => selectedAgencyIds.length === 0 || selectedAgencyIds.includes(w.agencyId || '') || warehouses.filter(x => selectedAgencyIds.includes(x.agencyId || '')).length === 0)
+                                        .map(w => {
+                                            const isChecked = user.warehouseIds?.includes(w.id) || user.warehouseId === w.id;
+                                            return (
+                                                <label key={w.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer transition-all border border-transparent hover:border-blue-200">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="warehouseId"
+                                                        value={w.id}
+                                                        defaultChecked={isChecked}
+                                                        className="w-5 h-5 text-blue-600 rounded-lg border-gray-300 focus:ring-blue-500 cursor-pointer"
+                                                    />
+                                                    <span className="text-sm font-bold text-slate-700">{w.name}</span>
+                                                </label>
+                                            );
+                                        })
                                     }
-                                    {warehouses.filter(w => selectedAgencyIds.length === 0 || selectedAgencyIds.includes(w.agencyId || '')).length === 0 && (
-                                        warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)
+                                    {warehouses.length === 0 && (
+                                        <p className="text-xs text-gray-400 text-center py-2">لا توجد مخازن متاحة</p>
                                     )}
-                                </select>
-                                <p className="text-[10px] text-blue-600 mt-1">سيرى أمين المخزن هذا المخزن فقط في لوحة التحكم</p>
+                                </div>
+                                <p className="text-[10px] text-blue-600 mt-2">سيرى أمين المخزن هذه المخازن فقط في لوحة التحكم</p>
                             </div>
                         )}
 

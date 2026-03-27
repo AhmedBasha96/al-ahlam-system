@@ -41,7 +41,7 @@ export async function getCurrentUser() {
 
     const dbUser = await prisma.user.findUnique({
         where: { id: mock.id },
-        include: { agencies: true }
+        include: { agencies: true, warehouses: true }
     });
 
     if (!dbUser) {
@@ -50,7 +50,9 @@ export async function getCurrentUser() {
             role: mock.role as string,
             name: 'Guest',
             agencyId: mock.agencyId as string | undefined,
-            agencyIds: mock.agencyId ? [mock.agencyId] : []
+            agencyIds: mock.agencyId ? [mock.agencyId] : [],
+            warehouseId: undefined as string | undefined,
+            warehouseIds: [] as string[]
         };
     }
 
@@ -60,7 +62,8 @@ export async function getCurrentUser() {
         name: dbUser.name,
         agencyId: dbUser.agencyId || undefined,
         agencyIds: dbUser.agencies.map(a => a.id),
-        warehouseId: dbUser.warehouseId || undefined
+        warehouseId: dbUser.warehouses?.[0]?.id || undefined,
+        warehouseIds: dbUser.warehouses?.map(w => w.id) || []
     };
 }
 
@@ -240,19 +243,23 @@ export async function getWarehouses() {
             include: { agency: true }
         });
     } else {
-        const fullUser = await prisma.user.findUnique({ where: { id: user.id } });
-        if (fullUser?.agencyId) {
-            // If it's a warehouse keeper with a specific assigned warehouse, only show that one
-            if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouseId) {
+        const fullUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: { warehouses: true }
+        });
+        if (fullUser?.warehouses && fullUser.warehouses.length > 0) {
+            // If warehouse keeper, only show their assigned warehouses
+            if (user.role === 'WAREHOUSE_KEEPER') {
                 warehouses = await prisma.warehouse.findMany({
-                    where: { id: fullUser.warehouseId },
+                    where: { id: { in: fullUser.warehouses.map(w => w.id) } },
                     include: { agency: true }
                 });
             } else {
-                warehouses = await prisma.warehouse.findMany({
-                    where: { agencyId: fullUser.agencyId },
+                const agencyId = fullUser.agencyId;
+                warehouses = agencyId ? await prisma.warehouse.findMany({
+                    where: { agencyId },
                     include: { agency: true }
-                });
+                }) : [];
             }
         } else {
             warehouses = [];
@@ -351,7 +358,7 @@ export async function createUser(formData: FormData) {
     const agencyIds = formData.getAll('agencyId') as string[];
     const name = formData.get('name') as string;
     const pricingType = formData.get('pricingType') as string;
-    const warehouseId = formData.get('warehouseId') as string | null;
+    const warehouseIds = formData.getAll('warehouseId') as string[];
     const imageFile = formData.get('image') as File | null;
 
     // Permission check
@@ -375,11 +382,13 @@ export async function createUser(formData: FormData) {
                 name,
                 agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
                 pricingType: pricingType || null,
-                warehouseId: (role === 'WAREHOUSE_KEEPER' && warehouseId) ? warehouseId : null,
                 image: imageBase64,
                 agencies: {
                     connect: agencyIds.filter(id => id !== '').map(id => ({ id }))
-                }
+                },
+                warehouses: role === 'WAREHOUSE_KEEPER' ? {
+                    connect: warehouseIds.filter(wid => wid !== '').map(wid => ({ id: wid }))
+                } : undefined
             }
         });
 
@@ -410,7 +419,7 @@ export async function updateUser(id: string, formData: FormData) {
     const role = formData.get('role') as Role;
     const agencyIds = formData.getAll('agencyId') as string[];
     const pricingType = formData.get('pricingType') as string;
-    const warehouseId = formData.get('warehouseId') as string | null;
+    const warehouseIds = formData.getAll('warehouseId') as string[];
     const imageFile = formData.get('image') as File | null;
 
     const imageBase64 = await fileToBase64(imageFile);
@@ -423,11 +432,13 @@ export async function updateUser(id: string, formData: FormData) {
             role,
             agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
             pricingType: pricingType || null,
-            warehouseId: (role === 'WAREHOUSE_KEEPER' && warehouseId) ? warehouseId : null,
             ...(imageBase64 ? { image: imageBase64 } : {}),
             agencies: {
                 set: agencyIds.filter(id => id !== '').map(id => ({ id }))
-            }
+            },
+            warehouses: role === 'WAREHOUSE_KEEPER' ? {
+                set: warehouseIds.filter(wid => wid !== '').map(wid => ({ id: wid }))
+            } : { set: [] }
         }
     });
 

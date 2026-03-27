@@ -122,15 +122,25 @@ export default function CreateUserForm({ agencies, warehouses, createUserAction 
             {role === 'WAREHOUSE_KEEPER' && (
                 <div className="pt-2 border-t mt-2 bg-blue-50 p-3 rounded-lg border-blue-100 transition-all">
                     <label className="block text-xs font-semibold text-blue-700 mb-2">
-                        تعيين المخزن المسؤول عنه
+                        تعيين المخازن المسؤول عنها <span className="font-normal">(يمكن اختيار أكثر من مخزن)</span>
                     </label>
-                    <select name="warehouseId" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" required>
-                        <option value="">-- اختر المخزن --</option>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                         {warehouses.map(w => (
-                            <option key={w.id} value={w.id}>{w.name}</option>
+                            <label key={w.id} className="flex items-center gap-2 p-2 rounded hover:bg-blue-100 cursor-pointer transition">
+                                <input
+                                    type="checkbox"
+                                    name="warehouseId"
+                                    value={w.id}
+                                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">{w.name}</span>
+                            </label>
                         ))}
-                    </select>
-                    <p className="text-[10px] text-blue-600 mt-1">سيرى أمين المخزن هذا المخزن فقط في لوحة التحكم</p>
+                        {warehouses.length === 0 && (
+                            <p className="text-xs text-gray-400 text-center py-2">لا توجد مخازن متاحة</p>
+                        )}
+                    </div>
+                    <p className="text-[10px] text-blue-600 mt-1">سيرى أمين المخزن هذه المخازن فقط في لوحة التحكم</p>
                 </div>
             )}
 

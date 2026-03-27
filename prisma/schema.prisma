@@ -15,15 +15,14 @@ model User {
   image          String?         @db.LongText
   role           Role            @default(ACCOUNTANT)
   agencyId       String?
-  warehouseId    String?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   createdRecords AccountRecord[]
   customers      Customer[]      @relation("RepCustomers")
   transactions   Transaction[]
   agency         Agency?         @relation(fields: [agencyId], references: [id])
-  warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id])
   agencies       Agency[]        @relation("UserAgencies")
+  warehouses     Warehouse[]     @relation("KeeperWarehouses")
   journalEntries JournalEntry[]
   confirmedEntries JournalEntry[] @relation("Confirmer")
   dailyClosings  DailyClosing[]
@@ -32,7 +31,6 @@ model User {
   defaultDiscount Decimal         @default(0)
 
   @@index([agencyId], map: "User_agencyId_fkey")
-  @@index([warehouseId], map: "User_warehouseId_fkey")
 }
 
 model SalesTarget {
@@ -97,7 +95,7 @@ model Warehouse {
   updatedAt    DateTime      @updatedAt
   stock        Stock[]
   transactions Transaction[]
-  users        User[]
+  keepers      User[]        @relation("KeeperWarehouses")
   agency       Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   @@index([agencyId], map: "Warehouse_agencyId_fkey")
