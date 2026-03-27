@@ -13,9 +13,10 @@ import {
 } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/actions';
-import { getRepDashboardData, getWarehouseDashboardData, getRepsSummary } from '@/lib/actions/dashboard';
+import { getRepDashboardData, getWarehouseDashboardData, getRepsSummary, getAccountantDashboardData } from '@/lib/actions/dashboard';
 import RepresentativeDashboard from './representative-dashboard';
 import WarehouseDashboard from './warehouse-dashboard';
+import AccountantDashboard from './accountant-dashboard';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,21 @@ export default async function DashboardPage() {
                 <div className="p-8 bg-red-50 text-red-700 rounded-2xl border border-red-100">
                     <h2 className="text-xl font-bold mb-2">حدث خطأ في عرض لوحة تحكم المخزن</h2>
                     <p>يرجى التأكد من أن حساب أمين المخزن مرتبط بمخزن معين.</p>
+                    <p className="text-xs mt-4">خطأ: {String(e)}</p>
+                </div>
+            );
+        }
+    }
+
+    if (user.role === 'ACCOUNTANT') {
+        try {
+            const accountantStats = await getAccountantDashboardData();
+            return <AccountantDashboard stats={accountantStats} userName={user.name || ''} />;
+        } catch (e) {
+            console.error("Accountant dashboard error:", e);
+            return (
+                <div className="p-8 bg-red-50 text-red-700 rounded-2xl border border-red-100">
+                    <h2 className="text-xl font-bold mb-2">حدث خطأ في عرض لوحة تحكم الحسابات</h2>
                     <p className="text-xs mt-4">خطأ: {String(e)}</p>
                 </div>
             );

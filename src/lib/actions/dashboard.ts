@@ -64,6 +64,14 @@ export interface WarehouseDashboardStats {
     inventory: any[];
 }
 
+export interface AccountantDashboardStats {
+    treasuryBalance: number;
+    todayCashIn: number;
+    todayCashOut: number;
+    pendingReturnApprovalsCount: number;
+    recentTransactions: any[];
+}
+
 export async function getDashboardStats(): Promise<DashboardStats> {
     try {
         const currentUser = await getCurrentUser();
@@ -465,6 +473,65 @@ export async function getRepDashboardData(): Promise<RepDashboardStats> {
     };
     } catch (error) {
         console.error('getRepDashboardData error:', error);
+        throw error;
+    }
+}
+
+export async function getAccountantDashboardData(): Promise<AccountantDashboardStats> {
+    try {
+        const currentUser = await getCurrentUser();
+        if (currentUser.role !== 'ACCOUNTANT' && currentUser.role !== 'MANAGER' && currentUser.role !== 'ADMIN') {
+            throw new Error('Unauthorized');
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // 1. Treasury Balance
+        const debits = await prisma.journalEntry.aggregate({ where: { type: 'DEBIT' }, _sum: { amount: true } });
+        const credits = await prisma.journalEntry.aggregate({ where: { type: 'CREDIT' }, _sum: { amount: true } });
+        const treasuryBalance = Number(debits._sum.amount || 0) - Number(credits._sum.amount || 0);
+
+        // 2. Today Cash Flow
+        const todayDebits = await prisma.journalEntry.aggregate({ 
+            where: { type: 'DEBIT', createdAt: { gte: today } },
+            _sum: { amount: true } 
+        });
+        const todayCredits = await prisma.journalEntry.aggregate({ 
+            where: { type: 'CREDIT', createdAt: { gte: today } },
+            _sum: { amount: true } 
+        });
+
+        // 3. Pending Approvals
+        const pendingCount = await (prisma as any).transaction.count({
+            where: { status: 'PENDING', type: { in: ['RETURN_IN', 'RETURN_OUT'] } }
+        });
+
+        // 4. Recent Transactions (Journal Entries)
+        const recentEntries = await prisma.journalEntry.findMany({
+            take: 10,
+            orderBy: { createdAt: 'desc' },
+            include: { user: { select: { name: true } }, agency: { select: { name: true } } }
+        });
+
+        return {
+            treasuryBalance,
+            todayCashIn: Number(todayDebits._sum.amount || 0),
+            todayCashOut: Number(todayCredits._sum.amount || 0),
+            pendingReturnApprovalsCount: pendingCount,
+            recentTransactions: recentEntries.map(e => ({
+                id: e.id,
+                date: e.createdAt,
+                amount: Number(e.amount),
+                type: e.type,
+                referenceType: e.referenceType,
+                description: e.description,
+                userName: e.user?.name,
+                agencyName: e.agency?.name
+            }))
+        };
+    } catch (error) {
+        console.error('getAccountantDashboardData error:', error);
         throw error;
     }
 }
