@@ -69,7 +69,7 @@ export default function WarehouseDashboard({ stats, userName }: Props) {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Total Products with Stock */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100 overflow-hidden relative group">
                     <div className="flex items-center justify-between mb-4 relative z-10">
@@ -84,21 +84,7 @@ export default function WarehouseDashboard({ stats, userName }: Props) {
                     </div>
                 </div>
 
-                {/* Stock Value */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100 overflow-hidden relative group">
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                        <div className="text-gray-600 text-sm font-medium">إجمالي قيمة المخزون</div>
-                        <TrendingUp className="w-6 h-6 text-emerald-600" />
-                    </div>
-                    <div className="text-3xl font-black text-emerald-700 relative z-10">
-                        {stats.totalStockValue.toLocaleString()} <span className="text-xs font-normal">ج.م</span>
-                    </div>
-                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
-                        <TrendingUp size={120} />
-                    </div>
-                </div>
-
-                {/* Performance Placeholder or Another Stat */}
+                {/* Low Stock Alerts */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-amber-100 overflow-hidden relative group">
                     <div className="flex items-center justify-between mb-4 relative z-10">
                         <div className="text-gray-600 text-sm font-medium">تنبيهات النواقص</div>

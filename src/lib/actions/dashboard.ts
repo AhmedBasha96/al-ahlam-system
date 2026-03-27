@@ -457,3 +457,95 @@ export async function getRepDashboardData(): Promise<RepDashboardStats> {
         throw error;
     }
 }
+
+export interface RepSummary {
+    id: string;
+    name: string;
+    monthlySales: number;
+    monthlyCollections: number;
+    salesTarget: number;
+    totalCustomerDebt: number;
+    inventoryCount: number;
+}
+
+export async function getRepsSummary(): Promise<RepSummary[]> {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const reps = await prisma.user.findMany({
+        where: { role: 'SALES_REPRESENTATIVE' },
+        select: { id: true, name: true }
+    });
+
+    const results: RepSummary[] = [];
+
+    for (const rep of reps) {
+        // Monthly Sales
+        const salesEntries = await prisma.journalEntry.findMany({
+            where: {
+                userId: rep.id,
+                type: 'DEBIT',
+                referenceType: 'SALE',
+                createdAt: { gte: startDate, lte: endDate }
+            }
+        });
+        const monthlySales = salesEntries.reduce((sum, e) => sum + Number(e.amount), 0);
+
+        // Monthly Collections
+        const collectionEntries = await prisma.journalEntry.findMany({
+            where: {
+                userId: rep.id,
+                type: 'DEBIT',
+                referenceType: 'COLLECTION',
+                createdAt: { gte: startDate, lte: endDate }
+            }
+        });
+        const monthlyCollections = collectionEntries.reduce((sum, e) => sum + Number(e.amount), 0);
+
+        // Sales Target
+        const target = await prisma.salesTarget.findUnique({
+            where: { userId_month_year: { userId: rep.id, month, year } }
+        });
+
+        // Customer Debt
+        const customers = await prisma.customer.findMany({
+            where: { representativeId: rep.id },
+            include: {
+                transactions: {
+                    where: { status: 'ACTIVE' },
+                    select: { remainingAmount: true }
+                }
+            }
+        });
+        const totalCustomerDebt = customers.reduce((sum, c) =>
+            sum + c.transactions.reduce((tSum, t) => tSum + Number(t.remainingAmount || 0), 0), 0);
+
+        // Inventory count (rep virtual warehouse)
+        const repWarehouse = await prisma.warehouse.findFirst({
+            where: { name: `عهدة المندوب: ${rep.name}` }
+        });
+        let inventoryCount = 0;
+        if (repWarehouse) {
+            const stocks = await prisma.stock.aggregate({
+                where: { warehouseId: repWarehouse.id, quantity: { gt: 0 } },
+                _sum: { quantity: true }
+            });
+            inventoryCount = Number(stocks._sum.quantity || 0);
+        }
+
+        results.push({
+            id: rep.id,
+            name: rep.name,
+            monthlySales,
+            monthlyCollections,
+            salesTarget: Number(target?.salesTarget || 0),
+            totalCustomerDebt,
+            inventoryCount
+        });
+    }
+
+    return results;
+}
