@@ -2,8 +2,8 @@
 
 import prisma from '@/lib/db';
 import { Decimal } from '@prisma/client/runtime/library';
-
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants';
+import { getCurrentUser } from '@/lib/actions';
 
 export interface ProductAlert {
     productId: string;
@@ -66,7 +66,7 @@ export interface WarehouseDashboardStats {
 
 export async function getDashboardStats(): Promise<DashboardStats> {
     try {
-        const currentUser = await (await import('@/lib/actions')).getCurrentUser();
+        const currentUser = await getCurrentUser();
         const isAdminOrManager = currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER';
         const isRestricted = !isAdminOrManager || currentUser.role === 'SALES_RECORDER';
 
@@ -231,7 +231,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
             outOfStockCount,
             lowStockProducts,
             outOfStockProducts,
-            recentTransactions: recentTransactions.map(tx => ({
+            recentTransactions: recentTransactions.map((tx: any) => ({
                 ...tx,
                 totalAmount: Number(tx.totalAmount),
             })),
@@ -243,14 +243,15 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 export async function getWarehouseDashboardData(): Promise<WarehouseDashboardStats> {
-    const currentUser = await (await import('@/lib/actions')).getCurrentUser();
-    if (currentUser.role !== 'WAREHOUSE_KEEPER') {
-        throw new Error('Unauthorized');
-    }
+    try {
+        const currentUser = await getCurrentUser();
+        if (currentUser.role !== 'WAREHOUSE_KEEPER') {
+            throw new Error('Unauthorized');
+        }
 
-    if (!currentUser.warehouseId) {
-        throw new Error('No warehouse assigned to this user');
-    }
+        if (!currentUser.warehouseId) {
+            throw new Error('أمين المخزن غير مرتبط بأي مخزن حالياً (يرجى مراجعة الإدارة لإقرانه بمخزن من شاشة المستخدمين)');
+        }
 
     const warehouse = await prisma.warehouse.findUnique({
         where: { id: currentUser.warehouseId },
@@ -293,41 +294,46 @@ export async function getWarehouseDashboardData(): Promise<WarehouseDashboardSta
             severity: 'critical'
         }));
 
-    const recentTransactions = await (prisma as any).transaction.findMany({
-        where: { warehouseId: warehouse.id },
-        take: 10,
-        orderBy: { createdAt: 'desc' },
-        include: {
-            user: { select: { name: true } },
-            customer: { select: { name: true } },
-            supplier: { select: { name: true } },
-            items: { include: { product: { select: { name: true } } } }
-        }
-    });
+        const recentTransactions = await (prisma as any).transaction.findMany({
+            where: { warehouseId: warehouse.id },
+            take: 10,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: { select: { name: true } },
+                customer: { select: { name: true } },
+                supplier: { select: { name: true } },
+                items: { include: { product: { select: { name: true } } } }
+            }
+        });
 
-    return {
-        warehouseName: warehouse.name,
-        totalProducts: inventory.filter(i => i.quantity > 0).length,
-        totalStockValue,
-        lowStockItems,
-        outOfStockItems,
-        recentTransactions: recentTransactions.map((tx: any) => ({
-            ...tx,
-            totalAmount: Number(tx.totalAmount),
-            items: tx.items.map((i: any) => ({
-                productName: i.product.name,
-                quantity: i.quantity
-            }))
-        })),
-        inventory: inventory.filter(i => i.quantity > 0).sort((a, b) => b.quantity - a.quantity).slice(0, 10)
-    };
+        return {
+            warehouseName: warehouse.name,
+            totalProducts: inventory.filter(i => i.quantity > 0).length,
+            totalStockValue,
+            lowStockItems,
+            outOfStockItems,
+            recentTransactions: recentTransactions.map((tx: any) => ({
+                ...tx,
+                totalAmount: Number(tx.totalAmount),
+                items: (tx.items || []).map((i: any) => ({
+                    productName: i.product?.name || "صنف غير معروف",
+                    quantity: i.quantity
+                }))
+            })),
+            inventory: inventory.filter(i => i.quantity > 0).sort((a, b) => b.quantity - a.quantity).slice(0, 10)
+        };
+    } catch (error: any) {
+        console.error('getWarehouseDashboardData error:', error);
+        throw error;
+    }
 }
 
 export async function getRepDashboardData(): Promise<RepDashboardStats> {
-    const currentUser = await (await import('@/lib/actions')).getCurrentUser();
-    if (currentUser.role !== 'SALES_REPRESENTATIVE') {
-        throw new Error('Unauthorized');
-    }
+    try {
+        const currentUser = await getCurrentUser();
+        if (currentUser.role !== 'SALES_REPRESENTATIVE') {
+            throw new Error('Unauthorized');
+        }
 
     const dbUser = await prisma.user.findUnique({
         where: { id: currentUser.id },
@@ -446,4 +452,8 @@ export async function getRepDashboardData(): Promise<RepDashboardStats> {
         })),
         inventory: inventory.slice(0, 5) // Just top 5 for dashboard
     };
+    } catch (error) {
+        console.error('getRepDashboardData error:', error);
+        throw error;
+    }
 }

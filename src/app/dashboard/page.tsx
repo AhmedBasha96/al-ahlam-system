@@ -23,13 +23,35 @@ export default async function DashboardPage() {
     const user = await getCurrentUser();
     
     if (user.role === 'SALES_REPRESENTATIVE') {
-        const repStats = await getRepDashboardData();
-        return <RepresentativeDashboard stats={repStats} userName={user.name || ''} />;
+        try {
+            const repStats = await getRepDashboardData();
+            return <RepresentativeDashboard stats={repStats} userName={user.name || ''} />;
+        } catch (e) {
+            console.error("Representative dashboard error:", e);
+            return (
+                <div className="p-8 bg-red-50 text-red-700 rounded-2xl border border-red-100">
+                    <h2 className="text-xl font-bold mb-2">حدث خطأ في عرض لوحة التحكم</h2>
+                    <p>يرجى التأكد من أن حساب المندوب مهيأ بشكل صحيح (الأهداف والمستودعات).</p>
+                    <p className="text-xs mt-4">خطأ: {String(e)}</p>
+                </div>
+            );
+        }
     }
 
     if (user.role === 'WAREHOUSE_KEEPER') {
-        const warehouseStats = await getWarehouseDashboardData();
-        return <WarehouseDashboard stats={warehouseStats} userName={user.name || ''} />;
+        try {
+            const warehouseStats = await getWarehouseDashboardData();
+            return <WarehouseDashboard stats={warehouseStats} userName={user.name || ''} />;
+        } catch (e) {
+            console.error("Warehouse dashboard error:", e);
+            return (
+                <div className="p-8 bg-red-50 text-red-700 rounded-2xl border border-red-100">
+                    <h2 className="text-xl font-bold mb-2">حدث خطأ في عرض لوحة تحكم المخزن</h2>
+                    <p>يرجى التأكد من أن حساب أمين المخزن مرتبط بمخزن معين.</p>
+                    <p className="text-xs mt-4">خطأ: {String(e)}</p>
+                </div>
+            );
+        }
     }
 
     const stats = await getDashboardStats();
