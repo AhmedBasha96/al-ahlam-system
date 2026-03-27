@@ -12,8 +12,8 @@ docker compose build app
 echo "🔄 3. تشغيل الخدمات..."
 docker compose up -d
 
-echo "🗄️ 4. تحديث أعمدة قاعدة البيانات تلقائياً..."
-docker compose exec app npx prisma migrate deploy
+echo "🗄️ 4. مزامنة قاعدة البيانات..."
+docker compose exec app npx prisma db push --accept-data-loss
 
 echo "🧹 5. تنظيف الذاكرة المؤقتة..."
 docker compose exec app npx prisma generate
