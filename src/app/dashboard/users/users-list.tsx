@@ -11,16 +11,18 @@ type User = {
     role: string;
     agencyId?: string;
     agencyIds?: string[];
+    warehouseId?: string;
     image: string | null;
 };
 
 type Props = {
     users: User[];
     agencies: Array<{ id: string, name: string }>;
+    warehouses: Array<{ id: string, name: string, agencyId: string | null }>;
     currentUserRole?: string;
 }
 
-export default function UsersList({ users, agencies, currentUserRole }: Props) {
+export default function UsersList({ users, agencies, warehouses, currentUserRole }: Props) {
     const [editingUser, setEditingUser] = useState<User | null>(null);
 
     const getAgencyNames = (user: User) => {
@@ -138,6 +140,7 @@ export default function UsersList({ users, agencies, currentUserRole }: Props) {
                 <EditUserModal
                     user={editingUser}
                     agencies={agencies}
+                    warehouses={warehouses}
                     updateUserAction={updateUser}
                     closeModal={() => setEditingUser(null)}
                 />

@@ -351,6 +351,7 @@ export async function createUser(formData: FormData) {
     const agencyIds = formData.getAll('agencyId') as string[];
     const name = formData.get('name') as string;
     const pricingType = formData.get('pricingType') as string;
+    const warehouseId = formData.get('warehouseId') as string | null;
     const imageFile = formData.get('image') as File | null;
 
     // Permission check
@@ -373,7 +374,8 @@ export async function createUser(formData: FormData) {
                 role,
                 name,
                 agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
-                pricingType,
+                pricingType: pricingType || null,
+                warehouseId: (role === 'WAREHOUSE_KEEPER' && warehouseId) ? warehouseId : null,
                 image: imageBase64,
                 agencies: {
                     connect: agencyIds.filter(id => id !== '').map(id => ({ id }))
@@ -408,6 +410,7 @@ export async function updateUser(id: string, formData: FormData) {
     const role = formData.get('role') as Role;
     const agencyIds = formData.getAll('agencyId') as string[];
     const pricingType = formData.get('pricingType') as string;
+    const warehouseId = formData.get('warehouseId') as string | null;
     const imageFile = formData.get('image') as File | null;
 
     const imageBase64 = await fileToBase64(imageFile);
@@ -419,7 +422,8 @@ export async function updateUser(id: string, formData: FormData) {
             name,
             role,
             agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
-            pricingType,
+            pricingType: pricingType || null,
+            warehouseId: (role === 'WAREHOUSE_KEEPER' && warehouseId) ? warehouseId : null,
             ...(imageBase64 ? { image: imageBase64 } : {}),
             agencies: {
                 set: agencyIds.filter(id => id !== '').map(id => ({ id }))

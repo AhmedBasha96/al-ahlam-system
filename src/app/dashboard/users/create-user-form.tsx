@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 
 type Prop = {
     agencies: Array<{ id: string, name: string }>
+    warehouses: Array<{ id: string, name: string, agencyId: string | null }>
     createUserAction: (formData: FormData) => Promise<void>
 }
 
-export default function CreateUserForm({ agencies, createUserAction }: Prop) {
+export default function CreateUserForm({ agencies, warehouses, createUserAction }: Prop) {
     const [role, setRole] = useState('ACCOUNTANT');
     const [loading, setLoading] = useState(false);
     const [preview, setPreview] = useState<string | null>(null);
@@ -115,6 +116,21 @@ export default function CreateUserForm({ agencies, createUserAction }: Prop) {
                         <option value="RETAIL">قطاعي (الإفتراضي)</option>
                         <option value="WHOLESALE">جملة</option>
                     </select>
+                </div>
+            )}
+
+            {role === 'WAREHOUSE_KEEPER' && (
+                <div className="pt-2 border-t mt-2 bg-blue-50 p-3 rounded-lg border-blue-100 transition-all">
+                    <label className="block text-xs font-semibold text-blue-700 mb-2">
+                        تعيين المخزن المسؤول عنه
+                    </label>
+                    <select name="warehouseId" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                        <option value="">-- اختر المخزن --</option>
+                        {warehouses.map(w => (
+                            <option key={w.id} value={w.id}>{w.name}</option>
+                        ))}
+                    </select>
+                    <p className="text-[10px] text-blue-600 mt-1">سيرى أمين المخزن هذا المخزن فقط في لوحة التحكم</p>
                 </div>
             )}
 

@@ -11,20 +11,23 @@ type User = {
     agencyId?: string;
     agencyIds?: string[];
     pricingType?: 'WHOLESALE' | 'RETAIL';
+    warehouseId?: string;
     image: string | null;
 };
 
 type Props = {
     user: User;
     agencies: Array<{ id: string, name: string }>;
+    warehouses: Array<{ id: string, name: string, agencyId: string | null }>;
     updateUserAction: (id: string, formData: FormData) => Promise<void>;
     closeModal: () => void;
 };
 
-export default function EditUserModal({ user, agencies, updateUserAction, closeModal }: Props) {
+export default function EditUserModal({ user, agencies, warehouses, updateUserAction, closeModal }: Props) {
     const [loading, setLoading] = useState(false);
     const [role, setRole] = useState(user.role);
     const [preview, setPreview] = useState<string | null>(user.image);
+    const [selectedAgencyIds, setSelectedAgencyIds] = useState<string[]>(user.agencyIds || (user.agencyId ? [user.agencyId] : []));
 
     const [newPassword, setNewPassword] = useState("");
     const [resetLoading, setResetLoading] = useState(false);
@@ -152,6 +155,13 @@ export default function EditUserModal({ user, agencies, updateUserAction, closeM
                                                     name="agencyId"
                                                     value={agency.id}
                                                     defaultChecked={isChecked}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedAgencyIds(prev => [...prev, agency.id]);
+                                                        } else {
+                                                            setSelectedAgencyIds(prev => prev.filter(id => id !== agency.id));
+                                                        }
+                                                    }}
                                                     className="w-5 h-5 text-emerald-600 rounded-lg border-gray-300 focus:ring-emerald-500 cursor-pointer"
                                                 />
                                                 <span className="text-sm font-bold text-slate-700">{agency.name}</span>
@@ -162,6 +172,31 @@ export default function EditUserModal({ user, agencies, updateUserAction, closeM
                                         <p className="text-xs text-gray-400 text-center py-2 italic font-medium">لا توجد توكيلات متاحة</p>
                                     )}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Warehouse selection for WAREHOUSE_KEEPER */}
+                        {role === 'WAREHOUSE_KEEPER' && (
+                            <div className="pt-2 border-t mt-2 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                                <label className="block text-xs font-black text-blue-800 mb-2 uppercase tracking-wider">تعيين المخزن المسؤول عنه</label>
+                                <select
+                                    name="warehouseId"
+                                    defaultValue={user.warehouseId || ''}
+                                    className="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-blue-500 outline-none transition-all font-bold text-slate-700"
+                                    required
+                                >
+                                    <option value="">-- اختر المخزن --</option>
+                                    {warehouses
+                                        .filter(w => selectedAgencyIds.length === 0 || selectedAgencyIds.includes(w.agencyId || ''))
+                                        .map(w => (
+                                            <option key={w.id} value={w.id}>{w.name}</option>
+                                        ))
+                                    }
+                                    {warehouses.filter(w => selectedAgencyIds.length === 0 || selectedAgencyIds.includes(w.agencyId || '')).length === 0 && (
+                                        warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)
+                                    )}
+                                </select>
+                                <p className="text-[10px] text-blue-600 mt-1">سيرى أمين المخزن هذا المخزن فقط في لوحة التحكم</p>
                             </div>
                         )}
 
