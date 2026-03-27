@@ -5,7 +5,8 @@ import { getTreasuryTransactions, setInitialTreasuryBalance } from '@/lib/action
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Landmark, ArrowUpRight, ArrowDownLeft, Receipt, ShoppingBag, Wallet, Filter, PlusCircle, Scale } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Landmark, ArrowUpRight, ArrowDownLeft, Receipt, ShoppingBag, Wallet, Filter, Calendar, Search, Scale } from "lucide-react";
 
 interface TreasuryPageProps {
     agencies: { id: string, name: string }[];
@@ -18,6 +19,9 @@ const formatMoney = (amount: number) => {
 
 export default function ClientTreasuryPage({ agencies, initialTransactions }: TreasuryPageProps) {
     const [filter, setFilter] = useState("ALL");
+    const [typeFilter, setTypeFilter] = useState("ALL");
+    const [dateFilter, setDateFilter] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
     const [transactions, setTransactions] = useState(initialTransactions);
     const [loading, setLoading] = useState(false);
 
@@ -29,6 +33,16 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
         setTransactions(data);
         setLoading(false);
     };
+
+    const filteredTransactions = transactions.filter(tx => {
+        if (typeFilter !== 'ALL' && tx.type !== typeFilter) return false;
+        if (dateFilter) {
+            const txDate = new Date(tx.date).toISOString().split('T')[0];
+            if (txDate !== dateFilter) return false;
+        }
+        if (searchQuery && !tx.description?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        return true;
+    });
 
     const [isInitialModalOpen, setIsInitialModalOpen] = useState(false);
     const [initialAmount, setInitialAmount] = useState("");
@@ -79,10 +93,49 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                    <div className="glass-card flex items-center gap-3 p-1.5 pr-4 rounded-full w-full lg:w-auto">
-                        <Filter className="text-emerald-600 w-5 h-5" />
+                    {/* Search Field */}
+                    <div className="relative w-full lg:w-[200px]">
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <Input
+                            type="text"
+                            placeholder="بحث في البيان..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="bg-white/60 border-emerald-100 pr-9 rounded-full h-10 w-full focus:ring-emerald-500"
+                        />
+                    </div>
+
+                    {/* Date Filter */}
+                    <div className="relative w-full lg:w-[160px]">
+                        <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <Input
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="bg-white/60 border-emerald-100 pr-9 rounded-full h-10 w-full focus:ring-emerald-500 text-sm"
+                        />
+                    </div>
+
+                    {/* Type Filter */}
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="w-full lg:w-[160px] bg-white/60 border border-emerald-100 rounded-full h-10 text-slate-700 font-semibold focus:ring-emerald-500">
+                            <SelectValue placeholder="نوع الحركة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">الكل</SelectItem>
+                            <SelectItem value="SALE">مبيعات</SelectItem>
+                            <SelectItem value="PURCHASE">مشتريات</SelectItem>
+                            <SelectItem value="INCOME">إيرادات أخرى</SelectItem>
+                            <SelectItem value="EXPENSE">مصروفات / سداد</SelectItem>
+                            <SelectItem value="INITIAL">رصيد افتتاحي</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {/* Agency Filter */}
+                    <div className="glass-card flex items-center gap-3 p-1.5 pr-4 rounded-full w-full lg:w-[240px]">
+                        <Filter className="text-emerald-600 w-5 h-5 flex-shrink-0" />
                         <Select value={filter} onValueChange={handleFilterChange}>
-                            <SelectTrigger className="w-full lg:w-[280px] border-0 bg-transparent focus:ring-0 text-slate-700 font-semibold h-9">
+                            <SelectTrigger className="w-full border-0 bg-transparent focus:ring-0 text-slate-700 font-semibold h-8 p-0">
                                 <SelectValue placeholder="تصفية التوكيل" />
                             </SelectTrigger>
                             <SelectContent>
@@ -214,17 +267,17 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">جاري تحديث البيانات...</TableCell>
                                     </TableRow>
-                                ) : transactions.length === 0 ? (
+                                ) : filteredTransactions.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-48 text-center text-slate-400">
                                             <div className="flex flex-col items-center gap-2">
                                                 <ShoppingBag className="w-8 h-8 opacity-20" />
-                                                لا توجد حركات مسجلة
+                                                لا توجد حركات مسجلة تطابق الفلاتر
                                             </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    transactions.map((tx) => (
+                                    filteredTransactions.map((tx) => (
                                         <TableRow key={`${tx.type}-${tx.id}`} className="group hover:bg-emerald-50/30 transition-colors border-b-slate-100">
                                             <TableCell className="font-medium text-slate-500 font-mono text-xs py-4">
                                                 {new Date(tx.date).toLocaleString('ar-EG', {
