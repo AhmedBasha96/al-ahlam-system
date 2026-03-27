@@ -69,7 +69,7 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId, curre
                         <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-start gap-3 mt-4">
                             <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5" />
                             <div className="text-sm text-rose-800 font-bold leading-relaxed">
-                                تنبيه: لا توجد مديونية حالية لهذا المورد. أي مبلغ يتم دفعه سيُسجل كزيادة في رصيدك (Overpayment).
+                                تنبيه: لا توجد مديونية حالية لهذا المورد، ولا يمكن تسجيل دفعة سداد له.
                             </div>
                         </div>
                     )}
@@ -127,7 +127,7 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId, curre
                     <DialogFooter>
                         <Button
                             type="button"
-                            disabled={loading}
+                            disabled={loading || hasNoDebt}
                             onClick={() => {
                                 const form = document.getElementById('supplier-payment-form') as HTMLFormElement;
                                 if (form.checkValidity()) {
@@ -137,9 +137,9 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId, curre
                                     form.reportValidity();
                                 }
                             }}
-                            className="w-full bg-slate-900 hover:bg-black text-white font-bold py-6 rounded-2xl text-lg shadow-xl"
+                            className={`w-full font-bold py-6 rounded-2xl text-lg shadow-xl ${hasNoDebt ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 hover:bg-black text-white'}`}
                         >
-                            {loading ? 'جاري تسجيل الدفعة...' : (hasNoDebt ? 'دفع فائض (Overpayment)' : 'تأكيد عملية الدفع 💸')}
+                            {loading ? 'جاري تسجيل الدفعة...' : 'تأكيد عملية الدفع 💸'}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -148,15 +148,13 @@ export function SupplierPaymentModal({ supplierId, supplierName, agencyId, curre
                     open={showConfirm}
                     onOpenChange={setShowConfirm}
                     onConfirm={handleConfirmSubmit}
-                    title={hasNoDebt ? "تأكيد دفع فائض" : (isOverpaying ? "تأكيد دفع مبلغ زائد" : "تأكيد عملية السداد")}
+                    title={isOverpaying ? "تأكيد دفع مبلغ زائد" : "تأكيد عملية السداد"}
                     description={
-                        hasNoDebt
-                            ? "أنت على وشك دفع مبلغ لمورد ليس له مديونية. هل أنت متأكد؟ سيتحول رصيدك عنده ليكون فائضاً."
-                            : (isOverpaying
-                                ? `المبلغ (${paymentAmount.toLocaleString()}) أكبر من المديونية (${currentBalance.toLocaleString()}). هل تريد الاستمرار؟`
-                                : "هل أنت متأكد من دفع هذا المبلغ للمورد؟ سيتم خصم المبلغ من الخزينة.")
+                        isOverpaying
+                            ? `المبلغ (${paymentAmount.toLocaleString()}) أكبر من المديونية (${currentBalance.toLocaleString()}). هل تريد الاستمرار؟`
+                            : "هل أنت متأكد من دفع هذا المبلغ للمورد؟ سيتم خصم المبلغ من الخزينة."
                     }
-                    variant={hasNoDebt || isOverpaying ? 'warning' : 'default'}
+                    variant={isOverpaying ? 'warning' : 'default'}
                     confirmText="نعم، تأكيد الدفع"
                 />
             </DialogContent>
