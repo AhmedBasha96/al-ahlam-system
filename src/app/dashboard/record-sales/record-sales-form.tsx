@@ -46,12 +46,14 @@ type Props = {
     products: Product[];
     stocks: Stock[];
     recordSaleAction: (repId: string, customerId: string, items: any[], paymentInfo: any) => Promise<any>;
+    currentUser?: any;
 }
 
-export default function RecordSalesForm({ representatives, customers, products, stocks, recordSaleAction }: Props) {
+export default function RecordSalesForm({ representatives, customers, products, stocks, recordSaleAction, currentUser }: Props) {
+    const isRep = currentUser?.role === 'SALES_REPRESENTATIVE';
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<OrderItem[]>([{ productId: "", cartons: 0, units: 1, price: 0 }]);
-    const [selectedRepId, setSelectedRepId] = useState("");
+    const [selectedRepId, setSelectedRepId] = useState(isRep ? (currentUser?.id || "") : "");
     const [selectedCustomerId, setSelectedCustomerId] = useState("");
     const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT' | 'PARTIAL'>('CASH');
     const [paidAmount, setPaidAmount] = useState(0);
@@ -220,14 +222,15 @@ export default function RecordSalesForm({ representatives, customers, products, 
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${isRep ? 'opacity-50' : ''}`}>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 font-bold">المندوب (البائع)</label>
                     <select
                         value={selectedRepId}
                         onChange={(e) => setSelectedRepId(e.target.value)}
-                        className="w-full border rounded-lg p-3 bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        className={`w-full border rounded-lg p-3 bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none ${isRep ? 'cursor-not-allowed' : ''}`}
                         required
+                        disabled={isRep}
                     >
                         <option value="">اختر المندوب...</option>
                         {representatives.map(rep => (

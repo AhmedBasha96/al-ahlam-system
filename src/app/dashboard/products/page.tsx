@@ -2,10 +2,25 @@ import { createProduct, getAgencies, getProducts, getCurrentUser } from "@/lib/a
 import { getSuppliers } from "@/lib/actions/suppliers";
 import CreateProductForm from "./create-product-form";
 import ProductsList from "./products-list";
+import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage() {
+    const user = await getCurrentUser();
+    if (user.role === 'WAREHOUSE_KEEPER') {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 bg-white rounded-2xl shadow-sm border border-red-50">
+                <div className="text-6xl mb-4">🚫</div>
+                <h1 className="text-2xl font-bold text-red-800 mb-2">غير مسموح بالدخول</h1>
+                <p className="text-gray-500">ليست لديك صلاحية لعرض المنتجات والأسعار.</p>
+                <Link href="/dashboard" className="mt-6 text-emerald-600 font-bold hover:underline font-mono">
+                    العودة للرئيسية &rarr;
+                </Link>
+            </div>
+        );
+    }
+
     let agencies: any[] = [];
     let products: any[] = [];
     let suppliers: any[] = [];
@@ -53,7 +68,6 @@ export default async function ProductsPage() {
             } : undefined
         }));
     } catch (e) { console.error("Products fetch error:", e); }
-    const user = await getCurrentUser();
 
     // Only Admin and Manager can create/edit/delete products
     const canManageProducts = user.role === 'ADMIN' || user.role === 'MANAGER';

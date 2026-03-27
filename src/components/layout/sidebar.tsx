@@ -30,7 +30,7 @@ export default function Sidebar({ role }: SidebarProps) {
     const pathname = usePathname();
 
     const canSeeAgencies = role === 'ADMIN' || role === 'MANAGER';
-    const canSeeProducts = role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'WAREHOUSE_KEEPER';
+    const canSeeProducts = role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT';
     const canSeeWarehouses = role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'WAREHOUSE_KEEPER';
     const canSeeAccounts = role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT';
     const canSeeSalesReports = role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'SALES_REPRESENTATIVE';

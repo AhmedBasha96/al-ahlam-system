@@ -54,6 +54,16 @@ export interface RepDashboardStats {
     inventory: any[];
 }
 
+export interface WarehouseDashboardStats {
+    warehouseName: string;
+    totalProducts: number;
+    totalStockValue: number;
+    lowStockItems: ProductAlert[];
+    outOfStockItems: ProductAlert[];
+    recentTransactions: any[];
+    inventory: any[];
+}
+
 export async function getDashboardStats(): Promise<DashboardStats> {
     try {
         const currentUser = await (await import('@/lib/actions')).getCurrentUser();
@@ -230,6 +240,87 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         console.error('Error fetching dashboard stats:', error);
         throw error;
     }
+}
+
+export async function getWarehouseDashboardData(): Promise<WarehouseDashboardStats> {
+    const currentUser = await (await import('@/lib/actions')).getCurrentUser();
+    if (currentUser.role !== 'WAREHOUSE_KEEPER') {
+        throw new Error('Unauthorized');
+    }
+
+    if (!currentUser.warehouseId) {
+        throw new Error('No warehouse assigned to this user');
+    }
+
+    const warehouse = await prisma.warehouse.findUnique({
+        where: { id: currentUser.warehouseId },
+        include: { agency: true }
+    });
+
+    if (!warehouse) throw new Error('Warehouse not found');
+
+    const stocks = await prisma.stock.findMany({
+        where: { warehouseId: warehouse.id },
+        include: { product: true }
+    });
+
+    const inventory = stocks.map(s => ({
+        productId: s.product.id,
+        productName: s.product.name,
+        quantity: s.quantity,
+        price: Number(s.product.retailPrice),
+        value: s.quantity * Number(s.product.retailPrice)
+    }));
+
+    const totalStockValue = inventory.reduce((sum, item) => sum + item.value, 0);
+    const lowStockItems: ProductAlert[] = inventory
+        .filter(item => item.quantity > 0 && item.quantity <= LOW_STOCK_THRESHOLD)
+        .map(item => ({
+            productId: item.productId,
+            productName: item.productName,
+            warehouseName: warehouse.name,
+            currentQuantity: item.quantity,
+            severity: 'warning'
+        }));
+
+    const outOfStockItems: ProductAlert[] = inventory
+        .filter(item => item.quantity === 0)
+        .map(item => ({
+            productId: item.productId,
+            productName: item.productName,
+            warehouseName: warehouse.name,
+            currentQuantity: 0,
+            severity: 'critical'
+        }));
+
+    const recentTransactions = await (prisma as any).transaction.findMany({
+        where: { warehouseId: warehouse.id },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+            user: { select: { name: true } },
+            customer: { select: { name: true } },
+            supplier: { select: { name: true } },
+            items: { include: { product: { select: { name: true } } } }
+        }
+    });
+
+    return {
+        warehouseName: warehouse.name,
+        totalProducts: inventory.filter(i => i.quantity > 0).length,
+        totalStockValue,
+        lowStockItems,
+        outOfStockItems,
+        recentTransactions: recentTransactions.map((tx: any) => ({
+            ...tx,
+            totalAmount: Number(tx.totalAmount),
+            items: tx.items.map((i: any) => ({
+                productName: i.product.name,
+                quantity: i.quantity
+            }))
+        })),
+        inventory: inventory.filter(i => i.quantity > 0).sort((a, b) => b.quantity - a.quantity).slice(0, 10)
+    };
 }
 
 export async function getRepDashboardData(): Promise<RepDashboardStats> {

@@ -25,8 +25,12 @@ export default async function RecordSalesPage() {
         unitsPerCarton: Number(p.unitsPerCarton || 1)
     }));
 
+    const isRep = user.role === 'SALES_REPRESENTATIVE';
+
     const rawCustomers = await prisma.customer.findMany({
-        where: user.role === 'ADMIN' || user.role === 'MANAGER' ? {} : { agencyId: { in: (user as any).agencyIds } },
+        where: isRep 
+            ? { representativeId: user.id } 
+            : (user.role === 'ADMIN' || user.role === 'MANAGER' ? {} : { agencyId: { in: (user as any).agencyIds } }),
         include: {
             transactions: {
                 select: { remainingAmount: true }
@@ -63,6 +67,7 @@ export default async function RecordSalesPage() {
                     products={products}
                     stocks={repStocks}
                     recordSaleAction={recordDirectSale}
+                    currentUser={user}
                 />
             </div>
         </div>

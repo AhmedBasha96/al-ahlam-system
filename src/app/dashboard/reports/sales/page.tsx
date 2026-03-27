@@ -17,8 +17,14 @@ export default async function SalesReportsPage({
     try {
         users = await getUsers();
         currentUser = await getCurrentUser();
+        
+        // Force repId if the user is a SALES_REPRESENTATIVE
+        const repFilterId = currentUser.role === 'SALES_REPRESENTATIVE' 
+            ? currentUser.id 
+            : filters.repId;
+
         rawSessions = await getSalesSessions({
-            repId: filters.repId,
+            repId: repFilterId,
             startDate: filters.start,
             endDate: filters.end
         });
@@ -71,14 +77,18 @@ export default async function SalesReportsPage({
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-2">المندوب</label>
                         <select
                             name="repId"
-                            defaultValue={filters.repId}
-                            className="w-full border rounded-xl p-2.5 bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-gray-700"
+                            defaultValue={currentUser.role === 'SALES_REPRESENTATIVE' ? currentUser.id : filters.repId}
+                            disabled={currentUser.role === 'SALES_REPRESENTATIVE'}
+                            className={`w-full border rounded-xl p-2.5 bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-gray-700 ${currentUser.role === 'SALES_REPRESENTATIVE' ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
                             <option value="">كل المناديب</option>
                             {reps.map((r: any) => (
                                 <option key={r.id} value={r.id}>{r.name}</option>
                             ))}
                         </select>
+                        {currentUser.role === 'SALES_REPRESENTATIVE' && (
+                            <input type="hidden" name="repId" value={currentUser.id} />
+                        )}
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-2">من تاريخ</label>
