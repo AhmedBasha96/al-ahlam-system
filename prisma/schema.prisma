@@ -22,9 +22,7 @@ model User {
   transactions   Transaction[]
   agency         Agency?         @relation(fields: [agencyId], references: [id])
   agencies       Agency[]        @relation("UserAgencies")
-<<<<<<< HEAD
   loadingRequests LoadingRequest[] @relation("RepLoadingRequests")
-=======
   warehouses     Warehouse[]     @relation("KeeperWarehouses")
   journalEntries JournalEntry[]
   confirmedEntries JournalEntry[] @relation("Confirmer")
@@ -32,7 +30,6 @@ model User {
   targets        SalesTarget[]
   pricingType    String?         @default("RETAIL")
   defaultDiscount Decimal         @default(0)
->>>>>>> ac7891d6482bc5561e874b72213b44fc865a65d0
 
   @@index([agencyId], map: "User_agencyId_fkey")
 }
@@ -68,9 +65,7 @@ model Agency {
   directUsers  User[]
   warehouses   Warehouse[]
   users        User[]          @relation("UserAgencies")
-<<<<<<< HEAD
   loadingRequests LoadingRequest[]
-=======
   suppliers    Supplier[]
   banks        Bank[]
   journalEntries JournalEntry[]
@@ -385,13 +380,13 @@ enum InstallmentStatus {
   OVERDUE
 }
 
-<<<<<<< HEAD
 enum LoadingRequestStatus {
   PENDING
   APPROVED
   REJECTED
   COMPLETED
-=======
+}
+
 model JournalEntry {
   id              String            @id @default(uuid())
   amount          Decimal
@@ -449,5 +444,5 @@ enum ClosingStatus {
   OPEN
   CLOSED
   RECONCILED
->>>>>>> ac7891d6482bc5561e874b72213b44fc865a65d0
 }
+
