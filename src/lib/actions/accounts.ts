@@ -2,8 +2,35 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { JournalEntryType, AccountRecordType } from "@prisma/client";
 import { getCurrentUser } from "../actions";
-import { AccountRecordType } from "@prisma/client";
+
+// --- Helper for Professional Accounting ---
+
+export async function recordJournalEntry(
+    tx: any,
+    data: {
+        amount: number,
+        type: JournalEntryType,
+        description: string,
+        referenceId?: string,
+        referenceType?: string,
+        agencyId?: string | null,
+        userId: string
+    }
+) {
+    return await tx.journalEntry.create({
+        data: {
+            amount: data.amount,
+            type: data.type,
+            description: data.description,
+            referenceId: data.referenceId,
+            referenceType: data.referenceType,
+            agencyId: data.agencyId,
+            userId: data.userId
+        }
+    });
+}
 
 // Helper to get agencies for selection
 export async function getAgencies() {
@@ -19,6 +46,8 @@ export async function createAccountRecord(formData: FormData) {
     const type = formData.get('type') as AccountRecordType;
     const date = formData.get('date') as string;
     const agencyIdRaw = formData.get('agencyId') as string;
+    const supplierId = formData.get('supplierId') as string;
+    const customerId = formData.get('customerId') as string;
     const imageFile = formData.get('image') as File | null;
 
     // If agencyId is "GENERAL" or empty, store as null (General Expense)
@@ -41,18 +70,38 @@ export async function createAccountRecord(formData: FormData) {
         imageUrl = `data:${imageFile.type};base64,${base64}`;
     }
 
-    await prisma.accountRecord.create({
-        data: {
-            amount,
-            description,
-            category: category || null,
-            type,
-            agencyId: agencyId, // Can be null now
-            userId: user.id,
-            createdAt: date ? new Date(date) : new Date(),
-            imageUrl: imageUrl,
+    await prisma.$transaction(async (tx) => {
+        const record = await tx.accountRecord.create({
+            data: {
+                amount,
+                description,
+                category: category || null,
+                type,
+                agencyId: agencyId,
+                userId: user.id,
+                supplierId: supplierId || null,
+                customerId: customerId || null,
+                createdAt: date ? new Date(date) : new Date(),
+                imageUrl: imageUrl,
+            }
+        });
+
+        // Record Journal Entry Only if NOT a starting balance for a supplier/customer
+        // (Treasury starting balance SHOULD still hit journal to initialize cash)
+        const isDebtOpeningBalance = category === 'رصيد بداية المدة' && (supplierId || customerId);
+
+        if (!isDebtOpeningBalance) {
+            await recordJournalEntry(tx, {
+                amount,
+                type: type === 'INCOME' ? 'DEBIT' : 'CREDIT',
+                description: `${description} (${category || 'عام'})`,
+                referenceId: record.id,
+                referenceType: type,
+                agencyId: agencyId,
+                userId: user.id
+            });
         }
-    });
+    }, { timeout: 15000 });
 
     revalidatePath('/dashboard/accounts', 'layout');
 }
@@ -79,8 +128,21 @@ export async function getAccountRecords(type?: AccountRecordType, agencyIdFilter
 }
 
 export async function deleteAccountRecord(id: string) {
-    await prisma.accountRecord.delete({ where: { id } });
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+
+    await prisma.$transaction(async (tx) => {
+        // 1. Delete associated journal entries (hits the treasury)
+        await tx.journalEntry.deleteMany({
+            where: { referenceId: id }
+        });
+
+        // 2. Delete the account record
+        await tx.accountRecord.delete({ where: { id } });
+    });
+
     revalidatePath('/dashboard/accounts', 'layout');
+    revalidatePath('/dashboard/accounts/treasury');
 }
 
 // --- Purchase Invoices ---
@@ -91,6 +153,7 @@ export async function createPurchaseInvoice(formData: FormData) {
     const paidAmount = Number(formData.get('paidAmount') || 0);
     const note = formData.get('note') as string;
     const date = formData.get('date') as string;
+    const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
     const items: { productId: string, quantity: number, cost: number }[] = JSON.parse(itemsJson);
@@ -125,24 +188,19 @@ export async function createPurchaseInvoice(formData: FormData) {
                 update: { quantity: { increment: item.quantity } },
                 create: { warehouseId, productId: item.productId, quantity: item.quantity }
             });
-
-            // Optionally update product factory price
-            await tx.product.update({
-                where: { id: item.productId },
-                data: { factoryPrice: item.cost }
-            });
         }
 
         // 2. Create Transaction
-        await tx.transaction.create({
+        const transaction = await (tx as any).transaction.create({
             data: {
                 type: 'PURCHASE',
                 totalAmount,
                 paidAmount,
                 remainingAmount: totalAmount - paidAmount,
                 userId: user.id,
-                agencyId: warehouse.agencyId, // Auto-assign based on warehouse
+                agencyId: warehouse.agencyId,
                 warehouseId,
+                supplierId: supplierId || null,
                 note: note || 'فاتورة مشتريات',
                 createdAt: date ? new Date(date) : new Date(),
                 imageUrl: imageUrl,
@@ -156,7 +214,20 @@ export async function createPurchaseInvoice(formData: FormData) {
                 }
             }
         });
-    });
+
+        // 3. Record Journal Entry (If cash paid)
+        if (paidAmount > 0) {
+            await recordJournalEntry(tx, {
+                amount: paidAmount,
+                type: 'CREDIT',
+                description: `سداد نقدي فاتورة مشتريات رقم ${transaction.id}`,
+                referenceId: transaction.id,
+                referenceType: 'PURCHASE',
+                agencyId: warehouse.agencyId,
+                userId: user.id
+            });
+        }
+    }, { timeout: 15000 });
 
     revalidatePath('/dashboard/accounts', 'layout');
 }
@@ -177,95 +248,43 @@ export async function getPurchaseInvoices(agencyIdFilter?: string) {
 // --- Dashboard & Treasury ---
 
 export async function getTreasuryTransactions(agencyIdFilter?: string | 'GENERAL') {
-    // 1. Build Where Clauses
-    const salesWhere: any = { type: 'SALE', paidAmount: { gt: 0 } };
-    const purchasesWhere: any = { type: 'PURCHASE', paidAmount: { gt: 0 } };
-    const incomeWhere: any = { type: 'INCOME' };
-    const expensesWhere: any = { type: 'EXPENSE' };
-
+    // 1. Build Where Clause
+    const where: any = {};
     if (agencyIdFilter === 'GENERAL') {
-        // Sales/Purchases are always Agency-bound, so General Treasury only has Income/Expenses
-        // actually maybe "General" means "No Agency".
-        salesWhere.agencyId = 'NONE'; // Impossible, just to return empty
-        purchasesWhere.agencyId = 'NONE';
-        incomeWhere.agencyId = null;
-        expensesWhere.agencyId = null;
+        where.agencyId = null;
     } else if (agencyIdFilter) {
-        salesWhere.agencyId = agencyIdFilter;
-        purchasesWhere.agencyId = agencyIdFilter;
-        incomeWhere.agencyId = agencyIdFilter;
-        expensesWhere.agencyId = agencyIdFilter;
+        where.agencyId = agencyIdFilter;
     }
 
-    // 2. Fetch Data
-    const sales = await prisma.transaction.findMany({
-        where: salesWhere,
-        select: { id: true, createdAt: true, paidAmount: true, note: true, agency: { select: { name: true } } }
+    // 2. Fetch from JournalEntry (The Centralized Ledger)
+    const journalEntries = await prisma.journalEntry.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: { agency: { select: { name: true } } }
     });
 
-    const purchases = await prisma.transaction.findMany({
-        where: purchasesWhere,
-        select: { id: true, createdAt: true, paidAmount: true, note: true, warehouse: { select: { name: true } }, agency: { select: { name: true } } }
-    });
+    // 2. Map to UI Format (Ascending for balance calculation)
+    const sortedEntries = [...journalEntries].reverse();
 
-    const income = await prisma.accountRecord.findMany({
-        where: incomeWhere,
-        select: { id: true, createdAt: true, amount: true, description: true, category: true, agency: { select: { name: true } } }
-    });
-
-    const expenses = await prisma.accountRecord.findMany({
-        where: expensesWhere,
-        select: { id: true, createdAt: true, amount: true, description: true, category: true, agency: { select: { name: true } } }
-    });
-
-    // 3. Merge
-    const transactions = [
-        ...sales.map(t => ({
-            id: t.id,
-            date: t.createdAt,
-            amount: Number(t.paidAmount),
-            type: 'SALE',
-            description: `مبيعات (${t.agency.name}) ` + (t.note || ''),
-            agencyName: t.agency.name
-        })),
-        ...purchases.map(t => ({
-            id: t.id,
-            date: t.createdAt,
-            amount: -Number(t.paidAmount),
-            type: 'PURCHASE',
-            description: `شراء (${t.agency.name}) ` + (t.note || ''),
-            warehouseName: t.warehouse?.name,
-            agencyName: t.agency.name
-        })),
-        ...income.map(t => ({
-            id: t.id,
-            date: t.createdAt,
-            amount: Number(t.amount),
-            type: 'INCOME',
-            description: `${t.description} (${t.category || 'عام'})`,
-            agencyName: t.agency?.name || 'عام'
-        })),
-        ...expenses.map(t => ({
-            id: t.id,
-            date: t.createdAt,
-            amount: -Number(t.amount),
-            type: 'EXPENSE',
-            description: `${t.description} (${t.category || 'عام'})`,
-            agencyName: t.agency?.name || 'عام'
-        }))
-    ];
-
-    // 4. Sort
-    transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // 5. Calculate Balance
     let currentBalance = 0;
-    const transactionsWithBalance = transactions.map(t => {
-        currentBalance += t.amount;
-        return { ...t, balance: currentBalance };
+    const transactions = sortedEntries.map(entry => {
+        const amount = Number(entry.amount);
+        const signedAmount = entry.type === 'DEBIT' ? amount : -amount;
+        currentBalance += signedAmount;
+
+        return {
+            id: entry.id,
+            date: entry.createdAt,
+            amount: signedAmount,
+            type: entry.referenceType || 'ENTRY',
+            description: entry.description,
+            agencyName: entry.agency?.name || 'عام',
+            balance: currentBalance
+        };
     });
 
-    return transactionsWithBalance.reverse();
+    // 4. Return for UI (Descending)
+    return transactions.reverse();
 }
 
 export async function getFinancialSummary(startDate: Date, endDate: Date, agencyIdFilter?: string) {
@@ -288,18 +307,50 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         accWhere.agencyId = agencyIdFilter;
     }
 
-    const salesTx = await prisma.transaction.findMany({ where: { ...txWhere, type: 'SALE' }, include: { items: true } });
-    const purchasesTx = await prisma.transaction.findMany({ where: { ...txWhere, type: 'PURCHASE' }, include: { items: true } });
+    const expensesAgg = await prisma.accountRecord.aggregate({
+        where: { ...accWhere, type: 'EXPENSE', category: { notIn: ['رصيد بداية المدة', 'سداد مديونية', 'دفعة للمورد'] } },
+        _sum: { amount: true }
+    });
+    const incomeAgg = await prisma.accountRecord.aggregate({
+        where: { ...accWhere, type: 'INCOME', category: { notIn: ['رصيد بداية المدة', 'تحصيل مديونية', 'دفعة من عميل'] } },
+        _sum: { amount: true }
+    });
 
-    const expensesAgg = await prisma.accountRecord.aggregate({ where: { ...accWhere, type: 'EXPENSE' }, _sum: { amount: true } });
-    const incomeAgg = await prisma.accountRecord.aggregate({ where: { ...accWhere, type: 'INCOME' }, _sum: { amount: true } });
+    const journalEntries = await prisma.journalEntry.findMany({
+        where: {
+            ...accWhere,
+            type: 'DEBIT',
+            referenceType: { in: ['SALE', 'COLLECTION'] }
+        }
+    });
 
-    // Calculate Sales & Cost
     let totalSales = 0;
     let totalCost = 0;
-    for (const tx of salesTx) {
-        totalSales += Number(tx.totalAmount);
-        for (const item of tx.items) totalCost += (item.quantity * Number(item.cost));
+
+    for (const entry of journalEntries) {
+        let saleId = entry.referenceId!;
+        if (entry.referenceType === 'SALE') {
+            const sale = await prisma.transaction.findUnique({
+                where: { id: entry.referenceId! },
+                include: { items: true }
+            });
+
+            if (sale && sale.type === 'SALE') {
+                const fullAmount = Number(sale.totalAmount) || 1;
+                const collectedAmount = Number(entry.amount);
+                const ratio = collectedAmount / fullAmount;
+
+                let saleTotalCost = 0;
+                for (const item of sale.items) {
+                    saleTotalCost += (Number(item.quantity) * Number(item.cost || 0));
+                }
+
+                totalSales += collectedAmount;
+                totalCost += (saleTotalCost * ratio);
+            }
+        } else if (entry.referenceType === 'COLLECTION') {
+            totalSales += Number(entry.amount);
+        }
     }
 
     const expenses = Number(expensesAgg._sum.amount || 0);
@@ -310,7 +361,17 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
     // Treasury Balance (All Time)
     // We need to re-fetch all time transactions for balance
     const allTx = await getTreasuryTransactions(agencyIdFilter as any);
-    const treasuryBalance = allTx.length > 0 ? allTx[0].balance : 0;
+    const treasuryBalance = allTx.length > 0 ? (allTx[0].balance || 0) : 0;
+
+    // Check if initial balance exists for Treasury
+    const hasInitialBalance = await prisma.accountRecord.findFirst({
+        where: {
+            category: 'رصيد بداية المدة',
+            agencyId: agencyIdFilter === 'GENERAL' ? null : (agencyIdFilter || undefined),
+            customerId: null,
+            supplierId: null
+        }
+    }).then(res => !!res);
 
     return {
         totalSales,
@@ -319,6 +380,125 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
         expenses,
         income,
         netProfit,
-        treasuryBalance
+        treasuryBalance,
+        hasInitialBalance
     };
+}
+
+export async function setInitialTreasuryBalance(agencyId: string | null, amount: number) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+
+    await prisma.$transaction(async (tx) => {
+        // 1. Check if an initial balance record already exists for this agency/general
+        const existing = await tx.accountRecord.findFirst({
+            where: {
+                category: 'رصيد بداية المدة',
+                agencyId: agencyId,
+                customerId: null,
+                supplierId: null
+            }
+        });
+
+        if (existing) {
+            // Update existing
+            await tx.accountRecord.update({
+                where: { id: existing.id },
+                data: { amount }
+            });
+            // Update corresponding journal entry
+            await tx.journalEntry.updateMany({
+                where: { referenceId: existing.id },
+                data: { amount }
+            });
+        } else {
+            // Create new
+            const record = await tx.accountRecord.create({
+                data: {
+                    amount,
+                    description: 'رصيد بداية المدة - الخزينة',
+                    category: 'رصيد بداية المدة',
+                    type: 'INCOME',
+                    agencyId: agencyId,
+                    userId: user.id
+                }
+            });
+
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'DEBIT',
+                description: 'رصيد بداية المدة - الخزينة',
+                referenceId: record.id,
+                referenceType: 'INCOME',
+                agencyId: agencyId,
+                userId: user.id
+            });
+        }
+    });
+
+    revalidatePath('/dashboard/accounts/treasury');
+}
+
+export async function updateAccountRecord(id: string, updates: { amount?: number; description?: string; category?: string }) {
+    try {
+        const data: any = {};
+        if (updates.amount !== undefined) data.amount = updates.amount;
+        if (updates.description !== undefined) data.description = updates.description;
+        if (updates.category !== undefined) data.category = updates.category;
+
+        await prisma.$transaction(async (tx) => {
+            await tx.accountRecord.update({
+                where: { id },
+                data
+            });
+
+            // If amount or description changed, update JournalEntry to keep Treasury in sync
+            if (updates.amount !== undefined || updates.description !== undefined) {
+                const journalUpdate: any = {};
+                if (updates.amount !== undefined) journalUpdate.amount = updates.amount;
+                if (updates.description !== undefined) journalUpdate.description = updates.description;
+
+                await tx.journalEntry.updateMany({
+                    where: { referenceId: id },
+                    data: journalUpdate
+                });
+            }
+        });
+
+        revalidatePath('/dashboard/accounts', 'layout');
+        revalidatePath('/dashboard/accounts/treasury');
+        return { success: true };
+    } catch (error) {
+        console.error("updateAccountRecord error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+export async function getAgencySuppliersBalances(agencyId: string) {
+    const suppliers = await (prisma as any).supplier.findMany({
+        where: { agencyId },
+        include: {
+            transactions: {
+                select: { totalAmount: true, paidAmount: true }
+            },
+            accounts: {
+                select: { amount: true, type: true }
+            }
+        }
+    });
+
+    return suppliers.map((supplier: any) => {
+        const transactionsBalance = supplier.transactions.reduce((acc: number, t: any) =>
+            acc + (Number(t.totalAmount) - Number(t.paidAmount || 0)), 0);
+
+        const accountsBalance = supplier.accounts.reduce((acc: number, accRec: any) =>
+            acc + (accRec.type === 'EXPENSE' ? -Number(accRec.amount) : Number(accRec.amount)), 0);
+
+        return {
+            id: supplier.id,
+            name: supplier.name,
+            phone: supplier.phone,
+            currentBalance: transactionsBalance + accountsBalance
+        };
+    });
 }

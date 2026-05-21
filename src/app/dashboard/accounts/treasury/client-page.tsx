@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { getTreasuryTransactions } from '@/lib/actions/accounts';
+import { getTreasuryTransactions, setInitialTreasuryBalance } from '@/lib/actions/accounts';
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Landmark, ArrowUpRight, ArrowDownLeft, Receipt, ShoppingBag, Wallet, Filter } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Landmark, ArrowUpRight, ArrowDownLeft, Receipt, ShoppingBag, Wallet, Filter, Calendar, Search, Scale } from "lucide-react";
 
 interface TreasuryPageProps {
     agencies: { id: string, name: string }[];
@@ -18,6 +19,9 @@ const formatMoney = (amount: number) => {
 
 export default function ClientTreasuryPage({ agencies, initialTransactions }: TreasuryPageProps) {
     const [filter, setFilter] = useState("ALL");
+    const [typeFilter, setTypeFilter] = useState("ALL");
+    const [dateFilter, setDateFilter] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
     const [transactions, setTransactions] = useState(initialTransactions);
     const [loading, setLoading] = useState(false);
 
@@ -28,6 +32,45 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
         const data = await getTreasuryTransactions(agencyId);
         setTransactions(data);
         setLoading(false);
+    };
+
+    const filteredTransactions = transactions.filter(tx => {
+        if (typeFilter !== 'ALL' && tx.type !== typeFilter) return false;
+        if (dateFilter) {
+            const txDate = new Date(tx.date).toISOString().split('T')[0];
+            if (txDate !== dateFilter) return false;
+        }
+        if (searchQuery && !tx.description?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        return true;
+    });
+
+    const [isInitialModalOpen, setIsInitialModalOpen] = useState(false);
+    const [initialAmount, setInitialAmount] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSetInitialBalance = async () => {
+        if (!initialAmount || isNaN(Number(initialAmount))) {
+            alert("يرجى إدخال مبلغ صحيح");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const agencyId = filter === 'GENERAL' ? null : filter;
+            await setInitialTreasuryBalance(agencyId, Number(initialAmount));
+
+            // Refresh data
+            const data = await getTreasuryTransactions(filter === 'ALL' ? undefined : filter);
+            setTransactions(data);
+
+            setIsInitialModalOpen(false);
+            setInitialAmount("");
+            alert("تم تعيين رصيد بداية المدة بنجاح");
+        } catch (error) {
+            alert("خطأ في تعيين الرصيد");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const currentBalance = transactions.length > 0 ? transactions[0].balance : 0;
@@ -50,15 +93,54 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                    <div className="glass-card flex items-center gap-3 p-1.5 pr-4 rounded-full w-full lg:w-auto">
-                        <Filter className="text-emerald-600 w-5 h-5" />
+                    {/* Search Field */}
+                    <div className="relative w-full lg:w-[200px]">
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <Input
+                            type="text"
+                            placeholder="بحث في البيان..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="bg-white/60 border-emerald-100 pr-9 rounded-full h-10 w-full focus:ring-emerald-500"
+                        />
+                    </div>
+
+                    {/* Date Filter */}
+                    <div className="relative w-full lg:w-[160px]">
+                        <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <Input
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="bg-white/60 border-emerald-100 pr-9 rounded-full h-10 w-full focus:ring-emerald-500 text-sm"
+                        />
+                    </div>
+
+                    {/* Type Filter */}
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="w-full lg:w-[160px] bg-white/60 border border-emerald-100 rounded-full h-10 text-slate-700 font-semibold focus:ring-emerald-500">
+                            <SelectValue placeholder="نوع الحركة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">الكل</SelectItem>
+                            <SelectItem value="SALE">مبيعات</SelectItem>
+                            <SelectItem value="PURCHASE">مشتريات</SelectItem>
+                            <SelectItem value="INCOME">إيرادات أخرى</SelectItem>
+                            <SelectItem value="EXPENSE">مصروفات / سداد</SelectItem>
+                            <SelectItem value="INITIAL">رصيد افتتاحي</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {/* Agency Filter */}
+                    <div className="glass-card flex items-center gap-3 p-1.5 pr-4 rounded-full w-full lg:w-[240px]">
+                        <Filter className="text-emerald-600 w-5 h-5 flex-shrink-0" />
                         <Select value={filter} onValueChange={handleFilterChange}>
-                            <SelectTrigger className="w-full lg:w-[280px] border-0 bg-transparent focus:ring-0 text-slate-700 font-semibold h-9">
+                            <SelectTrigger className="w-full border-0 bg-transparent focus:ring-0 text-slate-700 font-semibold h-8 p-0">
                                 <SelectValue placeholder="تصفية التوكيل" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="ALL">الكل (شامل)</SelectItem>
-                                <SelectItem value="GENERAL">-- المصروفات العامة --</SelectItem>
+                                <SelectItem value="ALL">إجمالي الخزينة (المجمع)</SelectItem>
+                                <SelectItem value="GENERAL">الخزينة العامة (أخرى)</SelectItem>
                                 {agencies.map(a => (
                                     <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                                 ))}
@@ -86,16 +168,77 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
                             </div>
                         </div>
 
-                        <div className="hidden md:block text-right">
-                            <div className="text-sm font-medium text-emerald-100 bg-black/10 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
-                                {filter === 'ALL' ? 'الرصيد المجمع لجميع التوكيلات' :
-                                    filter === 'GENERAL' ? 'رصيد المصروفات العامة' :
-                                        `خزينة: ${agencies.find(a => a.id === filter)?.name}`}
+                        <div className="flex flex-col items-end gap-3">
+                            {filter !== 'ALL' && (
+                                <button
+                                    onClick={() => setIsInitialModalOpen(true)}
+                                    className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/20 transition-all text-sm font-bold group/btn"
+                                >
+                                    <Scale className="w-4 h-4 group-hover/btn:rotate-12 transition-transform" />
+                                    تعيين رصيد بداية المدة
+                                </button>
+                            )}
+                            <div className="hidden md:block text-right">
+                                <div className="text-sm font-medium text-emerald-100 bg-black/10 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
+                                    {filter === 'ALL' ? 'الرصيد المجمع لجميع التوكيلات' :
+                                        filter === 'GENERAL' ? 'الخزينة العامة (مصروفات أخرى)' :
+                                            `خزينة: ${agencies.find(a => a.id === filter)?.name}`}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Initial Balance Modal */}
+            {isInitialModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-emerald-950/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="bg-emerald-600 p-6 text-white text-center">
+                            <Landmark className="w-12 h-12 mx-auto mb-4 opacity-80" />
+                            <h3 className="text-2xl font-black">تعيين رصيد البداية</h3>
+                            <p className="text-emerald-100 font-medium mt-1">
+                                {filter === 'GENERAL' ? 'للخزينة العامة' : `لتوكيل: ${agencies.find(a => a.id === filter)?.name}`}
+                            </p>
+                        </div>
+                        <div className="p-8">
+                            <div className="space-y-4">
+                                <label className="block text-sm font-bold text-slate-700">المبلغ الإفتتاحي</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        value={initialAmount}
+                                        onChange={(e) => setInitialAmount(e.target.value)}
+                                        className="w-full text-3xl font-black text-center border-2 border-slate-100 rounded-2xl p-4 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-200"
+                                        placeholder="0"
+                                        autoFocus
+                                    />
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold">EGP</span>
+                                </div>
+                                <p className="text-xs text-slate-400 leading-relaxed">
+                                    * سيتم تسجيل هذا المبلغ كرصيد بداية المدة لهذه الخزينة. إذا كان هناك رصيد مسجل مسبقاً، سيتم تحديثه.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 mt-8">
+                                <button
+                                    onClick={handleSetInitialBalance}
+                                    disabled={isSubmitting || !initialAmount}
+                                    className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? 'جاري الحفظ...' : 'تأكيد الحفظ'}
+                                </button>
+                                <button
+                                    onClick={() => setIsInitialModalOpen(false)}
+                                    className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                                >
+                                    إلغاء
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Transactions Table */}
             <div className="relative z-10">
@@ -124,17 +267,17 @@ export default function ClientTreasuryPage({ agencies, initialTransactions }: Tr
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">جاري تحديث البيانات...</TableCell>
                                     </TableRow>
-                                ) : transactions.length === 0 ? (
+                                ) : filteredTransactions.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-48 text-center text-slate-400">
                                             <div className="flex flex-col items-center gap-2">
                                                 <ShoppingBag className="w-8 h-8 opacity-20" />
-                                                لا توجد حركات مسجلة
+                                                لا توجد حركات مسجلة تطابق الفلاتر
                                             </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    transactions.map((tx) => (
+                                    filteredTransactions.map((tx) => (
                                         <TableRow key={`${tx.type}-${tx.id}`} className="group hover:bg-emerald-50/30 transition-colors border-b-slate-100">
                                             <TableCell className="font-medium text-slate-500 font-mono text-xs py-4">
                                                 {new Date(tx.date).toLocaleString('ar-EG', {

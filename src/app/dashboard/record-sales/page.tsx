@@ -14,15 +14,23 @@ export default async function RecordSalesPage() {
 
     // Convert products Decimal to number for serialization
     const rawProducts = await getProducts();
-    const products = rawProducts.map(p => ({
+    const products = rawProducts.map((p: any) => ({
         ...p,
         factoryPrice: Number(p.factoryPrice),
         wholesalePrice: Number(p.wholesalePrice),
-        retailPrice: Number(p.retailPrice)
+        retailPrice: Number(p.retailPrice),
+        unitFactoryPrice: Number(p.unitFactoryPrice),
+        unitWholesalePrice: Number(p.unitWholesalePrice),
+        unitRetailPrice: Number(p.unitRetailPrice),
+        unitsPerCarton: Number(p.unitsPerCarton || 1)
     }));
 
+    const isRep = user.role === 'SALES_REPRESENTATIVE';
+
     const rawCustomers = await prisma.customer.findMany({
-        where: user.role === 'ADMIN' || user.role === 'MANAGER' ? {} : { agencyId: { in: (user as any).agencyIds } },
+        where: isRep 
+            ? { representativeId: user.id } 
+            : (user.role === 'ADMIN' || user.role === 'MANAGER' ? {} : { agencyId: { in: (user as any).agencyIds } }),
         include: {
             transactions: {
                 select: { remainingAmount: true }
@@ -41,6 +49,11 @@ export default async function RecordSalesPage() {
         };
     });
 
+    // Fetch representative stocks
+    const repStocks = await prisma.stock.findMany({
+        where: { warehouseId: { in: representatives.map(r => r.id) } }
+    });
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -52,7 +65,9 @@ export default async function RecordSalesPage() {
                     representatives={representatives}
                     customers={customers}
                     products={products}
+                    stocks={repStocks}
                     recordSaleAction={recordDirectSale}
+                    currentUser={user}
                 />
             </div>
         </div>

@@ -24,19 +24,17 @@ export default function PricingToggle({ repId, currentType }: { repId: string, c
     const isWholesale = currentType === 'WHOLESALE';
 
     return (
-        <button
-            onClick={handleToggle}
-            disabled={loading}
+        <div
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${isWholesale
-                    ? 'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200'
-                    : 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200'
+                ? 'bg-purple-50 text-purple-400 border-purple-100'
+                : 'bg-blue-50 text-blue-400 border-blue-100'
                 }`}
-            title="اضغط للتغيير"
+            title="نوع التسعير ثابت ولا يمكن تغييره"
         >
-            {loading ? '...' : (isWholesale ? 'سعر جملة' : 'سعر قطاعي')}
+            {isWholesale ? 'سعر جملة' : 'سعر قطاعي'}
             <span className="text-[10px] opacity-60">
-                (تغيير ↻)
+                (مغلق 🔒)
             </span>
-        </button>
+        </div>
     );
 }

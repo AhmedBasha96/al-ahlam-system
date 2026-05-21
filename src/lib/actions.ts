@@ -1,10 +1,11 @@
 'use server';
 
 import prisma from "@/lib/db";
-import { Role } from "@prisma/client";
+import { Role, TransactionType, PaymentType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { recordJournalEntry } from "./actions/accounts";
 
 const g = global as any;
 
@@ -40,24 +41,29 @@ export async function getCurrentUser() {
 
     const dbUser = await prisma.user.findUnique({
         where: { id: mock.id },
-        include: { agencies: true }
+        include: { agencies: true, warehouses: true }
     });
 
     if (!dbUser) {
         return {
             id: mock.id as string,
             role: mock.role as string,
+            name: 'Guest',
             agencyId: mock.agencyId as string | undefined,
-            agencyIds: mock.agencyId ? [mock.agencyId] : []
+            agencyIds: mock.agencyId ? [mock.agencyId] : [],
+            warehouseId: undefined as string | undefined,
+            warehouseIds: [] as string[]
         };
     }
 
     return {
         id: dbUser.id,
         role: dbUser.role,
+        name: dbUser.name,
         agencyId: dbUser.agencyId || undefined,
         agencyIds: dbUser.agencies.map(a => a.id),
-        warehouseId: dbUser.warehouseId || undefined
+        warehouseId: dbUser.warehouses?.[0]?.id || undefined,
+        warehouseIds: dbUser.warehouses?.map(w => w.id) || []
     };
 }
 
@@ -146,7 +152,7 @@ export async function updateAgency(id: string, formData: FormData) {
 
 export async function deleteAgency(id: string) {
     const user = await getCurrentUser();
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error(`Unauthorized`);
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
 
     await prisma.$transaction(async (tx) => {
         // 1. Delete Stock (linked to products of this agency)
@@ -237,19 +243,23 @@ export async function getWarehouses() {
             include: { agency: true }
         });
     } else {
-        const fullUser = await prisma.user.findUnique({ where: { id: user.id } });
-        if (fullUser?.agencyId) {
-            // If it's a warehouse keeper with a specific assigned warehouse, only show that one
-            if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouseId) {
+        const fullUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: { warehouses: true }
+        });
+        if (fullUser?.warehouses && fullUser.warehouses.length > 0) {
+            // If warehouse keeper, only show their assigned warehouses
+            if (user.role === 'WAREHOUSE_KEEPER') {
                 warehouses = await prisma.warehouse.findMany({
-                    where: { id: fullUser.warehouseId },
+                    where: { id: { in: fullUser.warehouses.map(w => w.id) } },
                     include: { agency: true }
                 });
             } else {
-                warehouses = await prisma.warehouse.findMany({
-                    where: { agencyId: fullUser.agencyId },
+                const agencyId = fullUser.agencyId;
+                warehouses = agencyId ? await prisma.warehouse.findMany({
+                    where: { agencyId },
                     include: { agency: true }
-                });
+                }) : [];
             }
         } else {
             warehouses = [];
@@ -288,7 +298,7 @@ export async function createWarehouse(formData: FormData) {
 
 export async function deleteWarehouse(id: string) {
     const user = await getCurrentUser();
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error('Unauthorized');
+    if (user.role !== 'ADMIN') throw new Error('Unauthorized: Admin access required');
 
     await prisma.$transaction(async (tx) => {
         // 1. Delete associated stock records
@@ -348,7 +358,14 @@ export async function createUser(formData: FormData) {
     const agencyIds = formData.getAll('agencyId') as string[];
     const name = formData.get('name') as string;
     const pricingType = formData.get('pricingType') as string;
+    const warehouseIds = formData.getAll('warehouseId') as string[];
     const imageFile = formData.get('image') as File | null;
+
+    // Permission check
+    const currentUser = await getCurrentUser();
+    if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
+        throw new Error('Unauthorized: Only Admins and Managers can create users');
+    }
 
     if (!username || !role || !password) {
         throw new Error('Username, Password, and Role are required');
@@ -364,11 +381,14 @@ export async function createUser(formData: FormData) {
                 role,
                 name,
                 agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
-                pricingType,
+                pricingType: pricingType || null,
                 image: imageBase64,
                 agencies: {
                     connect: agencyIds.filter(id => id !== '').map(id => ({ id }))
-                }
+                },
+                warehouses: role === 'WAREHOUSE_KEEPER' ? {
+                    connect: warehouseIds.filter(wid => wid !== '').map(wid => ({ id: wid }))
+                } : undefined
             }
         });
 
@@ -388,11 +408,18 @@ export async function createUser(formData: FormData) {
 }
 
 export async function updateUser(id: string, formData: FormData) {
+    // Permission check
+    const currentUser = await getCurrentUser();
+    if (currentUser.role !== 'ADMIN') {
+        throw new Error('Unauthorized: Only Admins can update users');
+    }
+
     const username = formData.get('username') as string;
     const name = formData.get('name') as string;
     const role = formData.get('role') as Role;
     const agencyIds = formData.getAll('agencyId') as string[];
     const pricingType = formData.get('pricingType') as string;
+    const warehouseIds = formData.getAll('warehouseId') as string[];
     const imageFile = formData.get('image') as File | null;
 
     const imageBase64 = await fileToBase64(imageFile);
@@ -404,20 +431,43 @@ export async function updateUser(id: string, formData: FormData) {
             name,
             role,
             agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
-            pricingType,
+            pricingType: pricingType || null,
             ...(imageBase64 ? { image: imageBase64 } : {}),
             agencies: {
                 set: agencyIds.filter(id => id !== '').map(id => ({ id }))
-            }
+            },
+            warehouses: role === 'WAREHOUSE_KEEPER' ? {
+                set: warehouseIds.filter(wid => wid !== '').map(wid => ({ id: wid }))
+            } : { set: [] }
         }
     });
 
     revalidatePath('/dashboard', 'layout');
 }
 
+export async function resetUserPassword(userId: string, formData: FormData) {
+    const currentUser = await getCurrentUser();
+    if (currentUser.role !== 'ADMIN') {
+        throw new Error('Unauthorized: Only Admins can reset passwords');
+    }
+
+    const newPassword = formData.get('password') as string;
+    if (!newPassword) throw new Error('Password is required');
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: { password: newPassword }
+    });
+
+    revalidatePath('/dashboard/users');
+    return { success: true };
+}
+
 export async function deleteUser(id: string) {
-    const userRole = await getCurrentUser().then(u => u.role);
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') throw new Error('Unauthorized');
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error('Unauthorized: Admin access required');
+
+    const userRole = user.role;
 
     await prisma.$transaction(async (tx) => {
         // Find if user is a rep to delete their virtual warehouse
@@ -476,21 +526,30 @@ export async function getCustomers() {
                 select: {
                     remainingAmount: true
                 }
+            },
+            accounts: {
+                select: {
+                    amount: true,
+                    type: true
+                }
             }
-        }
+        } as any
     });
 
     // Calculate total debt for each customer
-    return customers.map(customer => {
-        const totalDebt = customer.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+    return (customers as any[]).map(customer => {
+        const transactionDebt = customer.transactions.reduce((sum: number, t: any) => sum + Number(t.remainingAmount || 0), 0);
+        const accountDebt = customer.accounts.reduce((sum: number, acc: any) => {
+            return sum + (acc.type === 'INCOME' ? Number(acc.amount) : -Number(acc.amount));
+        }, 0);
 
-        // Remove transactions to avoid serialization issues with Decimal objects
-        const { transactions, ...customerData } = customer;
+        // Remove transactions and accounts to avoid serialization issues
+        const { transactions, accounts, ...customerData } = customer;
 
         return {
             ...customerData,
             representativeIds: customer.representativeId ? [customer.representativeId] : [],
-            totalDebt
+            totalDebt: transactionDebt + accountDebt
         };
     });
 }
@@ -502,6 +561,9 @@ export async function getCustomerDetails(id: string) {
         include: {
             representative: true,
             agency: true,
+            accounts: {
+                orderBy: { createdAt: 'desc' }
+            },
             transactions: {
                 include: {
                     user: true,
@@ -514,28 +576,59 @@ export async function getCustomerDetails(id: string) {
                 orderBy: {
                     createdAt: 'desc'
                 }
-            }
+            } as any
         }
     });
 
     if (!customer) return null;
 
-    const totalDebt = customer.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+    const c = customer as any;
+    const transactionDebt = c.transactions.reduce((sum: number, t: any) => sum + Number(t.remainingAmount || 0), 0);
+    const accountDebt = c.accounts.reduce((sum: number, acc: any) => {
+        // INCOME for a customer means they owed us that money (Initial Balance or manual debit)
+        // EXPENSE for a customer would mean we paid/credited them (Manual credit)
+        // For simplicity: INCOME = Debt (+), EXPENSE = Credit (-)
+        return sum + (acc.type === 'INCOME' ? Number(acc.amount) : -Number(acc.amount));
+    }, 0);
 
-    return {
-        ...customer,
-        totalDebt,
-        transactions: customer.transactions.map(t => ({
-            ...t,
+    const mergedLedger = [
+        ...c.transactions.map((t: any) => ({
+            id: t.id,
+            type: t.type,
+            createdAt: t.createdAt,
             totalAmount: Number(t.totalAmount),
             paidAmount: Number(t.paidAmount || 0),
             remainingAmount: Number(t.remainingAmount || 0),
-            items: t.items.map(item => ({
+            note: t.note,
+            paymentType: t.paymentType,
+            items: t.items.map((item: any) => ({
                 ...item,
                 price: Number(item.price),
+                originalPrice: Number(item.originalPrice || item.price),
+                discountPercentage: Number(item.discountPercentage || 0),
                 cost: Number(item.cost || 0)
             }))
+        })),
+        ...c.accounts.map((acc: any) => ({
+            id: acc.id,
+            type: 'ACCOUNT_ADJUSTMENT',
+            createdAt: acc.createdAt,
+            totalAmount: acc.type === 'INCOME' ? Number(acc.amount) : 0,
+            paidAmount: acc.type === 'EXPENSE' ? Number(acc.amount) : 0,
+            remainingAmount: acc.type === 'INCOME' ? Number(acc.amount) : -Number(acc.amount),
+            note: acc.description,
+            paymentType: 'MANUAL',
+            items: []
         }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const hasInitialBalance = (c.accounts || []).some((acc: any) => acc.category === 'رصيد بداية المدة');
+
+    return {
+        ...customer,
+        totalDebt: transactionDebt + accountDebt,
+        transactions: mergedLedger, // Reusing transactions name for UI compatibility
+        hasInitialBalance
     };
 }
 
@@ -591,8 +684,102 @@ export async function updateCustomer(id: string, formData: FormData) {
 }
 
 export async function deleteCustomer(id: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+
     await prisma.customer.delete({ where: { id } });
     revalidatePath('/dashboard/customers');
+}
+
+export async function deleteTransaction(id: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+
+    // We use a transaction to ensure all related records are cleaned up or the deletion fails
+    await prisma.$transaction(async (tx) => {
+        // 0. Fetch transaction with items to revert stock
+        const transaction = await tx.transaction.findUnique({
+            where: { id },
+            include: { items: true }
+        });
+
+        if (!transaction) throw new Error("Transaction not found");
+
+        // Revert Stock Changes
+        for (const item of transaction.items) {
+            if (transaction.type === 'SALE') {
+                // Check if it was a Load to Rep (Transfer)
+                if (transaction.warehouseId && transaction.note?.includes('تحميل للمندوب')) {
+                    // Source Warehouse was decremented, Target Rep was incremented
+                    // REVERT: Source Warehouse +, Target Rep -
+                    await tx.stock.upsert({
+                        where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
+                        create: { warehouseId: transaction.warehouseId, productId: item.productId, quantity: item.quantity },
+                        update: { quantity: { increment: item.quantity } }
+                    });
+                    // For decrement, we must ensure we don't go negative if possible, but for revert we just do it
+                    await tx.stock.upsert({
+                        where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
+                        create: { warehouseId: transaction.userId, productId: item.productId, quantity: -item.quantity },
+                        update: { quantity: { decrement: item.quantity } }
+                    });
+                } else {
+                    // Direct Sale: Rep was decremented
+                    // REVERT: Rep +
+                    await tx.stock.upsert({
+                        where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
+                        create: { warehouseId: transaction.userId, productId: item.productId, quantity: item.quantity },
+                        update: { quantity: { increment: item.quantity } }
+                    });
+                }
+            } else if (transaction.type === 'PURCHASE') {
+                // Supply: Warehouse was incremented
+                // REVERT: Warehouse -
+                if (transaction.warehouseId) {
+                    await tx.stock.upsert({
+                        where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
+                        create: { warehouseId: transaction.warehouseId, productId: item.productId, quantity: -item.quantity },
+                        update: { quantity: { decrement: item.quantity } }
+                    });
+                }
+            } else if (transaction.type === 'RETURN_OUT') {
+                // Return to Supplier -> REVERT: Warehouse +
+                if (transaction.warehouseId) {
+                    await tx.stock.upsert({
+                        where: { warehouseId_productId: { warehouseId: transaction.warehouseId, productId: item.productId } },
+                        create: { warehouseId: transaction.warehouseId, productId: item.productId, quantity: item.quantity },
+                        update: { quantity: { increment: item.quantity } }
+                    });
+                }
+            } else if (transaction.type === 'RETURN_IN') {
+                // Return from Customer: Rep was incremented -> REVERT: Rep -
+                await tx.stock.upsert({
+                    where: { warehouseId_productId: { warehouseId: transaction.userId, productId: item.productId } },
+                    create: { warehouseId: transaction.userId, productId: item.productId, quantity: -item.quantity },
+                    update: { quantity: { decrement: item.quantity } }
+                });
+            }
+        }
+
+        // 1. Delete associated journal entries
+        await tx.journalEntry.deleteMany({
+            where: { referenceId: id }
+        });
+
+        // 2. Delete transaction items
+        await tx.transactionItem.deleteMany({
+            where: { transactionId: id }
+        });
+
+        // 3. Delete the transaction itself
+        await tx.transaction.delete({
+            where: { id }
+        });
+    });
+
+    revalidatePath('/dashboard/reports/sales');
+    revalidatePath('/dashboard', 'layout');
+    revalidatePath('/dashboard/accounts/treasury');
 }
 
 // --- Product Actions ---
@@ -601,15 +788,15 @@ export async function getProducts() {
     const user = await getCurrentUser();
 
     if (user.role === 'ADMIN' || user.role === 'MANAGER') {
-        return await prisma.product.findMany({
-            include: { agency: true },
+        return await (prisma as any).product.findMany({
+            include: { agency: true, supplier: true, stocks: true },
             orderBy: { name: 'asc' }
         });
     }
 
-    return await prisma.product.findMany({
+    return await (prisma as any).product.findMany({
         where: { agencyId: user.agencyId },
-        include: { agency: true },
+        include: { agency: true, supplier: true, stocks: true },
         orderBy: { name: 'asc' }
     });
 }
@@ -633,67 +820,133 @@ export async function getProductsWithStock(warehouseId: string) {
 }
 
 export async function createProduct(formData: FormData) {
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-    const barcode = formData.get('barcode') as string;
-    const factoryPrice = Number(formData.get('factoryPrice'));
-    const wholesalePrice = Number(formData.get('wholesalePrice'));
-    const retailPrice = Number(formData.get('retailPrice'));
-    const agencyId = formData.get('agencyId') as string;
-    const imageFile = formData.get('image') as File | null;
+    try {
+        console.log('[createProduct] Starting product creation...');
+        const name = formData.get('name') as string;
+        const description = formData.get('description') as string;
+        const barcode = formData.get('barcode') as string;
+        const factoryPrice = Number(formData.get('factoryPrice'));
+        const wholesalePrice = Number(formData.get('wholesalePrice'));
+        const retailPrice = Number(formData.get('retailPrice'));
+        const agencyId = formData.get('agencyId') as string;
+        const supplierId = formData.get('supplierId') as string;
+        const imageFile = formData.get('image') as File | null;
 
-    if (!name || !agencyId) throw new Error('Name and Agency are required');
+        if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
 
-    const imageBase64 = await fileToBase64(imageFile);
+        console.log(`[createProduct] Validating supplier ${supplierId} for agency ${agencyId}`);
+        // Validate supplier-agency hierarchy
+        const supplier = await (prisma as any).supplier.findUnique({
+            where: { id: supplierId }
+        });
 
-    await prisma.product.create({
-        data: {
-            name,
-            description,
-            barcode: barcode || undefined,
-            factoryPrice,
-            wholesalePrice,
-            retailPrice,
-            agencyId,
-            image: imageBase64,
+        if (!supplier || supplier.agencyId !== agencyId) {
+            throw new Error('المورد المختار لا ينتمي إلى التوكيل المحدد');
         }
-    });
 
-    revalidatePath('/dashboard', 'layout');
+        const imageBase64 = await fileToBase64(imageFile);
+        const unitsPerCarton = Number(formData.get('unitsPerCarton')) || 1;
+        const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
+        const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
+        const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
+        const wholesaleDiscount = Number(formData.get('wholesaleDiscount')) || 0;
+        const retailDiscount = Number(formData.get('retailDiscount')) || 0;
+
+        console.log('[createProduct] Creating product in database...');
+        const product = await (prisma as any).product.create({
+            data: {
+                name,
+                description,
+                barcode: barcode || undefined,
+                factoryPrice: new Decimal(factoryPrice),
+                wholesalePrice: new Decimal(wholesalePrice),
+                retailPrice: new Decimal(retailPrice),
+                agencyId,
+                supplierId,
+                image: imageBase64,
+                unitsPerCarton,
+                unitFactoryPrice: new Decimal(unitFactoryPrice),
+                unitWholesalePrice: new Decimal(unitWholesalePrice),
+                unitRetailPrice: new Decimal(unitRetailPrice),
+                wholesaleDiscount: new Decimal(wholesaleDiscount),
+                retailDiscount: new Decimal(retailDiscount),
+            } as any
+        });
+
+        console.log(`[createProduct] Product created successfully: ${product.id}`);
+        revalidatePath('/dashboard', 'layout');
+    } catch (error) {
+        console.error('[createProduct] Fatal Error:', error);
+        throw error;
+    }
 }
 
 export async function updateProduct(id: string, formData: FormData) {
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-    const barcode = formData.get('barcode') as string;
-    const factoryPrice = Number(formData.get('factoryPrice'));
-    const wholesalePrice = Number(formData.get('wholesalePrice'));
-    const retailPrice = Number(formData.get('retailPrice'));
-    const agencyId = formData.get('agencyId') as string;
-    const imageFile = formData.get('image') as File | null;
+    try {
+        console.log(`[updateProduct] Starting update for product ${id}...`);
+        const name = formData.get('name') as string;
+        const description = formData.get('description') as string;
+        const barcode = formData.get('barcode') as string;
+        const factoryPrice = Number(formData.get('factoryPrice'));
+        const wholesalePrice = Number(formData.get('wholesalePrice'));
+        const retailPrice = Number(formData.get('retailPrice'));
+        const agencyId = formData.get('agencyId') as string;
+        const supplierId = formData.get('supplierId') as string;
+        const imageFile = formData.get('image') as File | null;
 
-    const imageBase64 = await fileToBase64(imageFile);
+        if (!name || !agencyId || !supplierId) throw new Error('الاسم والتوكيل والمورد حقول مطلوبة');
 
-    await prisma.product.update({
-        where: { id },
-        data: {
-            name,
-            description,
-            barcode: barcode || null,
-            factoryPrice,
-            wholesalePrice,
-            retailPrice,
-            agencyId,
-            ...(imageBase64 ? { image: imageBase64 } : {})
+        console.log(`[updateProduct] Validating supplier ${supplierId} for agency ${agencyId}`);
+        // Validate supplier-agency hierarchy
+        const supplier = await (prisma as any).supplier.findUnique({
+            where: { id: supplierId }
+        });
+
+        if (!supplier || supplier.agencyId !== agencyId) {
+            throw new Error('المورد المختار لا ينتمي إلى التوكيل المحدد');
         }
-    });
 
-    revalidatePath('/dashboard', 'layout');
+        const imageBase64 = await fileToBase64(imageFile);
+        const unitsPerCarton = Number(formData.get('unitsPerCarton')) || 1;
+        const unitFactoryPrice = Number(formData.get('unitFactoryPrice')) || 0;
+        const unitWholesalePrice = Number(formData.get('unitWholesalePrice')) || 0;
+        const unitRetailPrice = Number(formData.get('unitRetailPrice')) || 0;
+        const wholesaleDiscount = Number(formData.get('wholesaleDiscount')) || 0;
+        const retailDiscount = Number(formData.get('retailDiscount')) || 0;
+
+        console.log('[updateProduct] Updating product in database...');
+        await (prisma as any).product.update({
+            where: { id },
+            data: {
+                name,
+                description,
+                barcode: barcode || null,
+                factoryPrice: new Decimal(factoryPrice),
+                wholesalePrice: new Decimal(wholesalePrice),
+                retailPrice: new Decimal(retailPrice),
+                agencyId,
+                supplierId,
+                unitsPerCarton,
+                unitFactoryPrice: new Decimal(unitFactoryPrice),
+                unitWholesalePrice: new Decimal(unitWholesalePrice),
+                unitRetailPrice: new Decimal(unitRetailPrice),
+                wholesaleDiscount: new Decimal(wholesaleDiscount),
+                retailDiscount: new Decimal(retailDiscount),
+                ...(imageBase64 ? { image: imageBase64 } : {})
+            } as any
+        });
+
+        console.log(`[updateProduct] Product ${id} updated successfully`);
+        revalidatePath('/dashboard', 'layout');
+    } catch (error) {
+        console.error('[updateProduct] Fatal Error:', error);
+        throw error;
+    }
 }
 
 export async function deleteProduct(id: string) {
     const user = await getCurrentUser();
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error('Unauthorized');
+    if (user.role !== 'ADMIN') throw new Error('Unauthorized: Admin access required');
 
     await prisma.product.delete({ where: { id } });
     revalidatePath('/dashboard', 'layout');
@@ -811,7 +1064,12 @@ export async function supplyStock(
 export async function getTransactions(warehouseId: string) {
     return await prisma.transaction.findMany({
         where: { warehouseId },
-        include: { items: { include: { product: true } }, user: true },
+        include: {
+            items: { include: { product: true } },
+            user: true,
+            customer: true,
+            supplier: true
+        },
         orderBy: { createdAt: 'desc' }
     });
 }
@@ -870,7 +1128,8 @@ export async function loadStockToRep(data: FormData) {
 
     if (!repId || !warehouseId || !itemsJson) throw new Error("Invalid Data");
 
-    let items: { productId: string; quantity: number }[] = JSON.parse(itemsJson);
+    // Expecting items to have { productId: string, cartons: number, units: number, quantity: number (total) }
+    let items: { productId: string; cartons?: number; units?: number; quantity: number }[] = JSON.parse(itemsJson);
     if (items.length === 0) throw new Error("No items to load");
 
     const rep = await prisma.user.findUnique({ where: { id: repId } });
@@ -878,8 +1137,14 @@ export async function loadStockToRep(data: FormData) {
     if (!rep.agencyId) throw new Error("Representative is not assigned to an agency");
 
     await prisma.$transaction(async (tx) => {
+        let grandTotal = 0;
+        const transactionItems = [];
+
         for (const item of items) {
             if (item.quantity <= 0) continue;
+
+            const product = await tx.product.findUnique({ where: { id: item.productId } });
+            if (!product) throw new Error(`Product not found: ${item.productId}`);
 
             // 1. Check if source stock exists and has enough quantity
             const sourceStock = await tx.stock.findUnique({
@@ -887,8 +1152,7 @@ export async function loadStockToRep(data: FormData) {
             });
 
             if (!sourceStock || sourceStock.quantity < item.quantity) {
-                const product = await tx.product.findUnique({ where: { id: item.productId } });
-                throw new Error(`الرصيد غير كافٍ للصنف: ${product?.name || item.productId}`);
+                throw new Error(`الرصيد غير كافٍ للصنف: ${product.name}`);
             }
 
             // 2. Decrement from source warehouse
@@ -904,26 +1168,44 @@ export async function loadStockToRep(data: FormData) {
                 create: { warehouseId: repId, productId: item.productId, quantity: item.quantity }
             });
 
-            // 4. Record Transaction
-            await tx.transaction.create({
-                data: {
-                    type: 'SALE', // Change from PURCHASE to SALE to represent warehouse deduction
-                    totalAmount: 0,
-                    userId: repId,
-                    agencyId: rep.agencyId!,
-                    warehouseId: warehouseId,
-                    note: `تحميل للمندوب: ${rep.name}`,
-                    items: {
-                        create: [{
-                            productId: item.productId,
-                            quantity: item.quantity,
-                            price: 0,
-                            cost: Number(await tx.product.findUnique({ where: { id: item.productId } }).then(p => p?.factoryPrice || 0))
-                        }]
-                    }
-                }
+            // Determine pricing based on rep type
+            const pricing = rep.pricingType === 'WHOLESALE'
+                ? { carton: Number(product.wholesalePrice), unit: Number(product.unitWholesalePrice) }
+                : { carton: Number(product.retailPrice), unit: Number(product.unitRetailPrice) };
+
+            // Calculate cost for this line item based on units and cartons
+            const cartons = item.cartons || 0;
+            const units = item.units || 0;
+
+            const itemTotalValue = (cartons * pricing.carton) + (units * pricing.unit);
+            grandTotal += itemTotalValue;
+
+            // Store the effective unit price in the transaction item
+            // Since quantity is in units, price MUST be unit price for (qty * price) to be correct
+            const effectiveUnitPrice = item.quantity > 0 ? (itemTotalValue / item.quantity) : 0;
+
+            transactionItems.push({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: effectiveUnitPrice,
+                cost: Number(product.unitFactoryPrice || 0)
             });
         }
+
+        // 4. Record Transaction with real calculated total
+        await tx.transaction.create({
+            data: {
+                type: 'SALE', // Warehouse deduction
+                totalAmount: grandTotal,
+                userId: repId,
+                agencyId: rep.agencyId!,
+                warehouseId: warehouseId,
+                note: `تحميل للمندوب: ${rep.name}`,
+                items: {
+                    create: transactionItems
+                }
+            }
+        });
     });
 
     revalidatePath('/dashboard', 'layout');
@@ -960,15 +1242,39 @@ export async function finalizeRepAudit(
                 const soldQty = currentQty - item.actualQuantity;
 
                 if (soldQty > 0) {
-                    const product = await tx.product.findUnique({ where: { id: item.productId } });
-                    const price = user.pricingType === 'WHOLESALE' ? product?.wholesalePrice : product?.retailPrice;
+                    const product = await tx.product.findUnique({ where: { id: item.productId } }) as any;
+                    if (!product) continue;
+
+                    const upc = Number(product.unitsPerCarton) || 1;
+                    const discountPercent = user.pricingType === 'WHOLESALE' ? Number(product.wholesaleDiscount || 0) : Number(product.retailDiscount || 0);
+                    const discountFactor = 1 - (discountPercent / 100);
+
+                    const pricing = user.pricingType === 'WHOLESALE'
+                        ? { carton: Number(product.wholesalePrice) * discountFactor, unit: Number(product.unitWholesalePrice) * discountFactor }
+                        : { carton: Number(product.retailPrice) * discountFactor, unit: Number(product.unitRetailPrice) * discountFactor };
+
+                    const originalPricing = user.pricingType === 'WHOLESALE'
+                        ? { carton: Number(product.wholesalePrice), unit: Number(product.unitWholesalePrice) }
+                        : { carton: Number(product.retailPrice), unit: Number(product.unitRetailPrice) };
+
+                    // Calculate sold value: full cartons first, then pieces
+                    const soldCartons = Math.floor(soldQty / upc);
+                    const soldUnitsRemaining = soldQty % upc;
+                    const totalSoldRowValue = (soldCartons * pricing.carton) + (soldUnitsRemaining * pricing.unit);
+                    const totalOriginalRowValue = (soldCartons * originalPricing.carton) + (soldUnitsRemaining * originalPricing.unit);
+
+                    // Store effective unit prices
+                    const effectiveUnitPrice = soldQty > 0 ? (totalSoldRowValue / soldQty) : 0;
+                    const originalUnitPrice = soldQty > 0 ? (totalOriginalRowValue / soldQty) : 0;
 
                     soldItems.push({
                         productId: item.productId,
-                        productName: product?.name || "منتج غير معروف",
+                        productName: product.name || "منتج غير معروف",
                         quantity: soldQty,
-                        price: Number(price),
-                        total: soldQty * Number(price)
+                        price: effectiveUnitPrice,
+                        originalPrice: originalUnitPrice,
+                        discountPercentage: discountPercent,
+                        total: totalSoldRowValue
                     });
 
                     await tx.stock.update({
@@ -1030,7 +1336,7 @@ export async function finalizeRepAudit(
             }
 
             if (soldItems.length > 0) {
-                const totalAmount = soldItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+                const totalAmount = soldItems.reduce((sum, item) => sum + item.total, 0);
                 const transaction = await tx.transaction.create({
                     data: {
                         type: 'SALE',
@@ -1047,12 +1353,30 @@ export async function finalizeRepAudit(
                                     productId: si.productId,
                                     quantity: si.quantity,
                                     price: si.price,
-                                    cost: prod?.factoryPrice || 0
+                                    originalPrice: si.originalPrice || si.price,
+                                    discountPercentage: si.discountPercentage || 0,
+                                    cost: si.sellUnit === 'CARTON' ? (Number(prod?.factoryPrice || 0) / (Number(prod?.unitsPerCarton) || 1)) : (prod?.unitFactoryPrice || 0)
                                 };
                             }))
                         }
                     }
                 });
+
+                // Record Journal Entry (Removed: Cash stays in rep custody until manual submission)
+                /*
+                if ((paymentInfo.paidAmount || 0) > 0) {
+                    await recordJournalEntry(tx, {
+                        amount: Number(paymentInfo.paidAmount),
+                        type: 'DEBIT',
+                        description: `مبيعات نقدية (عن طريق المندوب ${user.name})`,
+                        referenceId: transaction.id,
+                        referenceType: 'SALE',
+                        agencyId: user.agencyId,
+                        userId: repId
+                    });
+                }
+                */
+
                 return { sessionId: transaction.id, soldItems: soldItems };
             }
             return { sessionId: null, soldItems: [] };
@@ -1073,7 +1397,7 @@ export async function finalizeRepAudit(
 export async function recordSalesSession(
     repId: string,
     repName: string,
-    items: any[],
+    items: { productId: string, quantity: number, price: number, originalPrice?: number, discountPercentage?: number }[],
     customerData?: { id: string, name: string },
     paymentInfo?: { type: 'CASH' | 'CREDIT' | 'PARTIAL', paidAmount?: number }
 ) {
@@ -1096,11 +1420,17 @@ export async function recordSalesSession(
                 items: {
                     create: await Promise.all(items.map(async item => {
                         const product = await prisma.product.findUnique({ where: { id: item.productId } });
+                        const upc = Number(product?.unitsPerCarton) || 1;
+                        const isCarton = (item as any).sellUnit === 'CARTON';
                         return {
                             productId: item.productId,
                             quantity: item.quantity,
                             price: item.price || 0,
-                            cost: product?.factoryPrice || 0
+                            originalPrice: item.originalPrice || item.price || 0,
+                            discountPercentage: item.discountPercentage || 0,
+                            cost: isCarton ? (Number(product?.factoryPrice || 0) / upc) : (product?.unitFactoryPrice || 0),
+                            sellUnit: (item as any).sellUnit || 'PIECE',
+                            unitQuantity: (item as any).unitQuantity || item.quantity
                         };
                     }))
                 }
@@ -1109,6 +1439,20 @@ export async function recordSalesSession(
 
         revalidatePath('/dashboard/reports/sales');
         revalidatePath('/dashboard', 'layout');
+
+        // 3. Record Journal Entry if cash was paid
+        if (transaction.paidAmount && Number(transaction.paidAmount) > 0) {
+            await recordJournalEntry(prisma, {
+                amount: Number(transaction.paidAmount),
+                type: 'DEBIT',
+                description: `مبيعات نقدية (عن طريق المندوب ${repName})`,
+                referenceId: transaction.id,
+                referenceType: 'SALE',
+                agencyId: user.agencyId,
+                userId: repId
+            });
+        }
+
         return { success: true, sessionId: transaction.id };
     } catch (error) {
         console.error("recordSalesSession error:", error);
@@ -1119,7 +1463,7 @@ export async function recordSalesSession(
 export async function recordDirectSale(
     repId: string,
     customerId: string,
-    items: { productId: string, quantity: number, price: number }[],
+    items: { productId: string, quantity: number, price: number, originalPrice?: number, discountPercentage?: number }[],
     paymentInfo: { type: 'CASH' | 'CREDIT' | 'PARTIAL', paidAmount?: number }
 ) {
     try {
@@ -1151,16 +1495,35 @@ export async function recordDirectSale(
                     items: {
                         create: await Promise.all(items.map(async item => {
                             const product = await prisma.product.findUnique({ where: { id: item.productId } });
+                            const upc = Number(product?.unitsPerCarton) || 1;
+                            const isCarton = (item as any).sellUnit === 'CARTON';
                             return {
                                 productId: item.productId,
                                 quantity: item.quantity,
                                 price: item.price,
-                                cost: product?.factoryPrice || 0
+                                originalPrice: item.originalPrice || item.price,
+                                discountPercentage: item.discountPercentage || 0,
+                                cost: isCarton ? (Number(product?.factoryPrice || 0) / upc) : (product?.unitFactoryPrice || 0),
+                                sellUnit: (item as any).sellUnit || 'PIECE',
+                                unitQuantity: (item as any).unitQuantity || item.quantity
                             };
                         }))
                     }
                 }
             });
+            // 3. Record Journal Entry if cash was paid
+            if (transaction.paidAmount && Number(transaction.paidAmount) > 0) {
+                await recordJournalEntry(tx, {
+                    amount: Number(transaction.paidAmount),
+                    type: 'DEBIT',
+                    description: `مبيعات نقدية مباشرة (المندوب: ${user.name})`,
+                    referenceId: transaction.id,
+                    referenceType: 'SALE',
+                    agencyId: user.agencyId,
+                    userId: repId
+                });
+            }
+
             return { sessionId: transaction.id };
         });
 
@@ -1175,7 +1538,7 @@ export async function recordDirectSale(
 export async function getSalesSessions(filters?: { repId?: string; startDate?: string; endDate?: string }) {
     const user = await getCurrentUser();
 
-    return await prisma.transaction.findMany({
+    const transactions = await prisma.transaction.findMany({
         where: {
             type: 'SALE',
             userId: user.role === 'SALES_REPRESENTATIVE' ? user.id : (filters?.repId && filters.repId !== "" ? filters.repId : undefined),
@@ -1187,35 +1550,108 @@ export async function getSalesSessions(filters?: { repId?: string; startDate?: s
         include: { user: true, customer: true, items: { include: { product: true } } },
         orderBy: { createdAt: 'desc' }
     });
+
+    return transactions.map((t: any) => ({
+        ...t,
+        totalAmount: Number(t.totalAmount),
+        paidAmount: Number(t.paidAmount || 0),
+        remainingAmount: Number(t.remainingAmount || 0),
+        items: t.items.map((item: any) => ({
+            ...item,
+            price: Number(item.price),
+            originalPrice: Number(item.originalPrice || item.price),
+            discountPercentage: Number(item.discountPercentage || 0),
+            cost: Number(item.cost || 0)
+        }))
+    }));
 }
 
 export async function recordDebtCollection(
     customerId: string,
     amount: number,
-    note?: string
+    note?: string,
+    repId?: string
 ) {
     try {
         const user = await getCurrentUser();
         const customer = await prisma.customer.findUnique({ where: { id: customerId } });
-        if (!customer) throw new Error("Customer not found");
+        if (!customer) throw new Error("العميل غير موجود");
 
-        const transaction = await prisma.transaction.create({
-            data: {
-                type: 'COLLECTION',
-                totalAmount: 0,
-                userId: user.id,
-                agencyId: customer.agencyId,
-                customerId: customerId,
-                paymentType: 'CASH',
-                paidAmount: amount,
-                remainingAmount: -amount,
-                note: note || "تحصيل مديونية"
+        return await prisma.$transaction(async (tx) => {
+            // 1. Create the COLLECTION transaction
+            const transaction = await tx.transaction.create({
+                data: {
+                    type: 'COLLECTION',
+                    totalAmount: 0,
+                    userId: repId || customer.representativeId || user.id,
+                    agencyId: customer.agencyId,
+                    customerId: customerId,
+                    paymentType: 'CASH',
+                    paidAmount: amount,
+                    remainingAmount: 0, // We will reduce the sales instead
+                    note: note || `تحصيل مديونية من ${customer.name}`
+                }
+            });
+
+            // 2. Find outstanding sales and reduce remainingAmount (FIFO)
+            const outstandingSales = await tx.transaction.findMany({
+                where: {
+                    customerId,
+                    type: 'SALE',
+                    remainingAmount: { gt: 0 }
+                },
+                orderBy: { createdAt: 'asc' }
+            });
+
+            let balanceToApply = amount;
+            for (const sale of outstandingSales) {
+                if (balanceToApply <= 0) break;
+
+                const saleRemaining = Number(sale.remainingAmount);
+                const reduction = Math.min(saleRemaining, balanceToApply);
+
+                await tx.transaction.update({
+                    where: { id: sale.id },
+                    data: {
+                        paidAmount: { increment: reduction },
+                        remainingAmount: { decrement: reduction }
+                    }
+                });
+
+                balanceToApply -= reduction;
             }
-        });
 
-        revalidatePath('/dashboard', 'layout');
-        revalidatePath(`/dashboard/customers/${customerId}`);
-        return { success: true, sessionId: transaction.id };
+            // 3. If there's still balance left (overpayment), we could potentially create a credit entry
+            // For now, we'll just log it or adjust the transaction itself if we had a field for it
+            // but standardizing on reducing sales is key.
+
+            revalidatePath('/dashboard', 'layout');
+            revalidatePath(`/dashboard/customers/${customerId}`);
+            const revalidateRepId = repId || customer.representativeId;
+            if (revalidateRepId) {
+                revalidatePath(`/dashboard/reps/${revalidateRepId}`);
+            }
+            revalidatePath('/dashboard/accounts/treasury');
+
+            // 4. Record Journal Entry (Only if collected directly by office/accountant, not rep)
+            // If repId is provided or collector is a rep, it stays in their custody
+            const collector = await tx.user.findUnique({ where: { id: repId || user.id } });
+            const isRep = collector?.role === 'SALES_REPRESENTATIVE';
+
+            // 4. Record Journal Entry for all collections
+            // Profit reports rely on these entries for cash-basis accounting
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'DEBIT',
+                description: `تحصيل مديونية من ${customer.name} - ${note || ''}`,
+                referenceId: transaction.id,
+                referenceType: 'COLLECTION',
+                agencyId: customer.agencyId,
+                userId: user.id
+            });
+
+            return { success: true, sessionId: transaction.id };
+        }, { timeout: 15000 });
     } catch (error) {
         console.error("recordDebtCollection error:", error);
         return { success: false, error: String(error) };
@@ -1232,22 +1668,37 @@ export async function recordAgencyPayment(
         const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
         if (!agency) throw new Error("Agency not found");
 
-        const transaction = await prisma.transaction.create({
-            data: {
-                type: 'SUPPLY_PAYMENT',
-                totalAmount: 0,
-                userId: user.id,
-                agencyId: agencyId,
-                paymentType: 'CASH',
-                paidAmount: amount,
-                remainingAmount: -amount,
-                note: note || "سداد مديونية توريد"
-            }
-        });
+        return await prisma.$transaction(async (tx) => {
+            const transaction = await tx.transaction.create({
+                data: {
+                    type: 'SUPPLY_PAYMENT',
+                    totalAmount: 0,
+                    userId: user.id,
+                    agencyId: agencyId,
+                    paymentType: 'CASH',
+                    paidAmount: amount,
+                    remainingAmount: -amount,
+                    note: note || "سداد مديونية توريد"
+                }
+            });
 
-        revalidatePath('/dashboard', 'layout');
-        revalidatePath('/dashboard/accounts/reports/purchases');
-        return { success: true, sessionId: transaction.id };
+            // 2. Record Journal Entry (Cash Out from Treasury)
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'CREDIT',
+                description: `سداد مديونية توريد للتوكيل: ${agency.name} - ${note || ''}`,
+                referenceId: transaction.id,
+                referenceType: 'SUPPLY_PAYMENT',
+                agencyId: agencyId,
+                userId: user.id
+            });
+
+            revalidatePath('/dashboard', 'layout');
+            revalidatePath('/dashboard/accounts/reports/purchases');
+            revalidatePath('/dashboard/accounts/treasury');
+
+            return { success: true, sessionId: transaction.id };
+        });
     } catch (error) {
         console.error("recordAgencyPayment error:", error);
         return { success: false, error: String(error) };
@@ -1300,7 +1751,7 @@ export async function getAgencyPurchases() {
     });
 }
 
-export async function updateSalesSession(
+export async function updateTransaction(
     id: string, updates: any) {
     try {
         await prisma.$transaction(async (tx) => {
@@ -1351,10 +1802,374 @@ export async function updateSalesSession(
         });
 
         revalidatePath('/dashboard/reports/sales');
+        revalidatePath('/dashboard/accounts/reports/purchases');
+        revalidatePath('/dashboard/accounts/purchases');
         revalidatePath('/dashboard', 'layout');
         return { success: true };
     } catch (error) {
-        console.error("updateSalesSession error:", error);
+        console.error("updateTransaction error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+export async function getRepDebtBreakdown(repId: string) {
+    const customers = await prisma.customer.findMany({
+        where: { representativeId: repId },
+        include: {
+            transactions: {
+                select: {
+                    remainingAmount: true
+                }
+            }
+        }
+    });
+
+    return customers.map(c => {
+        const debt = c.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+        return {
+            id: c.id,
+            name: c.name,
+            debt: debt
+        };
+    }).filter(c => c.debt !== 0);
+}
+
+// --- Rep Accountability & Submission ---
+
+export async function getRepAccountability(repId: string) {
+    // 1. Total collections by this rep from customers
+    const collections = await prisma.transaction.aggregate({
+        where: {
+            userId: repId,
+            type: 'COLLECTION'
+        },
+        _sum: { paidAmount: true }
+    });
+
+    // 2. Total cash sales by this rep (where they received the cash)
+    const cashSales = await prisma.transaction.aggregate({
+        where: {
+            userId: repId,
+            type: 'SALE',
+            paidAmount: { gt: 0 }
+        },
+        _sum: { paidAmount: true }
+    });
+
+    // 3. Total submissions by this rep to the office
+    const submissions = await prisma.transaction.aggregate({
+        where: {
+            userId: repId,
+            type: 'REP_SUBMISSION'
+        },
+        _sum: { paidAmount: true }
+    });
+
+    const totalCollected = Number(collections._sum?.paidAmount || 0) + Number(cashSales._sum?.paidAmount || 0);
+    const totalSubmitted = Number(submissions._sum?.paidAmount || 0);
+
+    return {
+        totalCollected,
+        totalSubmitted,
+        currentCustody: totalCollected - totalSubmitted
+    };
+}
+
+export async function getRepsWithCustody() {
+    try {
+        const reps = await prisma.user.findMany({
+            where: { role: 'SALES_REPRESENTATIVE' },
+            select: {
+                id: true,
+                name: true,
+                agencyId: true,
+                agency: { select: { name: true } }
+            }
+        });
+
+        const repsWithData = await Promise.all(reps.map(async (rep) => {
+            const data = await getRepAccountability(rep.id);
+
+            // Get last 10 collections for detail view
+            const collections = await prisma.transaction.findMany({
+                where: {
+                    userId: rep.id,
+                    type: { in: ['COLLECTION', 'SALE'] },
+                    paidAmount: { gt: 0 }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                include: { customer: true }
+            });
+
+            return {
+                id: rep.id,
+                name: rep.name,
+                agencyId: rep.agencyId,
+                agencyName: rep.agency?.name || "عام",
+                ...data,
+                recentCollections: collections.map(c => ({
+                    id: c.id,
+                    date: c.createdAt,
+                    amount: Number(c.paidAmount),
+                    customerName: c.customer?.name || "مبيعات نقدية",
+                    type: c.type
+                }))
+            };
+        }));
+
+        return repsWithData;
+    } catch (e) {
+        console.error("getRepsWithCustody error:", e);
+        return [];
+    }
+}
+
+export async function recordRepSubmission(
+    repId: string,
+    amount: number,
+    note?: string
+) {
+    try {
+        const user = await getCurrentUser();
+        const rep = await prisma.user.findUnique({ where: { id: repId } });
+        if (!rep) throw new Error("المندوب غير موجود");
+
+        return await prisma.$transaction(async (tx) => {
+            // 0. Check custody balance before submission
+            const collections = await tx.transaction.aggregate({
+                where: { userId: repId, type: 'COLLECTION' },
+                _sum: { paidAmount: true }
+            });
+            const cashSales = await tx.transaction.aggregate({
+                where: { userId: repId, type: 'SALE' },
+                _sum: { paidAmount: true }
+            });
+            const submissions = await tx.transaction.aggregate({
+                where: { userId: repId, type: 'REP_SUBMISSION' },
+                _sum: { paidAmount: true }
+            });
+
+            const currentCustody = (Number(collections._sum?.paidAmount || 0) + Number(cashSales._sum?.paidAmount || 0)) - Number(submissions._sum?.paidAmount || 0);
+
+            if (amount > currentCustody) {
+                throw new Error(`عذراً، المبلغ المدخل (${amount}) أكبر من إجمالي التحصيلات الموجودة مع المندوب حالياً (${currentCustody})`);
+            }
+
+            // 1. Create REP_SUBMISSION transaction
+            const transaction = await tx.transaction.create({
+                data: {
+                    type: 'REP_SUBMISSION',
+                    totalAmount: 0,
+                    userId: repId,
+                    agencyId: rep.agencyId!,
+                    paymentType: 'CASH',
+                    paidAmount: amount,
+                    remainingAmount: 0,
+                    note: note || `توريد عهدة نقدية من المندوب: ${rep.name}`
+                }
+            });
+
+            // 2. Record Journal Entry (Hits the office treasury)
+            await recordJournalEntry(tx, {
+                amount,
+                type: 'DEBIT',
+                description: `توريد عهدة من المندوب ${rep.name} - ${note || ''}`,
+                referenceId: transaction.id,
+                referenceType: 'REP_SUBMISSION',
+                agencyId: rep.agencyId,
+                userId: user.id
+            });
+
+            revalidatePath('/dashboard', 'layout');
+            revalidatePath('/dashboard/accounts/treasury');
+            return { success: true };
+        });
+    } catch (error) {
+        console.error("recordRepSubmission error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+export async function recordOpeningStock(formData: FormData) {
+    try {
+        const warehouseId = formData.get('warehouseId') as string;
+        const productId = formData.get('productId') as string;
+        const quantity = Number(formData.get('quantity'));
+        const cost = Number(formData.get('cost') || 0);
+        const date = formData.get('date') as string;
+
+        if (!warehouseId || !productId || !quantity) throw new Error('بيانات غير مكتملة');
+
+        const user = await getCurrentUser();
+        const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
+        if (!warehouse) throw new Error("Warehouse not found");
+
+        await prisma.$transaction(async (tx) => {
+            // 1. Update/Upsert Stock
+            await tx.stock.upsert({
+                where: { warehouseId_productId: { warehouseId, productId } },
+                update: { quantity: { increment: quantity } },
+                create: { warehouseId, productId, quantity }
+            });
+
+            // 2. Record Transaction
+            const cartons = Math.floor(quantity / (Number((warehouse as any).product?.unitsPerCarton) || 1));
+            const units = quantity % (Number((warehouse as any).product?.unitsPerCarton) || 1);
+
+            // We need to fetch the product again or trust the front-end breakdown if we passed it
+            // For now, let's just use the quantity and optionally update the note if we want to be fancy.
+            // But since recordOpeningStock is generic, let's keep it simple or fetch product details.
+
+            const product = await tx.product.findUnique({ where: { id: productId } });
+            const upc = product?.unitsPerCarton || 1;
+            const noteCartons = Math.floor(quantity / upc);
+            const noteUnits = quantity % upc;
+
+            let detailedNote = "بضاعة أول المدة";
+            if (upc > 1) {
+                const parts = [];
+                if (noteCartons > 0) parts.push(`${noteCartons} كرتونة`);
+                if (noteUnits > 0) parts.push(`${noteUnits} علبة`);
+                detailedNote += ` (${parts.join(' و ')})`;
+            }
+
+            await (tx as any).transaction.create({
+                data: {
+                    type: 'INITIAL_STOCK' as any,
+                    totalAmount: quantity * cost,
+                    userId: user.id,
+                    agencyId: warehouse.agencyId,
+                    warehouseId: warehouseId,
+                    paymentType: 'CASH',
+                    paidAmount: 0,
+                    remainingAmount: 0,
+                    note: detailedNote,
+                    createdAt: date ? new Date(date) : new Date(),
+                    items: {
+                        create: [{
+                            productId: productId,
+                            quantity: quantity,
+                            price: cost,
+                            cost: cost
+                        }]
+                    }
+                } as any
+            });
+        });
+
+        revalidatePath('/dashboard/warehouses/[id]', 'page');
+        revalidatePath('/dashboard/warehouses', 'layout');
+        return { success: true };
+    } catch (error) {
+        console.error("recordOpeningStock error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+// --- Daily Closing Actions ---
+
+export async function openDailyClosing(agencyId: string, openingBalance: number) {
+    try {
+        const user = await getCurrentUser();
+
+        // Check if there's already an open closing for this user/agency
+        const existing = await prisma.dailyClosing.findFirst({
+            where: { userId: user.id, agencyId, status: 'OPEN' }
+        });
+        if (existing) throw new Error("يوجد يومية مفتوحة بالفعل لهذا المستخدم");
+
+        const closing = await prisma.dailyClosing.create({
+            data: {
+                userId: user.id,
+                agencyId,
+                openingBalance,
+                status: 'OPEN'
+            }
+        });
+
+        revalidatePath('/dashboard/accounts/daily-closing');
+        return { success: true, id: closing.id };
+    } catch (error) {
+        console.error("openDailyClosing error:", error);
+        return { success: false, error: String(error) };
+    }
+}
+
+export async function getOpenDailyClosing(agencyId: string) {
+    try {
+        const user = await getCurrentUser();
+        const closing = await prisma.dailyClosing.findFirst({
+            where: { userId: user.id, agencyId, status: 'OPEN' }
+        });
+        if (!closing) return null;
+
+        // Fetch movements since opening
+        const movements = await prisma.journalEntry.findMany({
+            where: {
+                userId: user.id,
+                agencyId,
+                createdAt: { gte: closing.createdAt }
+            }
+        });
+
+        let totalDebit = 0;
+        let totalCredit = 0;
+        movements.forEach(m => {
+            if (m.type === 'DEBIT') totalDebit += Number(m.amount);
+            else totalCredit += Number(m.amount);
+        });
+
+        return {
+            ...closing,
+            totalDebit,
+            totalCredit,
+            expectedBalance: Number(closing.openingBalance) + totalDebit - totalCredit,
+            movementsCount: movements.length
+        };
+    } catch (error) {
+        console.error("getOpenDailyClosing error:", error);
+        return null;
+    }
+}
+
+export async function finalizeDailyClosing(closingId: string, closingBalance: number, notes?: string) {
+    try {
+        const user = await getCurrentUser();
+        const closing = await prisma.dailyClosing.findUnique({ where: { id: closingId } });
+        if (!closing || closing.status !== 'OPEN') throw new Error("اليومية غير موجودة أو مغلقة بالفعل");
+
+        // Professional way: Fetch all movements and sum with sign
+        const transactionsSinceOpen = await prisma.journalEntry.findMany({
+            where: {
+                userId: closing.userId,
+                agencyId: closing.agencyId,
+                createdAt: { gte: closing.createdAt }
+            }
+        });
+
+        let movement = 0;
+        for (const entry of transactionsSinceOpen) {
+            movement += (entry.type === 'DEBIT' ? Number(entry.amount) : -Number(entry.amount));
+        }
+
+        const expectedBalance = Number(closing.openingBalance) + movement;
+
+        await prisma.dailyClosing.update({
+            where: { id: closingId },
+            data: {
+                closingBalance,
+                expectedBalance,
+                status: 'CLOSED',
+                notes,
+                closedAt: new Date()
+            }
+        });
+
+        revalidatePath('/dashboard/accounts/daily-closing');
+        return { success: true };
+    } catch (error) {
+        console.error("finalizeDailyClosing error:", error);
         return { success: false, error: String(error) };
     }
 }

@@ -8,6 +8,11 @@ type Product = {
     id: string;
     name: string;
     wholesalePrice: number;
+    retailPrice: number;
+    unitWholesalePrice: number;
+    unitRetailPrice: number;
+    wholesaleDiscount: number;
+    retailDiscount: number;
 }
 
 type RepStock = {
@@ -26,9 +31,10 @@ type Props = {
     customers: Customer[];
     products: Product[];
     repStocks: RepStock[];
+    pricingType?: 'WHOLESALE' | 'RETAIL';
 }
 
-export default function NewInvoiceButton({ repId, repName, customers, products, repStocks }: Props) {
+export default function NewInvoiceButton({ repId, repName, customers, products, repStocks, pricingType }: Props) {
     const [isOpen, setIsOpen] = useState(false);
     const searchParams = useSearchParams();
     const customerId = searchParams.get('customerId');
@@ -58,6 +64,7 @@ export default function NewInvoiceButton({ repId, repName, customers, products, 
                     repStocks={repStocks}
                     onClose={() => setIsOpen(false)}
                     initialCustomerId={customerId || undefined}
+                    pricingType={pricingType}
                 />
             )}
         </>

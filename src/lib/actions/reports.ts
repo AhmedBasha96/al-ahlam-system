@@ -4,11 +4,17 @@ import prisma from "@/lib/db";
 import { AccountRecordType } from "@prisma/client";
 import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 
-// Helper function to get date range
 function getDateRange(startDate?: Date, endDate?: Date) {
+    let finalEndDate = endDate || new Date();
+    if (endDate) {
+        // Create a new date to avoid mutating the original
+        finalEndDate = new Date(endDate);
+        // Set to the very end of the day 23:59:59.999
+        finalEndDate.setHours(23, 59, 59, 999);
+    }
     return {
         gte: startDate || new Date(0),
-        lte: endDate || new Date()
+        lte: finalEndDate
     };
 }
 
@@ -22,15 +28,14 @@ export async function getProfitLossReport(
     const agencyFilter = agencyId && agencyId !== 'ALL' ? { agencyId } : {};
 
     // 1. Get Sales Revenue AND Returns matched by date
-    const transactions = await prisma.transaction.findMany({
+    const transactions = await (prisma as any).transaction.findMany({
         where: {
             type: { in: ['SALE', 'RETURN_IN'] },
             createdAt: dateRange,
-            NOT: {
-                note: {
-                    startsWith: 'تحميل للمندوب'
-                }
-            },
+            OR: [
+                { note: null },
+                { NOT: { note: { contains: 'تحميل للمندوب' } } }
+            ],
             ...agencyFilter
         },
         include: {
@@ -92,6 +97,15 @@ export async function getProfitLossReport(
     const breakdownMap = new Map<string, ReturnType<typeof createBucket>>();
 
     // Helper to get or create bucket
+    const journalEntries = await prisma.journalEntry.findMany({
+        where: {
+            createdAt: dateRange,
+            ...agencyFilter,
+            type: 'DEBIT',
+            referenceType: { in: ['SALE', 'COLLECTION'] }
+        }
+    });
+
     const getBucket = (agencyId: string, agencyName: string) => {
         if (!breakdownMap.has(agencyId)) {
             breakdownMap.set(agencyId, createBucket(agencyId, agencyName));
@@ -99,41 +113,101 @@ export async function getProfitLossReport(
         return breakdownMap.get(agencyId)!;
     };
 
-    // Process Transactions (Sales & Returns)
-    transactions.forEach(tx => {
-        // SKIP Internal Transfers: If Sale has 0 amount, it's likely a load-to-rep or stock transfer
-        if (tx.type === 'SALE' && Number(tx.totalAmount) === 0) return;
-
+    // Process Returns: Directly from Transaction
+    const returns = transactions.filter(tx => tx.type === 'RETURN_IN');
+    returns.forEach(tx => {
         let txRevenue = 0;
         let txCost = 0;
-
         tx.items.forEach(item => {
-            const revenue = Number(item.price) * item.quantity;
-            // Fallback: If item.cost is 0, use current factoryPrice from product
-            const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.factoryPrice);
-            const cost = unitCost * item.quantity;
-
-            txRevenue += revenue;
-            txCost += cost;
+            txRevenue += Number(item.price) * item.quantity;
+            const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.unitFactoryPrice);
+            txCost += unitCost * item.quantity;
         });
 
-        // Determine multiplier: Sales add, Returns subtract
-        const multiplier = tx.type === 'SALE' ? 1 : -1;
+        totalRevenue -= txRevenue;
+        totalCost -= txCost;
 
-        totalRevenue += txRevenue * multiplier;
-        totalCost += txCost * multiplier;
-
-        // Add to agency breakdown
         const bucket = tx.agencyId
             ? getBucket(tx.agencyId, tx.agency?.name || 'Unknown Agency')
             : getBucket('GENERAL', 'عام (غير محدد)');
 
-        bucket.salesRevenue += txRevenue * multiplier;
-        bucket.costOfGoodsSold += txCost * multiplier;
-
-        // Update count only for Sales
-        if (tx.type === 'SALE') bucket.salesCount++;
+        bucket.salesRevenue -= txRevenue;
+        bucket.costOfGoodsSold -= txCost;
     });
+
+    // Process Sales: Revenue from Journal Entries (Cash Received)
+    for (const entry of journalEntries) {
+        if (entry.referenceType === 'SALE') {
+            const sale = await prisma.transaction.findUnique({
+                where: { id: entry.referenceId! },
+                include: { items: { include: { product: true } }, agency: true }
+            });
+
+            if (sale && sale.type === 'SALE') {
+                const fullAmount = Number(sale.totalAmount) || 1;
+                const collectedAmount = Number(entry.amount);
+                const ratio = collectedAmount / fullAmount;
+
+                let saleTotalCost = 0;
+                for (const item of sale.items) {
+                    const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.unitFactoryPrice);
+                    saleTotalCost += (item.quantity * unitCost);
+                }
+
+                const realizedRevenue = collectedAmount;
+                const realizedCost = saleTotalCost * ratio;
+
+                totalRevenue += realizedRevenue;
+                totalCost += realizedCost;
+
+                const bucket = sale.agencyId
+                    ? getBucket(sale.agencyId, sale.agency?.name || 'Unknown Agency')
+                    : getBucket('GENERAL', 'عام (غير محدد)');
+
+                bucket.salesRevenue += realizedRevenue;
+                bucket.costOfGoodsSold += realizedCost;
+                bucket.salesCount++;
+            }
+        } else if (entry.referenceType === 'COLLECTION') {
+            const collectionTx = await prisma.transaction.findUnique({
+                where: { id: entry.referenceId! },
+                include: { agency: true }
+            });
+
+            if (collectionTx && collectionTx.customerId) {
+                const customerSales = await prisma.transaction.findMany({
+                    where: { customerId: collectionTx.customerId, type: 'SALE' },
+                    include: { items: { include: { product: true } } }
+                });
+
+                if (customerSales.length > 0) {
+                    let totalSalesValue = 0;
+                    let totalSalesCost = 0;
+                    customerSales.forEach(s => {
+                        totalSalesValue += Number(s.totalAmount);
+                        s.items.forEach(i => {
+                            const unitCost = Number(i.cost) > 0 ? Number(i.cost) : Number(i.product.unitFactoryPrice);
+                            totalSalesCost += (i.quantity * unitCost);
+                        });
+                    });
+
+                    const avgRatio = totalSalesValue > 0 ? (totalSalesCost / totalSalesValue) : 0;
+                    const collectedAmount = Number(entry.amount);
+                    const realizedCost = collectedAmount * avgRatio;
+
+                    totalRevenue += collectedAmount;
+                    totalCost += realizedCost;
+
+                    const bucket = collectionTx.agencyId
+                        ? getBucket(collectionTx.agencyId, collectionTx.agency?.name || 'Unknown Agency')
+                        : getBucket('GENERAL', 'عام (غير محدد)');
+                    
+                    bucket.salesRevenue += collectedAmount;
+                    bucket.costOfGoodsSold += realizedCost;
+                }
+            }
+        }
+    }
 
     salesProfit = totalRevenue - totalCost;
     const otherIncomeTotal = otherIncome.reduce((sum, record) => sum + Number(record.amount), 0);
@@ -201,6 +275,171 @@ export async function getProfitLossReport(
     };
 }
 
+// ============= تقرير تفاصيل أرباح العمليات =============
+export async function getOperationProfitReport(
+    startDate?: Date,
+    endDate?: Date,
+    agencyId?: string
+) {
+    const dateRange = getDateRange(startDate, endDate);
+    const agencyFilter = agencyId && agencyId !== 'ALL' ? { agencyId } : {};
+
+    const journalEntries = await prisma.journalEntry.findMany({
+        where: {
+            createdAt: dateRange,
+            type: 'DEBIT',
+            referenceType: { in: ['SALE', 'COLLECTION'] },
+            ...(agencyId && agencyId !== 'ALL' ? { agencyId } : {})
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    const returns = await prisma.transaction.findMany({
+        where: {
+            type: 'RETURN_IN',
+            createdAt: dateRange,
+            ...agencyFilter
+        },
+        include: { items: { include: { product: true } }, customer: true, user: true, agency: true }
+    });
+
+    const reportItems: any[] = [];
+
+    // Process Cash Inflows (Profit realized)
+    for (const entry of journalEntries) {
+        let saleId = entry.referenceId!;
+        // Handles cases without direct transaction mapping for now to avoid crashing
+        const isCollection = entry.referenceType === 'COLLECTION';
+
+        const sale = await prisma.transaction.findUnique({
+            where: { id: saleId },
+            include: { items: { include: { product: true } }, customer: true, user: true, agency: true }
+        });
+
+        if (sale && sale.type === 'SALE') {
+            const fullAmount = Number(sale.totalAmount) || 1;
+            const collectedAmount = Number(entry.amount);
+            const ratio = collectedAmount / fullAmount;
+
+            let saleTotalCost = 0;
+            for (const item of sale.items) saleTotalCost += (item.quantity * Number(item.cost || 0));
+
+            const realizedCost = saleTotalCost * ratio;
+
+            reportItems.push({
+                id: `${entry.id}-${sale.id}`,
+                date: entry.createdAt,
+                type: 'SALE', // Change to SALE for frontend consistency
+                customerName: sale.customer?.name || "عميل نقدي",
+                repName: sale.user.name,
+                agencyName: sale.agency?.name || "عام",
+                revenue: collectedAmount,
+                cost: realizedCost,
+                profit: collectedAmount - realizedCost,
+                note: entry.description || `دفعة من فاتورة #${sale.id.slice(-6)}`,
+                items: (sale.items as any[]).map((item) => {
+                    const upc = Number(item.product.unitsPerCarton) || 1;
+                    // Use stored sellUnit if available, fallback to modulo heuristic for older entries
+                    const isCarton = item.sellUnit === 'CARTON' || (item.quantity > 0 && item.quantity % upc === 0);
+                    const cartonQty = isCarton ? (item.unitQuantity ? Number(item.unitQuantity) : (item.quantity / upc)) : item.quantity;
+
+                    return {
+                        productName: item.product.name,
+                        quantity: item.quantity * ratio, // Proportional quantity for multi-payment
+                        rawQuantity: item.quantity,
+                        formattedQuantity: isCarton ? `${cartonQty} كرتونة` : `${item.quantity} قطعة`,
+                        unitPrice: Number(item.price),
+                        unitCost: Number(item.cost),
+                        displayPrice: isCarton ? (Number(item.price) * upc) : Number(item.price),
+                        displayCost: isCarton ? (Number(item.cost) * upc) : Number(item.cost),
+                        category: item.product.category,
+                        isCarton,
+                        upc
+                    };
+                })
+            });
+        } else if (sale && sale.type === 'COLLECTION' && sale.customerId) {
+            // For debt collections, we estimate profit based on customer's average margin
+            const customerSales = await prisma.transaction.findMany({
+                where: { customerId: sale.customerId, type: 'SALE' },
+                include: { items: true }
+            });
+
+            let realizedCost = 0;
+            if (customerSales.length > 0) {
+                let totalSalesValue = customerSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+                let totalSalesCost = customerSales.reduce((sum, s) => {
+                    return sum + s.items.reduce((iSum, i) => iSum + (i.quantity * Number(i.cost)), 0);
+                }, 0);
+                const avgRatio = totalSalesValue > 0 ? (totalSalesCost / totalSalesValue) : 0;
+                realizedCost = Number(entry.amount) * avgRatio;
+            }
+
+            reportItems.push({
+                id: `${entry.id}-${sale.id}`,
+                date: entry.createdAt,
+                type: 'DEBT_COLLECTION',
+                customerName: sale.customer?.name || "عميل",
+                repName: sale.user.name,
+                agencyName: sale.agency?.name || "عام",
+                revenue: Number(entry.amount),
+                cost: realizedCost,
+                profit: Number(entry.amount) - realizedCost,
+                note: entry.description || `تحصيل مديونية من ${sale.customer?.name}`,
+                items: []
+            });
+        }
+    }
+
+    // Process Returns (Loss/Negative Profit)
+    returns.forEach(tx => {
+        let revenue = 0;
+        let cost = 0;
+        tx.items.forEach((item: any) => {
+            revenue += Number(item.price) * item.quantity;
+            const unitCost = Number(item.cost) > 0 ? Number(item.cost) : Number(item.product.unitFactoryPrice);
+            cost += unitCost * item.quantity;
+        });
+
+        reportItems.push({
+            id: tx.id,
+            date: tx.createdAt,
+            type: 'RETURN_IN',
+            customerName: tx.customer?.name || "عميل نقدي",
+            repName: tx.user.name,
+            agencyName: tx.agency?.name || "عام",
+        });
+    });
+
+    // 4. Process Expenses (Operating Costs)
+    const expenses = await (prisma as any).accountRecord.findMany({
+        where: {
+            type: 'EXPENSE',
+            createdAt: dateRange,
+            ...agencyFilter
+        },
+        include: { createdBy: true, agency: true }
+    });
+
+    expenses.forEach((exp: any) => {
+        reportItems.push({
+            id: exp.id,
+            date: exp.createdAt,
+            type: 'EXPENSE',
+            customerName: "مصروفات عامة",
+            repName: exp.createdBy?.name || "النظام",
+            agencyName: exp.agency?.name || "عام",
+            revenue: 0,
+            cost: Number(exp.amount),
+            profit: -Number(exp.amount),
+            note: exp.description || `مصروف: ${exp.category || ''}`,
+            items: []
+        });
+    });
+
+    return reportItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
 // ============= تقرير الإيرادات والمصروفات =============
 export async function getIncomeExpensesReport(
     startDate?: Date,
@@ -210,7 +449,7 @@ export async function getIncomeExpensesReport(
     const dateRange = getDateRange(startDate, endDate);
     const agencyFilter = agencyId && agencyId !== 'ALL' ? { agencyId } : {};
 
-    const income = await prisma.accountRecord.findMany({
+    const income = await (prisma as any).accountRecord.findMany({
         where: {
             type: 'INCOME',
             createdAt: dateRange,
@@ -222,7 +461,7 @@ export async function getIncomeExpensesReport(
         orderBy: { createdAt: 'desc' }
     });
 
-    const expenses = await prisma.accountRecord.findMany({
+    const expenses = await (prisma as any).accountRecord.findMany({
         where: {
             type: 'EXPENSE',
             createdAt: dateRange,
@@ -319,62 +558,68 @@ export async function getTreasuryStatusReport(
 ) {
     const dateRange = getDateRange(startDate, endDate);
 
-    // General Treasury
-    const generalIncome = await prisma.accountRecord.findMany({
-        where: {
-            type: 'INCOME',
-            agencyId: null,
-            createdAt: dateRange
-        }
+    const typeLabels: Record<string, string> = {
+        'SALE': 'مبيعات نقدية',
+        'COLLECTION': 'تحصيلات مديونية',
+        'REP_SUBMISSION': 'توريدات مناديب (تسوية)',
+        'INCOME': 'إيرادات متنوعة',
+        'PURCHASE': 'مشتريات',
+        'EXPENSE': 'مصروفات التشغيل',
+        'SUPPLY_PAYMENT': 'سداد موردين',
+        'RETURN_IN': 'مرتجع مبيعات',
+        'RETURN_OUT': 'مرتجع مشتريات',
+    };
+
+    // Fetch all Journal Entries
+    const journalEntries = await prisma.journalEntry.findMany({
+        where: { createdAt: dateRange },
+        orderBy: { createdAt: 'desc' }
     });
 
-    const generalExpenses = await prisma.accountRecord.findMany({
-        where: {
-            type: 'EXPENSE',
-            agencyId: null,
-            createdAt: dateRange
-        }
-    });
+    const processEntries = (entries: any[]) => {
+        const totalIncome = entries
+            .filter(e => e.type === 'DEBIT')
+            .reduce((sum, e) => sum + Number(e.amount), 0);
+        const totalExpenses = entries
+            .filter(e => e.type === 'CREDIT')
+            .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    const generalTotalIncome = generalIncome.reduce((sum, r) => sum + Number(r.amount), 0);
-    const generalTotalExpenses = generalExpenses.reduce((sum, r) => sum + Number(r.amount), 0);
-    const generalBalance = generalTotalIncome - generalTotalExpenses;
+        const revenueBreakdown: Record<string, number> = {};
+        entries.filter(e => e.type === 'DEBIT').forEach(e => {
+            const key = typeLabels[e.referenceType || ''] || e.description || 'أخرى';
+            revenueBreakdown[key] = (revenueBreakdown[key] || 0) + Number(e.amount);
+        });
 
-    // Agency Treasuries
-    const agencies = await prisma.agency.findMany({
-        include: {
-            accounts: {
-                where: {
-                    createdAt: dateRange
-                }
-            }
-        }
-    });
-
-    const agencyTreasuries = agencies.map(agency => {
-        const income = agency.accounts.filter(r => r.type === 'INCOME');
-        const expenses = agency.accounts.filter(r => r.type === 'EXPENSE');
-
-        const totalIncome = income.reduce((sum, r) => sum + Number(r.amount), 0);
-        const totalExpenses = expenses.reduce((sum, r) => sum + Number(r.amount), 0);
+        const expenseBreakdown: Record<string, number> = {};
+        entries.filter(e => e.type === 'CREDIT').forEach(e => {
+            const key = typeLabels[e.referenceType || ''] || e.description || 'أخرى';
+            expenseBreakdown[key] = (expenseBreakdown[key] || 0) + Number(e.amount);
+        });
 
         return {
-            agencyId: agency.id,
-            agencyName: agency.name,
             totalIncome,
             totalExpenses,
-            balance: totalIncome - totalExpenses
+            balance: totalIncome - totalExpenses,
+            revenueBreakdown: Object.entries(revenueBreakdown).map(([name, value]) => ({ name, value })),
+            expenseBreakdown: Object.entries(expenseBreakdown).map(([name, value]) => ({ name, value }))
         };
-    });
+    };
+
+    // General Treasury
+    const generalTreasury = processEntries(journalEntries.filter(e => e.agencyId === null));
+
+    // Agency Treasuries
+    const agencies = await prisma.agency.findMany();
+    const agencyTreasuries = agencies.map(agency => ({
+        agencyId: agency.id,
+        agencyName: agency.name,
+        ...processEntries(journalEntries.filter(e => e.agencyId === agency.id))
+    }));
 
     return {
-        generalTreasury: {
-            totalIncome: generalTotalIncome,
-            totalExpenses: generalTotalExpenses,
-            balance: generalBalance
-        },
+        generalTreasury,
         agencyTreasuries,
-        totalBalance: generalBalance + agencyTreasuries.reduce((sum, a) => sum + a.balance, 0)
+        totalBalance: generalTreasury.balance + agencyTreasuries.reduce((sum, a) => sum + a.balance, 0)
     };
 }
 
@@ -387,7 +632,7 @@ export async function getPurchasesReport(
     const dateRange = getDateRange(startDate, endDate);
     const warehouseFilter = warehouseId && warehouseId !== 'ALL' ? { warehouseId } : {};
 
-    const purchases = await prisma.transaction.findMany({
+    const purchases = await (prisma as any).transaction.findMany({
         where: {
             type: 'PURCHASE',
             createdAt: dateRange,

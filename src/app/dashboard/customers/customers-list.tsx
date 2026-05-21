@@ -1,6 +1,6 @@
 'use client';
 
-import { deleteCustomer, updateCustomer } from "@/lib/actions";
+import { updateCustomer, deleteCustomer } from "@/lib/actions";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -25,7 +25,6 @@ type Props = {
 
 export default function CustomersList({ customers, representatives, agencies, userRole }: Props) {
     const isRep = userRole === 'SALES_REPRESENTATIVE';
-    const router = useRouter();
     const [search, setSearch] = useState('');
     const [repFilter, setRepFilter] = useState('');
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -37,13 +36,6 @@ export default function CustomersList({ customers, representatives, agencies, us
         const matchesRep = repFilter === '' || representativeIds.includes(repFilter);
         return matchesSearch && matchesRep;
     });
-
-    const handleDelete = async (id: string) => {
-        if (confirm('هل أنت متأكد من حذف هذا العميل؟')) {
-            await deleteCustomer(id);
-            router.refresh();
-        }
-    };
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -90,7 +82,6 @@ export default function CustomersList({ customers, representatives, agencies, us
                         {filteredCustomers.map((customer) => {
                             const customerRepIds = customer?.representativeIds || [];
                             const reps = representatives.filter(r => customerRepIds.includes(r.id));
-                            const agency = agencies.find(a => a.id === customer.agencyId);
                             return (
                                 <tr key={customer.id} className="hover:bg-emerald-50/30 transition-colors group">
                                     <td className="px-6 py-4">
@@ -130,22 +121,31 @@ export default function CustomersList({ customers, representatives, agencies, us
                                             عمل فاتورة 📄
                                         </Link>
                                         {!isRep && (
-                                            <>
-                                                <button
-                                                    onClick={() => setEditingCustomer(customer)}
-                                                    className="text-emerald-600 hover:text-emerald-800 p-2 transition-colors"
-                                                    title="تعديل"
-                                                >
-                                                    ✏️
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(customer.id)}
-                                                    className="text-red-400 hover:text-red-600 p-2 transition-colors"
-                                                    title="حذف"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </>
+                                            <button
+                                                onClick={() => setEditingCustomer(customer)}
+                                                className="text-emerald-600 hover:text-emerald-800 p-2 transition-colors"
+                                                title="تعديل"
+                                            >
+                                                ✏️
+                                            </button>
+                                        )}
+                                        {userRole === 'ADMIN' && (
+                                            <button
+                                                onClick={async () => {
+                                                    if (confirm(`هل أنت متأكد من حذف العميل "${customer.name}"؟`)) {
+                                                        try {
+                                                            await deleteCustomer(customer.id);
+                                                            window.location.reload();
+                                                        } catch (error: any) {
+                                                            alert(error.message || "حدث خطأ أثناء الحذف");
+                                                        }
+                                                    }
+                                                }}
+                                                className="text-red-500 hover:text-red-700 p-2 transition-colors"
+                                                title="حذف"
+                                            >
+                                                🗑️
+                                            </button>
                                         )}
                                     </td>
                                 </tr>

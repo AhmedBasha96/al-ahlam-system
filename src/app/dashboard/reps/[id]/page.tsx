@@ -1,9 +1,11 @@
-import { getProducts, getRepStocks, getUsers, getRepCustomers, getWarehouses, getCurrentUser, getSalesSessions } from "@/lib/actions";
+import { getProducts, getRepStocks, getUsers, getRepCustomers, getWarehouses, getCurrentUser, getSalesSessions, getRepDebtBreakdown } from "@/lib/actions";
 import Link from "next/link";
 import RepAuditForm from "./rep-audit-form";
 import NewInvoiceButton from "./new-invoice-button";
 import PricingToggle from "./pricing-toggle";
 import DebugInfo from "./debug-info";
+import RepDebtBreakdown from "./rep-debt-breakdown";
+import RepSessionTable from "./rep-session-table";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,21 +20,54 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
     let salesSessions: any[] = [];
     let rep: any = null;
     let currentUser = { role: 'GUEST' } as any;
+    let customerDebtBreakdown: any[] = [];
 
     try {
         rawProducts = await getProducts();
         rawRepStocks = await getRepStocks(repId);
-        users = await getUsers();
-        repCustomers = await getRepCustomers(repId);
-        warehouses = await getWarehouses();
-        // salesSessions fetch moved to safely execute
+        const rawUsers = await getUsers();
+        users = rawUsers.map((u: any) => ({
+            id: String(u.id),
+            name: String(u.name || ""),
+            email: String(u.email || ""),
+            role: String(u.role || ""),
+            agencyId: u.agencyId ? String(u.agencyId) : undefined,
+            pricingType: u.pricingType ? String(u.pricingType) : undefined,
+            warehouseId: u.warehouseId ? String(u.warehouseId) : undefined
+        }));
+        const rawRepCustomers = await getRepCustomers(repId);
+        repCustomers = rawRepCustomers.map((c: any) => ({
+            id: String(c.id),
+            name: String(c.name || ""),
+            phone: c.phone ? String(c.phone) : undefined,
+            address: c.address ? String(c.address) : undefined
+        }));
+        const rawWarehouses = await getWarehouses();
+        warehouses = rawWarehouses.map((w: any) => ({
+            id: String(w.id),
+            name: String(w.name || ""),
+            agencyId: String(w.agencyId || "")
+        }));
         salesSessions = await getSalesSessions({ repId });
         rep = users.find((u: any) => u.id === repId);
         currentUser = await getCurrentUser();
+        customerDebtBreakdown = await getRepDebtBreakdown(repId);
     } catch (e) { console.error("RepPage data fetch error:", e); }
 
     const allProducts = rawProducts.map((p: any) => ({
-        ...p, factoryPrice: Number(p.factoryPrice), wholesalePrice: Number(p.wholesalePrice), retailPrice: Number(p.retailPrice)
+        id: String(p.id),
+        name: String(p.name || ""),
+        image: p.image ? String(p.image) : null,
+        factoryPrice: Number(p.factoryPrice || 0),
+        wholesalePrice: Number(p.wholesalePrice || 0),
+        retailPrice: Number(p.retailPrice || 0),
+        unitsPerCarton: Number(p.unitsPerCarton || 1),
+        unitFactoryPrice: Number(p.unitFactoryPrice || 0),
+        unitWholesalePrice: Number(p.unitWholesalePrice || 0),
+        unitRetailPrice: Number(p.unitRetailPrice || 0),
+        wholesaleDiscount: Number(p.wholesaleDiscount || 0),
+        retailDiscount: Number(p.retailDiscount || 0),
+        agencyId: String(p.agencyId || "")
     }));
     const repStocks = rawRepStocks.map(s => ({ productId: s.productId, quantity: s.quantity }));
 
@@ -70,6 +105,7 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                         customers={repCustomers}
                         products={allProducts}
                         repStocks={repStocks}
+                        pricingType={rep.pricingType}
                     />
                     <Link href="/dashboard/users" className="text-emerald-600 hover:text-emerald-800 flex items-center gap-2 font-medium">
                         <span>&larr;</span> العودة لقائمة المستخدمين
@@ -102,16 +138,18 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                 </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-blue-800 text-sm flex items-start gap-3 shadow-sm">
-                <span className="text-xl">💡</span>
-                <div>
-                    <p className="font-bold mb-1">كيفية الجرد:</p>
-                    <p>قم بإدخال الكمية المتبقية في العربية حالياً في خانة <strong>"الكمية الموجودة فعلياً"</strong>. سيقوم النظام تلقائياً بحساب المباع بناءً على العهدة المسجلة له.</p>
+            {currentUser.role !== 'SALES_REPRESENTATIVE' && (
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-blue-800 text-sm flex items-start gap-3 shadow-sm">
+                    <span className="text-xl">💡</span>
+                    <div>
+                        <p className="font-bold mb-1">كيفية الجرد:</p>
+                        <p>قم بإدخال الكمية المتبقية في العربية حالياً في خانة <strong>"الكمية الموجودة فعلياً"</strong>. سيقوم النظام تلقائياً بحساب المباع بناءً على العهدة المسجلة له.</p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-3 space-y-6">
                     <RepAuditForm
                         repId={repId}
                         repName={rep.name}
@@ -121,41 +159,29 @@ export default async function RepStockPage({ params }: { params: Promise<{ id: s
                         warehouses={warehouses}
                         userRole={currentUser.role}
                     />
+
+                    <RepSessionTable
+                        sessions={salesSessions}
+                        userRole={currentUser.role}
+                    />
                 </div>
 
-                <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-white rounded-xl shadow-sm border border-emerald-100 p-5">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="bg-emerald-100 p-1 rounded-lg text-emerald-700 text-sm">👥</span>
-                            العملاء التابعين للمندوب ({repCustomers.length})
-                        </h3>
-                        {repCustomers.length > 0 ? (
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {repCustomers.map((customer: any) => (
-                                    <div key={customer.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-emerald-50 transition-colors">
-                                        <p className="font-bold text-gray-900 text-sm">{customer.name}</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">📞 {customer.phone || 'بدون رقم'}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-gray-400 text-sm italic text-center py-4">لا يوجد عملاء مضافين لهذا المندوب.</p>
-                        )}
-                        <Link href="/dashboard/customers" className="block mt-4 text-center text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 py-2 rounded-lg transition-colors">
-                            إدارة العملاء &rarr;
-                        </Link>
-                    </div>
+                <div className="lg:col-span-1 space-y-6">
+                    {/* Customer Debt Breakdown Component */}
+                    <RepDebtBreakdown repId={repId} customers={customerDebtBreakdown} />
 
                     <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 text-xs text-emerald-800">
                         <p className="font-bold mb-1">💡 ملحوظة:</p>
-                        <p>يتم ربط العميل بالمندوب لتسهيل عملية التحصيل وتسجيل المديونيات بشكل دقيق عند إصدار الفاتورة.</p>
+                        <p>يتم عرض ديون العملاء المرتبطين بك هنا. عند تحصيل أي مبلغ، سيتم خصمه من مديونيتك الإجمالية ومن حساب العميل في نفس الوقت.</p>
                     </div>
                 </div>
             </div>
 
-            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-gray-600 text-xs">
-                <strong>ملاحظة تقنية:</strong> عند "تأكيد الجرد"، يتم تحديث رصيد المندوب ليصبح مساوياً للكمية الفعلية التي أدخلتها. لزيادة العهدة مجدداً، استخدم "إذن صرف" من شاشة المخازن.
-            </div>
+            {currentUser.role !== 'SALES_REPRESENTATIVE' && (
+                <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-gray-600 text-xs text-center">
+                    <strong>ملاحظة تقنية:</strong> عند "تأكيد الجرد"، يتم تحديث رصيد المندوب ليصبح مساوياً للكمية الفعلية التي أدخلتها. لزيادة العهدة مجدداً، استخدم "إذن صرف" من شاشة المخازن.
+                </div>
+            )}
 
             <DebugInfo rep={rep} products={allProducts} />
         </div>

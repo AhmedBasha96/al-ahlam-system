@@ -1,0 +1,127 @@
+import { getFinancialSummary, getAgencySuppliersBalances } from "@/lib/actions/accounts";
+import { getAgencies } from "@/lib/actions";
+import { Card, CardContent } from "@/components/ui/card";
+import { Building2, TrendingUp, TrendingDown, Zap, Wallet, ArrowLeft, Phone } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import SuppliersManager from "./suppliers-manager";
+
+export const dynamic = 'force-dynamic';
+
+export default async function AgencyAccountsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const agencies = await getAgencies();
+    const agency = agencies.find(a => a.id === id);
+
+    if (!agency) {
+        notFound();
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const summary = await getFinancialSummary(startOfMonth, endOfMonth, id);
+    let supplierBalances = await getAgencySuppliersBalances(id);
+
+    // Serialize agencies
+    const serializedAgencies = agencies.map((a: any) => ({
+        ...a,
+        createdAt: a.createdAt ? a.createdAt.toISOString() : undefined,
+        updatedAt: a.updatedAt ? a.updatedAt.toISOString() : undefined,
+    }));
+
+    // Serialize supplier balances
+    supplierBalances = supplierBalances.map((s: any) => ({
+        ...s,
+        currentBalance: Number(s.currentBalance || 0),
+        // Ensure no hidden Dates are passed if any in future schema additions
+    }));
+
+    const formatMoney = (amount: number) => {
+        return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(amount);
+    };
+
+    return (
+        <div className="space-y-8 p-6 bg-slate-50 min-h-screen" dir="rtl">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard/accounts" className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-50 transition-colors border border-slate-200">
+                        <ArrowLeft className="w-5 h-5 text-slate-600" />
+                    </Link>
+                    <div>
+                        <h1 className="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                            حسابات {agency.name}
+                        </h1>
+                        <p className="text-slate-500 mt-1 font-medium">التقرير المالي وحسابات الموردين التابعة للتوكيل</p>
+                    </div>
+                </div>
+                <div className="bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 flex items-center gap-2 text-sm font-semibold text-slate-600">
+                    <Building2 className="w-4 h-4 text-indigo-500" />
+                    {now.toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}
+                </div>
+            </div>
+
+            {/* Financial Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="border-none shadow-md bg-white rounded-3xl overflow-hidden">
+                    <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-blue-50 rounded-2xl">
+                                <TrendingUp className="w-6 h-6 text-blue-600" />
+                            </div>
+                        </div>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">إجمالي المبيعات</p>
+                        <h3 className="text-2xl font-black text-slate-900 mt-1">{formatMoney(summary.totalSales)}</h3>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-md bg-white rounded-3xl overflow-hidden">
+                    <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-orange-50 rounded-2xl">
+                                <TrendingDown className="w-6 h-6 text-orange-600" />
+                            </div>
+                        </div>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">المصروفات</p>
+                        <h3 className="text-2xl font-black text-slate-900 mt-1">{formatMoney(summary.expenses)}</h3>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-md bg-white rounded-3xl overflow-hidden">
+                    <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-purple-50 rounded-2xl">
+                                <Zap className="w-6 h-6 text-purple-600" />
+                            </div>
+                        </div>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">إجمالي الربح</p>
+                        <h3 className="text-2xl font-black text-slate-900 mt-1">{formatMoney(summary.grossProfit)}</h3>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-md bg-white rounded-3xl overflow-hidden">
+                    <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-emerald-50 rounded-2xl">
+                                <Wallet className="w-6 h-6 text-emerald-600" />
+                            </div>
+                        </div>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">الخزينة (التوكيل)</p>
+                        <h3 className="text-2xl font-black text-slate-900 mt-1">{formatMoney(summary.treasuryBalance)}</h3>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Suppliers Management Section */}
+            <div className="bg-white rounded-3xl shadow-xl p-8 border border-slate-100">
+                <SuppliersManager
+                    agencyId={id}
+                    suppliers={supplierBalances}
+                    agencies={serializedAgencies}
+                />
+            </div>
+        </div>
+    );
+}

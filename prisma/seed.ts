@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
 
+console.log("DB URL:", process.env.DATABASE_URL);
+
 const prisma = new PrismaClient({
     log: ['query', 'info', 'warn', 'error']
 })
@@ -16,7 +18,7 @@ async function main() {
 
         // Hash password
         console.log('Hashing password...')
-        const hashedPassword = await bcrypt.hash('1', 10)
+        const hashedPassword = await bcrypt.hash('Ahmed3300@@', 10)
         console.log(`Password hash: ${hashedPassword.substring(0, 30)}...`)
 
         // Create or update default user
@@ -43,6 +45,31 @@ async function main() {
         console.log(`   ID: ${user.id}`)
         console.log(`   Role: ${user.role}`)
         console.log(`   Created: ${user.createdAt}`)
+
+        // Create default agency (for reports + user links)
+        const agency = await prisma.agency.upsert({
+            where: { id: 'agency-id' },
+            update: {},
+            create: {
+                id: 'agency-id',
+                name: 'فرع الاحلام الرئيسي',
+                address: 'Main branch',
+                phone: '+201234567890'
+            }
+        });
+
+        // Create default warehouse linked to agency
+        const warehouse = await prisma.warehouse.upsert({
+            where: { id: 'warehouse-id' },
+            update: {},
+            create: {
+                id: 'warehouse-id',
+                name: 'المخزن الرئيسي',
+                agencyId: agency.id
+            }
+        });
+
+        console.log('✅ Base infrastructure seeded (Admin, Agency, Warehouse)');
 
         // Verify by counting
         const userCount = await prisma.user.count()

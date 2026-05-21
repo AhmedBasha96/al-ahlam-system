@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/actions";
-import Image from "next/image";
+import Sidebar from "@/components/layout/sidebar";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +16,7 @@ export default async function DashboardLayout({
     }
     const role = currentUser.role || 'GUEST';
 
+<<<<<<< HEAD
     console.log('[Dashboard Layout] Current user:', currentUser);
 
     // Define which menu items are visible for each role
@@ -162,10 +162,18 @@ export default async function DashboardLayout({
                     </Link>
                 </div>
             </aside>
+=======
+    return (
+        <div className="flex flex-col md:flex-row min-h-screen bg-aurora overflow-x-hidden">
+            {/* Responsive Sidebar */}
+            <Sidebar role={role} />
+>>>>>>> ac7891d6482bc5561e874b72213b44fc865a65d0
 
             {/* Main Content Area */}
-            <main className="flex-1 p-8 overflow-y-auto">
-                {children}
+            <main className="flex-1 w-full p-4 md:p-8 overflow-x-hidden min-h-screen">
+                <div className="max-w-7xl mx-auto">
+                    {children}
+                </div>
             </main>
         </div>
     );

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ui-custom/confirm-dialog";
 
 type Product = {
     id: string;
@@ -9,12 +10,16 @@ type Product = {
     name: string;
     wholesalePrice: number;
     retailPrice: number;
+    unitWholesalePrice: number;
+    unitRetailPrice: number;
+    unitsPerCarton: number;
 }
 
 type User = {
     id: string;
     name: string;
     role: string;
+    pricingType?: string | null;
 }
 
 type Customer = {
@@ -22,9 +27,16 @@ type Customer = {
     name: string;
 }
 
-type OrderItem = {
+type Stock = {
+    warehouseId: string;
     productId: string;
     quantity: number;
+}
+
+type OrderItem = {
+    productId: string;
+    cartons: number;
+    units: number;
     price: number;
 }
 
@@ -32,20 +44,44 @@ type Props = {
     representatives: User[];
     customers: Customer[];
     products: Product[];
+    stocks: Stock[];
     recordSaleAction: (repId: string, customerId: string, items: any[], paymentInfo: any) => Promise<any>;
+    currentUser?: any;
 }
 
-export default function RecordSalesForm({ representatives, customers, products, recordSaleAction }: Props) {
+export default function RecordSalesForm({ representatives, customers, products, stocks, recordSaleAction, currentUser }: Props) {
+    const isRep = currentUser?.role === 'SALES_REPRESENTATIVE';
     const [loading, setLoading] = useState(false);
-    const [items, setItems] = useState<OrderItem[]>([{ productId: "", quantity: 1, price: 0 }]);
-    const [selectedRepId, setSelectedRepId] = useState("");
+    const [items, setItems] = useState<OrderItem[]>([{ productId: "", cartons: 0, units: 1, price: 0 }]);
+    const [selectedRepId, setSelectedRepId] = useState(isRep ? (currentUser?.id || "") : "");
     const [selectedCustomerId, setSelectedCustomerId] = useState("");
     const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT' | 'PARTIAL'>('CASH');
     const [paidAmount, setPaidAmount] = useState(0);
+    const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
 
+    useEffect(() => {
+        if (!selectedRepId) return;
+        const selectedRep = representatives.find(r => r.id === selectedRepId);
+
+        setItems(prevItems => prevItems.map(item => {
+            if (!item.productId) return item;
+            const product = products.find(p => p.id === item.productId);
+            if (!product) return item;
+
+            let newPrice = 0;
+            if (item.cartons > 0) {
+                newPrice = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
+            } else {
+                newPrice = selectedRep?.pricingType === 'WHOLESALE' ? product.unitWholesalePrice : product.unitRetailPrice;
+            }
+
+            return { ...item, price: newPrice };
+        }));
+    }, [selectedRepId, products, representatives]);
+
     const handleAddItem = () => {
-        setItems([...items, { productId: "", quantity: 1, price: 0 }]);
+        setItems([...items, { productId: "", cartons: 0, units: 1, price: 0 }]);
     };
 
     const handleRemoveItem = (index: number) => {
@@ -56,21 +92,55 @@ export default function RecordSalesForm({ representatives, customers, products, 
 
     const handleItemChange = (index: number, field: keyof OrderItem, value: any) => {
         const newItems = [...items];
-        newItems[index] = { ...newItems[index], [field]: value };
+        let newItem = { ...newItems[index], [field]: value };
 
-        // If product changed, set default price (retail by default as fallback)
         if (field === 'productId') {
-            const product = products.find(p => p.id === value);
-            if (product) {
-                newItems[index].price = product.retailPrice;
+            newItem.cartons = 0;
+            newItem.units = 0;
+        }
+
+        const product = products.find(p => p.id === newItem.productId);
+        const selectedRep = representatives.find(r => r.id === selectedRepId);
+        const upc = product?.unitsPerCarton || 1;
+
+        if (field === 'units' && value >= upc && upc > 0) {
+            newItem.cartons += Math.floor(value / upc);
+            newItem.units = value % upc;
+        }
+
+        if (product) {
+            if (newItem.cartons > 0) {
+                newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.wholesalePrice : product.retailPrice;
+            } else {
+                newItem.price = selectedRep?.pricingType === 'WHOLESALE' ? product.unitWholesalePrice : product.unitRetailPrice;
             }
         }
 
+        const stockEntry = stocks.find(s => s.warehouseId === selectedRepId && s.productId === newItem.productId);
+        const totalAvailableUnits = stockEntry?.quantity || 0;
+        const totalRequestedUnits = (newItem.cartons * upc) + newItem.units;
+
+        if (totalRequestedUnits > totalAvailableUnits) {
+            alert(`الكمية المدخلة تجاوزت المتاح مع المندوب (${Math.floor(totalAvailableUnits / upc)} كرتونة و ${totalAvailableUnits % upc} قطعة)`);
+            return;
+        }
+
+        newItems[index] = newItem;
         setItems(newItems);
     };
 
     const calculateTotal = () => {
-        return items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        return items.reduce((sum, item) => {
+            const product = products.find(p => p.id === item.productId);
+            const upc = product?.unitsPerCarton || 1;
+
+            if (item.cartons > 0) {
+                const effectiveCartons = item.cartons + (item.units / upc);
+                return sum + (effectiveCartons * item.price);
+            } else {
+                return sum + (item.units * item.price);
+            }
+        }, 0);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -80,24 +150,66 @@ export default function RecordSalesForm({ representatives, customers, products, 
             return;
         }
 
+        for (const item of items) {
+            const product = products.find(p => p.id === item.productId);
+            const upc = product?.unitsPerCarton || 1;
+            const stockEntry = stocks.find(s => s.warehouseId === selectedRepId && s.productId === item.productId);
+            const totalAvailableUnits = stockEntry?.quantity || 0;
+            const totalRequestedUnits = (item.cartons * upc) + item.units;
+
+            if (totalRequestedUnits > totalAvailableUnits) {
+                alert(`الكمية المطلوبة من ${product?.name} (${Math.floor(totalRequestedUnits / upc)} كرتونة و ${totalRequestedUnits % upc} قطعة) تتجاوز المتاح مع المندوب (${Math.floor(totalAvailableUnits / upc)} كرتونة و ${totalAvailableUnits % upc} قطعة). يرجى تعديل الكمية.`);
+                return;
+            }
+        }
+
+        setShowConfirm(true);
+    };
+
+    const handleConfirmSubmit = async () => {
         setLoading(true);
+        setShowConfirm(false);
         try {
             const totalAmount = calculateTotal();
             const finalPaidAmount = paymentType === 'CASH' ? totalAmount : (paymentType === 'CREDIT' ? 0 : paidAmount);
 
+            const processedItems = items.map(item => {
+                const product = products.find(p => p.id === item.productId);
+                const upc = product?.unitsPerCarton || 1;
+
+                let totalUnits = 0;
+                let finalPrice = 0;
+
+                if (item.cartons > 0) {
+                    totalUnits = (item.cartons * upc) + item.units;
+                    finalPrice = item.price / upc;
+                } else {
+                    totalUnits = item.units;
+                    finalPrice = item.price;
+                }
+
+                return {
+                    productId: item.productId,
+                    quantity: totalUnits,
+                    price: finalPrice
+                };
+            });
+
             const result = await recordSaleAction(
                 selectedRepId,
                 selectedCustomerId,
-                items,
+                processedItems,
                 { type: paymentType, paidAmount: finalPaidAmount }
             );
 
             if (result.success) {
                 alert("تم تسجيل الفاتورة بنجاح");
                 router.refresh();
-                setItems([{ productId: "", quantity: 1, price: 0 }]);
+                setItems([{ productId: "", cartons: 0, units: 1, price: 0 }]);
                 setSelectedRepId("");
                 setSelectedCustomerId("");
+                setPaymentType('CASH');
+                setPaidAmount(0);
             } else {
                 alert(`خطأ: ${result.error}`);
             }
@@ -110,15 +222,15 @@ export default function RecordSalesForm({ representatives, customers, products, 
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Select Rep */}
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${isRep ? 'opacity-50' : ''}`}>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 font-bold">المندوب (البائع)</label>
                     <select
                         value={selectedRepId}
                         onChange={(e) => setSelectedRepId(e.target.value)}
-                        className="w-full border rounded-lg p-3 bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        className={`w-full border rounded-lg p-3 bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none ${isRep ? 'cursor-not-allowed' : ''}`}
                         required
+                        disabled={isRep}
                     >
                         <option value="">اختر المندوب...</option>
                         {representatives.map(rep => (
@@ -127,7 +239,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
                     </select>
                 </div>
 
-                {/* Select Customer */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 font-bold">العميل (المشتري)</label>
                     <select
@@ -144,7 +255,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
                 </div>
             </div>
 
-            {/* Items List */}
             <div className="space-y-4">
                 <h3 className="text-md font-bold text-gray-700 border-b pb-2">تفاصيل الصنف</h3>
                 <div className="space-y-3">
@@ -157,40 +267,73 @@ export default function RecordSalesForm({ representatives, customers, products, 
                                     onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
                                     className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
                                     required
+                                    disabled={!selectedRepId}
                                 >
                                     <option value="">اختر المنتج...</option>
-                                    {products.map(product => (
-                                        <option key={product.id} value={product.id}>{product.name}</option>
-                                    ))}
+                                    {products.map(product => {
+                                        const s = stocks.find(stock => stock.warehouseId === selectedRepId && stock.productId === product.id);
+                                        const qty = s?.quantity || 0;
+                                        const upc = product.unitsPerCarton || 1;
+                                        if (qty <= 0) return null;
+
+                                        return (
+                                            <option key={product.id} value={product.id}>
+                                                {product.name} (المتاح: {Math.floor(qty / upc)} ك + {qty % upc} ق)
+                                            </option>
+                                        );
+                                    })}
                                 </select>
                             </div>
 
-                            <div className="w-24">
-                                <label className="block text-xs text-gray-500 mb-1">الكمية</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={item.quantity}
-                                    onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
-                                    required
-                                />
+                            <div className="flex gap-4">
+                                <div className="w-24">
+                                    <label className="block text-xs text-gray-500 mb-1">كرتونة</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={item.cartons}
+                                        onChange={(e) => handleItemChange(index, 'cartons', Number(e.target.value))}
+                                        className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="w-24">
+                                    <label className="block text-xs text-gray-500 mb-1">قطع</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={item.units}
+                                        onChange={(e) => handleItemChange(index, 'units', Number(e.target.value))}
+                                        className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
+                                        required
+                                    />
+                                </div>
                             </div>
 
                             <div className="w-32">
-                                <label className="block text-xs text-gray-500 mb-1">السعر</label>
+                                <label className="block text-xs text-gray-500 mb-1">السعر ({item.cartons > 0 ? 'كرتونة' : 'قطعة'})</label>
                                 <input
                                     type="number"
                                     value={item.price}
-                                    onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
-                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center"
+                                    readOnly
+                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center bg-gray-100 cursor-not-allowed font-bold"
                                     required
                                 />
                             </div>
 
                             <div className="w-32 pt-6">
                                 <div className="text-xs text-gray-400 mb-1">الإجمالي</div>
-                                <div className="p-2 font-bold text-emerald-700">{(item.quantity * item.price).toLocaleString('en-US')}</div>
+                                <div className="p-2 font-bold text-emerald-700">
+                                    {(() => {
+                                        const product = products.find(p => p.id === item.productId);
+                                        const upc = product?.unitsPerCarton || 1;
+                                        if (item.cartons > 0) {
+                                            return ((item.cartons + item.units / upc) * item.price).toLocaleString();
+                                        }
+                                        return (item.units * item.price).toLocaleString();
+                                    })()}
+                                </div>
                             </div>
 
                             {items.length > 1 && (
@@ -215,7 +358,6 @@ export default function RecordSalesForm({ representatives, customers, products, 
                 </button>
             </div>
 
-            {/* Payment & Summary */}
             <div className="pt-6 border-t flex flex-col md:flex-row justify-between items-start gap-8">
                 <div className="space-y-4 flex-1">
                     <h3 className="font-bold text-gray-700">طريقة الدفع</h3>
@@ -279,6 +421,15 @@ export default function RecordSalesForm({ representatives, customers, products, 
                     </button>
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={showConfirm}
+                onOpenChange={setShowConfirm}
+                onConfirm={handleConfirmSubmit}
+                title="تأكيد حفظ الفاتورة"
+                description="هل أنت متأكد من صحة كافة البيانات والكميات؟ سيتم خصم الأصناف من عهدة المندوب."
+                confirmText="نعم، حفظ الفاتورة"
+            />
         </form>
     );
 }

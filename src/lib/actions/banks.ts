@@ -6,8 +6,19 @@ import { BankTransactionType, LoanStatus, InstallmentStatus } from "@prisma/clie
 
 // --- Bank Actions ---
 
-export async function getBanks() {
+export async function getBanks(agencyIdFilter?: string) {
+    const user = await (await import("@/lib/actions")).getCurrentUser();
+    const isRestricted = user.role !== 'ADMIN' && user.role !== 'MANAGER';
+
+    const where: any = {};
+    if (agencyIdFilter) {
+        where.agencyId = agencyIdFilter;
+    } else if (isRestricted) {
+        where.agencyId = user.agencyId;
+    }
+
     const banks = await prisma.bank.findMany({
+        where,
         include: {
             _count: {
                 select: { loans: { where: { status: 'ACTIVE' } } }
@@ -25,12 +36,14 @@ export async function createBank(data: FormData) {
     const name = data.get('name') as string;
     const accountNumber = data.get('accountNumber') as string;
     const initialBalance = Number(data.get('initialBalance'));
+    const agencyId = data.get('agencyId') as string || null;
 
     await prisma.bank.create({
         data: {
             name,
             accountNumber,
-            balance: initialBalance
+            balance: initialBalance,
+            agencyId: agencyId === 'GENERAL' ? null : agencyId
         }
     });
     revalidatePath('/dashboard/accounts/banks');

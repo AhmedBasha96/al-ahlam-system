@@ -9,55 +9,129 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus } from 'lucide-react';
+import { ConfirmDialog } from "@/components/ui-custom/confirm-dialog";
 
 interface PurchaseFormProps {
     warehouses: any[];
+    suppliers: any[];
     products: any[];
 }
 
-export default function PurchaseForm({ warehouses, products }: PurchaseFormProps) {
+export default function PurchaseForm({ warehouses, suppliers, products }: PurchaseFormProps) {
     const router = useRouter();
     const [warehouseId, setWarehouseId] = useState("");
-    const [items, setItems] = useState<{ productId: string, quantity: number, cost: number }[]>([
-        { productId: "", quantity: 1, cost: 0 }
+    const [supplierId, setSupplierId] = useState("");
+    const [items, setItems] = useState<{ productId: string, cartons: number, units: number, cost: number }[]>([
+        { productId: "", cartons: 0, units: 0, cost: 0 }
     ]);
     const [paidAmount, setPaidAmount] = useState(0);
     const [note, setNote] = useState("");
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
 
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.cost), 0);
+    // Get agencyId of selected warehouse
+    const selectedWarehouse = warehouses.find(w => w.id === warehouseId);
+    const agencyId = selectedWarehouse?.agencyId;
+
+    // Filter suppliers by agency
+    const filteredSuppliers = suppliers.filter(s => s.agencyId === agencyId);
+
+    const totalAmount = items.reduce((sum, item) => {
+        const product = products.find(p => p.id === item.productId);
+        const upc = product?.unitsPerCarton || 1;
+
+        let itemTotal = 0;
+        if (item.cartons > 0) {
+            const effectiveCartons = item.cartons + (item.units / upc);
+            itemTotal = (effectiveCartons * item.cost);
+        } else {
+            itemTotal = (item.units * item.cost);
+        }
+        return sum + itemTotal;
+    }, 0);
 
     const addItem = () => {
-        setItems([...items, { productId: "", quantity: 1, cost: 0 }]);
+        setItems([...items, { productId: "", cartons: 0, units: 0, cost: 0 }]);
     };
 
     const removeItem = (index: number) => {
         setItems(items.filter((_, i) => i !== index));
     };
 
-    const updateItem = (index: number, field: keyof typeof items[0], value: any) => {
+    const updateItem = (index: number, field: string, value: any) => {
         const newItems = [...items];
-        newItems[index] = { ...newItems[index], [field]: value };
+        let newItem = { ...newItems[index], [field]: value };
 
-        // Auto-fill cost if product changed
         if (field === 'productId') {
-            const product = products.find(p => p.id === value);
-            if (product) {
-                newItems[index].cost = Number(product.factoryPrice);
+            newItem.cartons = 0;
+            newItem.units = 0;
+        }
+
+        const product = products.find(p => p.id === newItem.productId);
+        const upc = product?.unitsPerCarton || 1;
+
+        if (field === 'units' && value >= upc && upc > 0) {
+            newItem.cartons += Math.floor(value / upc);
+            newItem.units = value % upc;
+        }
+
+        if (product) {
+            if (newItem.cartons > 0) {
+                newItem.cost = Number(product.factoryPrice);
+            } else {
+                newItem.cost = Number(product.unitFactoryPrice);
             }
         }
 
+        newItems[index] = newItem;
         setItems(newItems);
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setIsSubmitting(true);
 
-        const formData = new FormData(e.currentTarget);
+        const validItems = items.filter(it => it.productId && (it.cartons > 0 || it.units > 0));
+        if (validItems.length === 0) {
+            alert("يرجى إضافة صنف واحد على الأقل بكمية صحيحة");
+            return;
+        }
+
+        setShowConfirm(true);
+    };
+
+    const handleConfirmSubmit = async () => {
+        setIsSubmitting(true);
+        setShowConfirm(false);
+
+        const validItems = items.filter(it => it.productId && (it.cartons > 0 || it.units > 0));
+        const formData = new FormData();
         formData.append('warehouseId', warehouseId);
-        formData.append('items', JSON.stringify(items));
+        formData.append('supplierId', supplierId);
+
+        const itemsForServer = validItems.map(it => {
+            const product = products.find(p => p.id === it.productId);
+            const upc = product?.unitsPerCarton || 1;
+
+            let totalUnits = 0;
+            let unitCost = 0;
+
+            if (it.cartons > 0) {
+                totalUnits = (it.cartons * upc) + it.units;
+                unitCost = it.cost / upc;
+            } else {
+                totalUnits = it.units;
+                unitCost = it.cost;
+            }
+
+            return {
+                productId: it.productId,
+                quantity: totalUnits,
+                cost: unitCost
+            };
+        });
+
+        formData.append('items', JSON.stringify(itemsForServer));
         formData.append('paidAmount', paidAmount.toString());
         formData.append('note', note);
         formData.append('date', date);
@@ -77,10 +151,10 @@ export default function PurchaseForm({ warehouses, products }: PurchaseFormProps
         <Card>
             <CardContent className="pt-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>المخزن (الوجهة)</Label>
-                            <Select value={warehouseId} onValueChange={setWarehouseId} required>
+                            <Select value={warehouseId} onValueChange={(val) => { setWarehouseId(val); setSupplierId(""); }} required>
                                 <SelectTrigger>
                                     <SelectValue placeholder="اختر المخزن" />
                                 </SelectTrigger>
@@ -90,6 +164,22 @@ export default function PurchaseForm({ warehouses, products }: PurchaseFormProps
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>المورد</Label>
+                            <Select value={supplierId} onValueChange={setSupplierId} disabled={!warehouseId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={warehouseId ? "اختر المورد (اختياري)" : "اختر المخزن أولاً"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {filteredSuppliers.map(s => (
+                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {warehouseId && filteredSuppliers.length === 0 && (
+                                <p className="text-[10px] text-orange-500 mt-1">* لا يوجد موردين مسجلين لهذا التوكيل</p>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <Label>تاريخ الفاتورة</Label>
@@ -105,50 +195,76 @@ export default function PurchaseForm({ warehouses, products }: PurchaseFormProps
                             </Button>
                         </div>
 
-                        {items.map((item, index) => (
-                            <div key={index} className="grid md:grid-cols-12 gap-4 items-end border-b pb-4">
-                                <div className="md:col-span-5 space-y-2">
-                                    <Label>المنتج</Label>
-                                    <Select value={item.productId} onValueChange={(val) => updateItem(index, 'productId', val)} required>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="اختر المنتج" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {products.map(p => (
-                                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                        {items.map((item, index) => {
+                            const product = products.find(p => p.id === item.productId);
+                            const upc = product?.unitsPerCarton || 1;
+
+                            return (
+                                <div key={index} className="grid md:grid-cols-12 gap-4 items-end border-b pb-4">
+                                    <div className="md:col-span-4 space-y-2">
+                                        <Label>المنتج</Label>
+                                        <Select value={item.productId} onValueChange={(val) => updateItem(index, 'productId', val)} required>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="اختر المنتج" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {products.map(p => (
+                                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {product && (
+                                            <p className="text-[10px] text-gray-400">الكرتونة = {upc} علبة</p>
+                                        )}
+                                    </div>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label className="text-center block">كراتين</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            value={item.cartons}
+                                            onChange={(e) => updateItem(index, 'cartons', Number(e.target.value))}
+                                            className="text-center font-bold"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label className="text-center block">علب</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            value={item.units}
+                                            onChange={(e) => updateItem(index, 'units', Number(e.target.value))}
+                                            className="text-center font-bold"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-3 space-y-2">
+                                        <Label>سعر الشراء ({item.cartons > 0 ? 'للكرتونة' : 'للقطعة'})</Label>
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={item.cost}
+                                                readOnly
+                                                className="bg-gray-100 font-mono text-blue-700 font-bold"
+                                            />
+                                            <span className="absolute left-2 top-2 text-[10px] text-gray-400">سعر المصنع</span>
+                                        </div>
+                                        {product && upc > 0 && item.cartons > 0 && (
+                                            <p className="text-[10px] text-blue-500 font-bold">
+                                                تساوي {(item.cost / upc).toFixed(2)} ج.م للعلبة
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="md:col-span-1 flex justify-end">
+                                        {items.length > 1 && (
+                                            <Button type="button" variant="destructive" size="icon" onClick={() => removeItem(index)}>
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="md:col-span-2 space-y-2">
-                                    <Label>الكمية</Label>
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        value={item.quantity}
-                                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
-                                        required
-                                    />
-                                </div>
-                                <div className="md:col-span-3 space-y-2">
-                                    <Label>سعر الشراء (للوحدة)</Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={item.cost}
-                                        onChange={(e) => updateItem(index, 'cost', Number(e.target.value))}
-                                        required
-                                    />
-                                </div>
-                                <div className="md:col-span-2 flex justify-end">
-                                    {items.length > 1 && (
-                                        <Button type="button" variant="destructive" size="icon" onClick={() => removeItem(index)}>
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     <div className="bg-slate-50 p-6 rounded-lg space-y-4">
@@ -186,10 +302,19 @@ export default function PurchaseForm({ warehouses, products }: PurchaseFormProps
                         </div>
                     </div>
 
-                    <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-                        {isSubmitting ? 'جاري الحفظ...' : 'حفظ الفاتورة'}
+                    <Button type="submit" className="w-full bg-slate-900 hover:bg-black font-bold h-12 rounded-xl" size="lg" disabled={isSubmitting}>
+                        {isSubmitting ? 'جاري الحفظ...' : 'تأكيد وحفظ فاتورة الشراء'}
                     </Button>
                 </form>
+
+                <ConfirmDialog
+                    open={showConfirm}
+                    onOpenChange={setShowConfirm}
+                    onConfirm={handleConfirmSubmit}
+                    title="تأكيد فاتورة مشتريات"
+                    description="هل أنت متأكد من صحة الكميات والأسعار؟ سيتم إضافة الأصناف للمخزن وتحديث حساب المورد."
+                    confirmText="نعم، حفظ الفاتورة"
+                />
             </CardContent>
         </Card>
     );

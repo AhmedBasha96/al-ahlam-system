@@ -1,33 +1,73 @@
 import { createProduct, getAgencies, getProducts, getCurrentUser } from "@/lib/actions";
+import { getSuppliers } from "@/lib/actions/suppliers";
 import CreateProductForm from "./create-product-form";
 import ProductsList from "./products-list";
+import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage() {
+    const user = await getCurrentUser();
+    if (user.role === 'WAREHOUSE_KEEPER') {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 bg-white rounded-2xl shadow-sm border border-red-50">
+                <div className="text-6xl mb-4">🚫</div>
+                <h1 className="text-2xl font-bold text-red-800 mb-2">غير مسموح بالدخول</h1>
+                <p className="text-gray-500">ليست لديك صلاحية لعرض المنتجات والأسعار.</p>
+                <Link href="/dashboard" className="mt-6 text-emerald-600 font-bold hover:underline font-mono">
+                    العودة للرئيسية &rarr;
+                </Link>
+            </div>
+        );
+    }
+
     let agencies: any[] = [];
     let products: any[] = [];
+    let suppliers: any[] = [];
     try {
         agencies = await getAgencies();
+        suppliers = await getSuppliers();
         const rawProducts = await getProducts();
         products = rawProducts.map((p: any) => ({
             ...p,
-            factoryPrice: Number(p.factoryPrice),
-            wholesalePrice: Number(p.wholesalePrice),
-            retailPrice: Number(p.retailPrice),
+            factoryPrice: Number(p.factoryPrice) || 0,
+            wholesalePrice: Number(p.wholesalePrice) || 0,
+            retailPrice: Number(p.retailPrice) || 0,
+            unitsPerCarton: Number(p.unitsPerCarton) || 1,
+            unitFactoryPrice: Number(p.unitFactoryPrice) || 0,
+            unitWholesalePrice: Number(p.unitWholesalePrice) || 0,
+            unitRetailPrice: Number(p.unitRetailPrice) || 0,
+            wholesaleDiscount: Number(p.wholesaleDiscount) || 0,
+            retailDiscount: Number(p.retailDiscount) || 0,
             createdAt: p.createdAt ? p.createdAt.toISOString() : undefined,
             updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
             priceUpdatedAt: p.priceUpdatedAt ? p.priceUpdatedAt.toISOString() : undefined,
+            // Deeply serialize nested agency
+            agency: p.agency ? {
+                ...p.agency,
+                createdAt: p.agency.createdAt ? p.agency.createdAt.toISOString() : undefined,
+                updatedAt: p.agency.updatedAt ? p.agency.updatedAt.toISOString() : undefined,
+            } : undefined
         }));
 
-        // Sanitize agencies as well to ensure no Date objects are passed
+        // Sanitize agencies and suppliers to ensure no Date objects are passed
         agencies = agencies.map((a: any) => ({
             ...a,
             createdAt: a.createdAt ? a.createdAt.toISOString() : undefined,
             updatedAt: a.updatedAt ? a.updatedAt.toISOString() : undefined,
         }));
+
+        suppliers = suppliers.map((s: any) => ({
+            ...s,
+            createdAt: s.createdAt ? s.createdAt.toISOString() : undefined,
+            updatedAt: s.updatedAt ? s.updatedAt.toISOString() : undefined,
+            agency: s.agency ? {
+                ...s.agency,
+                createdAt: s.agency.createdAt ? s.agency.createdAt.toISOString() : undefined,
+                updatedAt: s.agency.updatedAt ? s.agency.updatedAt.toISOString() : undefined,
+            } : undefined
+        }));
     } catch (e) { console.error("Products fetch error:", e); }
-    const user = await getCurrentUser();
 
     // Only Admin and Manager can create/edit/delete products
     const canManageProducts = user.role === 'ADMIN' || user.role === 'MANAGER';
@@ -45,16 +85,16 @@ export default async function ProductsPage() {
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100 sticky top-6">
                             <h3 className="text-lg font-bold mb-4 text-emerald-800">إضافة منتج جديد</h3>
                             <div className="text-xs text-gray-500 mb-4 bg-yellow-50 p-2 rounded border border-yellow-100">
-                                ملاحظة: تأكد من اختيار التوكيل الصحيح للمنتج.
+                                ملاحظة: تأكد من اختيار التوكيل والمورد الصحيحين للمنتج.
                             </div>
-                            <CreateProductForm agencies={agencies} createProductAction={createProduct} />
+                            <CreateProductForm agencies={agencies} suppliers={suppliers} createProductAction={createProduct} />
                         </div>
                     </div>
                 )}
 
                 {/* Products List - Main Content */}
                 <div className={canManageProducts ? "lg:col-span-3" : "lg:col-span-4"}>
-                    <ProductsList products={products} agencies={agencies} userRole={user.role} />
+                    <ProductsList products={products} agencies={agencies} suppliers={suppliers} userRole={user.role} />
                 </div>
             </div>
         </div>

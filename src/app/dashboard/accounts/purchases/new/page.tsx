@@ -1,8 +1,10 @@
 import PurchaseForm from "./purchase-form";
 import { getWarehouses, getProducts } from "@/lib/actions";
+import { getSuppliers } from "@/lib/actions/suppliers";
 
 export default async function NewPurchasePage() {
     const warehouses = await getWarehouses();
+    const suppliers = await getSuppliers();
     const rawProducts = await getProducts();
 
     const products = rawProducts.map(p => ({
@@ -18,7 +20,7 @@ export default async function NewPurchasePage() {
                 <h2 className="text-3xl font-bold tracking-tight">إضافة فاتورة مشتريات</h2>
             </div>
 
-            <PurchaseForm warehouses={warehouses} products={products} />
+            <PurchaseForm warehouses={warehouses} products={products} suppliers={suppliers} />
         </div>
     );
 }

@@ -1,26 +1,37 @@
 'use client';
 
-import { createAccountRecord, deleteAccountRecord } from "@/lib/actions/accounts";
+import { useState } from 'react';
+import { createAccountRecord, updateAccountRecord, deleteAccountRecord } from "@/lib/actions/accounts";
+import TransactionModal from "@/components/shared/transaction-modal";
+import AccountRecordEditModal from "@/components/shared/account-record-edit-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowDownLeft, Trash2, Calendar, Tag, Building2, TrendingDown, Receipt, PieChart } from "lucide-react";
+import { ArrowDownLeft, Calendar, Tag, Building2, TrendingDown, Receipt, PieChart } from "lucide-react";
 import { CategoryPieChart } from "@/components/charts/category-pie-chart";
 
 interface ExpensesPageProps {
     initialExpenses: any[];
     agencies: { id: string, name: string }[];
+    suppliers: { id: string, name: string, agencyId: string }[];
+    userRole?: string;
 }
 
 const formatMoney = (amount: number) => {
     return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(amount);
 };
 
-export default function ClientExpensesPage({ initialExpenses, agencies }: ExpensesPageProps) {
+export default function ClientExpensesPage({ initialExpenses, agencies, suppliers, userRole }: ExpensesPageProps) {
+    const [selectedAgencyId, setSelectedAgencyId] = useState<string>("GENERAL");
+    const [viewingRecord, setViewingRecord] = useState<any | null>(null);
+    const [editingRecord, setEditingRecord] = useState<any | null>(null);
     const totalExpenses = initialExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
+
+    // Filter suppliers by agency
+    const filteredSuppliers = suppliers.filter(s => s.agencyId === selectedAgencyId);
 
     // Group by category for the chart
     const categoryDataMap = new Map<string, number>();
@@ -95,8 +106,8 @@ export default function ClientExpensesPage({ initialExpenses, agencies }: Expens
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="agencyId" className="text-xs font-bold text-slate-500 uppercase">الجهة</Label>
-                                    <Select name="agencyId" defaultValue="GENERAL">
+                                    <Label htmlFor="agencyId" className="text-xs font-bold text-slate-500 uppercase">الجهة (التوكيل)</Label>
+                                    <Select name="agencyId" value={selectedAgencyId} onValueChange={setSelectedAgencyId}>
                                         <SelectTrigger className="bg-white/60 border-slate-200 h-10 focus:bg-white transition-all">
                                             <SelectValue placeholder="اختر التوكيل" />
                                         </SelectTrigger>
@@ -108,6 +119,21 @@ export default function ClientExpensesPage({ initialExpenses, agencies }: Expens
                                         </SelectContent>
                                     </Select>
                                 </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="supplierId" className="text-xs font-bold text-slate-500 uppercase">المورد</Label>
+                                <Select name="supplierId" disabled={selectedAgencyId === 'GENERAL'}>
+                                    <SelectTrigger className="bg-white/60 border-slate-200 h-10 focus:bg-white transition-all">
+                                        <SelectValue placeholder={selectedAgencyId === 'GENERAL' ? "اختر التوكيل أولاً" : "اختر المورد (اختياري)"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="NONE">بدون مورد</SelectItem>
+                                        {filteredSuppliers.map(supplier => (
+                                            <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className="space-y-2">
@@ -195,12 +221,40 @@ export default function ClientExpensesPage({ initialExpenses, agencies }: Expens
                                                 <TableCell className="text-left pl-6 font-black text-orange-600 font-mono text-base py-4">
                                                     {formatMoney(Number(expense.amount))}
                                                 </TableCell>
-                                                <TableCell className="py-4">
-                                                    <form action={deleteAccountRecord.bind(null, expense.id)}>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all">
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
-                                                    </form>
+                                                <TableCell className="py-4 text-center">
+                                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <button
+                                                            onClick={() => setViewingRecord(expense)}
+                                                            className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-800 transition shadow-sm"
+                                                        >
+                                                            عرض 📄
+                                                        </button>
+                                                        {(userRole === 'ADMIN' || userRole === 'MANAGER' || userRole === 'SECURITY') && (
+                                                            <button
+                                                                onClick={() => setEditingRecord(expense)}
+                                                                className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-100 transition shadow-sm"
+                                                            >
+                                                                تعديل ✏️
+                                                            </button>
+                                                        )}
+                                                        {userRole === 'ADMIN' && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (confirm(`هل أنت متأكد من حذف هذا السجل؟`)) {
+                                                                        try {
+                                                                            await deleteAccountRecord(expense.id);
+                                                                            window.location.reload();
+                                                                        } catch (error: any) {
+                                                                            alert(error.message || "حدث خطأ أثناء الحذف");
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                className="bg-red-50 text-red-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-red-100 transition shadow-sm"
+                                                            >
+                                                                حذف 🗑️
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -211,6 +265,41 @@ export default function ClientExpensesPage({ initialExpenses, agencies }: Expens
                     </div>
                 </div>
             </div>
+            {/* View Modal */}
+            {viewingRecord && (
+                <TransactionModal
+                    id={viewingRecord.id}
+                    partyName={viewingRecord.customer?.name || viewingRecord.supplier?.name || "مصدر خارجي"}
+                    userName={viewingRecord.user?.name || "النظام"}
+                    items={[]}
+                    paymentInfo={{
+                        type: 'CASH',
+                        paidAmount: Number(viewingRecord.amount),
+                        totalAmount: Number(viewingRecord.amount)
+                    }}
+                    date={viewingRecord.createdAt}
+                    onClose={() => setViewingRecord(null)}
+                    type="EXPENSE"
+                />
+            )}
+
+            {/* Edit Modal */}
+            {editingRecord && (
+                <AccountRecordEditModal
+                    id={editingRecord.id}
+                    amount={Number(editingRecord.amount)}
+                    description={editingRecord.description}
+                    category={editingRecord.category}
+                    date={editingRecord.createdAt}
+                    type="EXPENSE"
+                    agencyName={editingRecord.agency?.name}
+                    onUpdate={updateAccountRecord}
+                    onClose={() => {
+                        setEditingRecord(null);
+                        window.location.reload();
+                    }}
+                />
+            )}
         </div>
     );
 }

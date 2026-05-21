@@ -1,8 +1,9 @@
 'use client';
 
-import { deleteAgency, updateAgency } from "@/lib/actions";
+import { updateAgency, deleteAgency } from "@/lib/actions";
 import { useState } from "react";
 import EditAgencyModal from "./edit-agency-modal";
+import Link from "next/link";
 
 type Agency = {
     id: string;
@@ -11,14 +12,19 @@ type Agency = {
     image: string | null;
 }
 
-export default function AgenciesList({ agencies }: { agencies: Agency[] }) {
+export default function AgenciesList({ agencies, userRole }: { agencies: Agency[], userRole?: string }) {
     const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
 
-    const handleDelete = async (id: string) => {
-        if (confirm("هل أنت متأكد من حذف هذا التوكيل؟")) {
-            await deleteAgency(id);
+    const handleDelete = async (id: string, name: string) => {
+        if (confirm(`هل أنت متأكد من حذف التوكيل "${name}"؟ هذا سيؤدي لحذف كل البيانات المتعلقة به!`)) {
+            try {
+                await deleteAgency(id);
+                window.location.reload();
+            } catch (error: any) {
+                alert(error.message || "حدث خطأ أثناء الحذف");
+            }
         }
-    }
+    };
 
     return (
         <>
@@ -56,18 +62,26 @@ export default function AgenciesList({ agencies }: { agencies: Agency[] }) {
                                         : String(agency.createdAt)}
                                 </td>
                                 <td className="p-4">
+                                    <Link
+                                        href={`/dashboard/accounts/agencies/${agency.id}`}
+                                        className="text-indigo-600 hover:text-indigo-800 font-medium ml-3"
+                                    >
+                                        الحسابات
+                                    </Link>
                                     <button
                                         className="text-emerald-600 hover:text-emerald-800 font-medium ml-3"
                                         onClick={() => setEditingAgency(agency)}
                                     >
                                         تعديل
                                     </button>
-                                    <button
-                                        className="text-red-500 hover:text-red-700 font-medium"
-                                        onClick={() => handleDelete(agency.id)}
-                                    >
-                                        حذف
-                                    </button>
+                                    {userRole === 'ADMIN' && (
+                                        <button
+                                            className="text-red-600 hover:text-red-800 font-medium"
+                                            onClick={() => handleDelete(agency.id, agency.name)}
+                                        >
+                                            حذف
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

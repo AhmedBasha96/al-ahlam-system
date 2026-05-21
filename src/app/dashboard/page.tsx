@@ -13,13 +13,65 @@ import {
 } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/actions';
-import ResetDataButton from './reset-button';
+import { getRepDashboardData, getWarehouseDashboardData, getRepsSummary, getAccountantDashboardData } from '@/lib/actions/dashboard';
+import RepresentativeDashboard from './representative-dashboard';
+import WarehouseDashboard from './warehouse-dashboard';
+import AccountantDashboard from './accountant-dashboard';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-    const stats = await getDashboardStats();
     const user = await getCurrentUser();
+    
+    if (user.role === 'SALES_REPRESENTATIVE') {
+        try {
+            const repStats = await getRepDashboardData();
+            return <RepresentativeDashboard stats={repStats} userName={user.name || ''} />;
+        } catch (e) {
+            console.error("Representative dashboard error:", e);
+            return (
+                <div className="p-8 bg-red-50 text-red-700 rounded-2xl border border-red-100">
+                    <h2 className="text-xl font-bold mb-2">حدث خطأ في عرض لوحة التحكم</h2>
+                    <p>يرجى التأكد من أن حساب المندوب مهيأ بشكل صحيح (الأهداف والمستودعات).</p>
+                    <p className="text-xs mt-4">خطأ: {String(e)}</p>
+                </div>
+            );
+        }
+    }
+
+    if (user.role === 'WAREHOUSE_KEEPER') {
+        try {
+            const warehouseStats = await getWarehouseDashboardData();
+            return <WarehouseDashboard stats={warehouseStats} userName={user.name || ''} />;
+        } catch (e) {
+            console.error("Warehouse dashboard error:", e);
+            return (
+                <div className="p-8 bg-red-50 text-red-700 rounded-2xl border border-red-100">
+                    <h2 className="text-xl font-bold mb-2">حدث خطأ في عرض لوحة تحكم المخزن</h2>
+                    <p>يرجى التأكد من أن حساب أمين المخزن مرتبط بمخزن معين.</p>
+                    <p className="text-xs mt-4">خطأ: {String(e)}</p>
+                </div>
+            );
+        }
+    }
+
+    if (user.role === 'ACCOUNTANT') {
+        try {
+            const accountantStats = await getAccountantDashboardData();
+            return <AccountantDashboard stats={accountantStats} userName={user.name || ''} />;
+        } catch (e) {
+            console.error("Accountant dashboard error:", e);
+            return (
+                <div className="p-8 bg-red-50 text-red-700 rounded-2xl border border-red-100">
+                    <h2 className="text-xl font-bold mb-2">حدث خطأ في عرض لوحة تحكم الحسابات</h2>
+                    <p className="text-xs mt-4">خطأ: {String(e)}</p>
+                </div>
+            );
+        }
+    }
+
+    const stats = await getDashboardStats();
+    const repsData = await getRepsSummary().catch(() => []);
     const isAdmin = user.role === 'ADMIN';
 
     const formatDate = (date: Date) => {
@@ -47,7 +99,7 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-gray-800">لوحة التحكم</h1>
                 <div className="flex items-center gap-4">
-                    {isAdmin && <ResetDataButton />}
+
                     <div className="text-gray-500 text-sm">
                         {new Date().toLocaleDateString('ar-EG', {
                             weekday: 'long',
@@ -364,6 +416,78 @@ export default async function DashboardPage() {
                     )}
                 </div>
             </div>
+
+            {/* Representatives Summary */}
+            {repsData.length > 0 && (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between mb-5">
+                        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <Users className="w-5 h-5 text-emerald-600" />
+                            أداء المناديب - {new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}
+                        </h2>
+                        <Link href="/dashboard/reps" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">عرض التفاصيل ←</Link>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right text-sm">
+                            <thead>
+                                <tr className="bg-gray-50 text-gray-600 text-xs font-bold uppercase">
+                                    <th className="p-3 rounded-r-lg">المندوب</th>
+                                    <th className="p-3">مبيعات الشهر</th>
+                                    <th className="p-3">التحصيل</th>
+                                    <th className="p-3">التارجت</th>
+                                    <th className="p-3">نسبة الإنجاز</th>
+                                    <th className="p-3">ديون العملاء</th>
+                                    <th className="p-3 rounded-l-lg">العهدة (قطع)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {repsData.map(rep => {
+                                    const progress = rep.salesTarget > 0 ? Math.min((rep.monthlySales / rep.salesTarget) * 100, 100) : 0;
+                                    return (
+                                        <tr key={rep.id} className="hover:bg-gray-50 transition">
+                                            <td className="p-3 font-bold text-gray-800">
+                                                <Link href={`/dashboard/reps/${rep.id}`} className="hover:text-emerald-600 transition">
+                                                    {rep.name}
+                                                </Link>
+                                            </td>
+                                            <td className="p-3 font-bold text-emerald-700">{rep.monthlySales.toLocaleString()} <span className="text-xs font-normal text-gray-400">ج.م</span></td>
+                                            <td className="p-3 font-bold text-blue-700">{rep.monthlyCollections.toLocaleString()} <span className="text-xs font-normal text-gray-400">ج.م</span></td>
+                                            <td className="p-3 text-gray-600">{rep.salesTarget > 0 ? `${rep.salesTarget.toLocaleString()} ج.م` : <span className="text-gray-300 italic text-xs">غير محدد</span>}</td>
+                                            <td className="p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all ${
+                                                                progress >= 100 ? 'bg-emerald-500' :
+                                                                progress >= 60 ? 'bg-blue-500' :
+                                                                progress >= 30 ? 'bg-amber-500' : 'bg-red-400'
+                                                            }`}
+                                                            style={{ width: `${progress}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className={`text-xs font-black ${
+                                                        progress >= 100 ? 'text-emerald-600' :
+                                                        progress >= 60 ? 'text-blue-600' :
+                                                        progress >= 30 ? 'text-amber-600' : 'text-red-500'
+                                                    }`}>{progress.toFixed(0)}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-3">
+                                                <span className={`font-bold text-xs px-2 py-1 rounded-full ${
+                                                    rep.totalCustomerDebt > 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
+                                                }`}>
+                                                    {rep.totalCustomerDebt.toLocaleString()} ج.م
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-gray-700 font-bold">{rep.inventoryCount.toLocaleString()} <span className="text-xs font-normal text-gray-400">قطعة</span></td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

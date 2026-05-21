@@ -215,13 +215,6 @@ For technical support or inquiries, please contact the development team.
 
 ### الإعداد السريع | Quick setup
 
-1. انسخ ملف الأمثلة إلى ملف البيئة وأملأ بيانات الاتصال:
-
-```bash
-cp .env.production.example .env
-# أو: قم بتعيين متغيرات البيئة مباشرةً في منصة النشر
-```
-
 2. تأكد من أن `DATABASE_URL` يشير إلى قاعدة MySQL المراد استخدامها (مثال: `mysql://user:password@host:3306/al_ahlam_db`).
 
 ### بناء وتشغيل حاوية Docker محليًا | Build & run locally
@@ -232,11 +225,6 @@ cp .env.production.example .env
 docker build -t al-ahlam-system:latest .
 ```
 
-- تشغيل الحاوية (يستخدم ملف `.env` لتوفير المتغيرات السرية):
-
-```bash
-docker run --env-file .env -p 3000:3000 al-ahlam-system:latest
-```
 
 > ملاحظة: نقطة الدخول في الصورة تقوم بتشغيل `prisma generate` وستحاول تشغيل `prisma migrate deploy` إذا كان `DATABASE_URL` مُعطى (تقوم بإعادة المحاولة تلقائيًا أثناء انتظار توفر قاعدة البيانات).
 
@@ -267,7 +255,9 @@ docker compose exec app npx prisma migrate deploy
 # لتشغيل السِيد (إذا كانت الإعدادات متوافرة):
 docker compose exec app npm run prisma:seed
 ```
-
+### re deploy
+cd src
+./deploy.sh
 
 ### تنفيذ الترحيلات تلقائيًا في بيئة CI/CD | Run migrations in CI/CD
 
@@ -301,3 +291,4 @@ jobs:
 - استخدم بروكسي عكسي (مثل Nginx) أو خدمة التوزيع لتشغيل TLS/HTTPS وإدارة التجزئة والتوجيه.
 - راقب سجلات الحاوية وصحّتها لمعرفة حالة الترحيلات والاتصال بقاعدة البيانات.
 - للفروع الأفقيّة (scale-out)، اجعل التطبيق غير حالاتيّ واستخدم مخزناً للجلسات (Redis) عند الحاجة.
+x

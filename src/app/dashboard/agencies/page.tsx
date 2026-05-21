@@ -1,4 +1,4 @@
-import { createAgency, getAgencies } from "@/lib/actions";
+import { createAgency, getAgencies, getCurrentUser } from "@/lib/actions";
 import CreateAgencyForm from "./create-agency-form";
 import AgenciesList from "./agencies-list";
 
@@ -6,8 +6,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function AgenciesPage() {
     let agencies: any[] = [];
+    let user: any = null;
     try {
         agencies = await getAgencies();
+        user = await getCurrentUser();
     } catch (e) { console.error("Agencies fetch error:", e); }
 
     return (
@@ -27,7 +29,7 @@ export default async function AgenciesPage() {
 
                 {/* Agencies List */}
                 <div className="lg:col-span-2">
-                    <AgenciesList agencies={agencies} />
+                    <AgenciesList agencies={agencies} userRole={user?.role} />
                 </div>
             </div>
         </div>

@@ -7,50 +7,9 @@ export const dynamic = 'force-dynamic';
 export default async function WarehouseDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: warehouseId } = await params;
 
-    let warehouse: any = null;
-    let allProducts: any[] = [];
-    let allStocks: any[] = [];
-    let allUsers: any[] = [];
-    let transactions: any[] = [];
-    let allRepStocks: any[] = [];
-    let allCustomers: any[] = [];
-    let allWarehouses: any[] = [];
-
-    try {
-        warehouse = await getWarehouse(warehouseId);
-        if (warehouse) {
-            // Fetch everything else only if warehouse exists
-            const [
-                productsData,
-                stocksData,
-                usersData,
-                transactionsData,
-                repStocksData,
-                customersData,
-                warehousesData
-            ] = await Promise.all([
-                getProducts(),
-                getStocks(),
-                getUsers(),
-                getTransactions(warehouseId),
-                getAllRepStocks(),
-                getCustomers(),
-                getWarehouses()
-            ]);
-
-            allProducts = productsData || [];
-            allStocks = stocksData || [];
-            allUsers = usersData || [];
-            transactions = transactionsData || [];
-            allRepStocks = repStocksData || [];
-            allCustomers = customersData || [];
-            allWarehouses = warehousesData || [];
-        }
-    } catch (e) {
-        console.error("Warehouse details fetch error:", e);
-    }
-
-    if (!warehouse) {
+    const warehouse = await getWarehouse(warehouseId);
+    const user = await getCurrentUser();
+    if (!warehouse || !user) {
         return (
             <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300 m-8">
                 <div className="text-5xl mb-4">🔍</div>
@@ -62,31 +21,87 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
         );
     }
 
+    let allProducts: any[] = [];
+    let allStocks: any[] = [];
+    let allUsers: any[] = [];
+    let transactions: any[] = [];
+    let allRepStocks: any[] = [];
+    let allCustomers: any[] = [];
+    let allWarehouses: any[] = [];
+
+    try {
+        // Fetch everything else
+        const [
+            productsData,
+            stocksData,
+            usersData,
+            transactionsData,
+            repStocksData,
+            customersData,
+            warehousesData
+        ] = await Promise.all([
+            getProducts(),
+            getStocks(),
+            getUsers(),
+            getTransactions(warehouseId),
+            getAllRepStocks(),
+            getCustomers(),
+            getWarehouses()
+        ]);
+
+        allProducts = productsData || [];
+        allStocks = stocksData || [];
+        allUsers = usersData || [];
+        transactions = transactionsData || [];
+        allRepStocks = repStocksData || [];
+        allCustomers = customersData || [];
+        allWarehouses = (warehousesData || []).map((w: any) => ({
+            id: String(w.id),
+            name: String(w.name || ""),
+            agencyId: w.agencyId ? String(w.agencyId) : null
+        }));
+    } catch (e) {
+        console.error("Warehouse details fetch error:", e);
+    }
+
     // Map products to convert Decimal to number
     const agencyProducts = allProducts
         .filter((p: any) => p && p.agencyId === warehouse.agencyId)
         .map((p: any) => ({
-            ...p,
+            id: p.id,
+            name: p.name,
+            image: p.image,
             factoryPrice: Number(p.factoryPrice || 0),
             wholesalePrice: Number(p.wholesalePrice || 0),
-            retailPrice: Number(p.retailPrice || 0)
+            retailPrice: Number(p.retailPrice || 0),
+            unitsPerCarton: Number(p.unitsPerCarton || 1),
+            unitFactoryPrice: Number(p.unitFactoryPrice || 0),
+            unitWholesalePrice: Number(p.unitWholesalePrice || 0),
+            unitRetailPrice: Number(p.unitRetailPrice || 0),
+            agencyId: p.agencyId,
+            ...(p.priceUpdatedAt && { priceUpdatedAt: p.priceUpdatedAt.toISOString() }),
+            ...(p.agency && { agency: { id: p.agency.id, name: p.agency.name } }),
+            ...(p.supplier && { supplier: { id: p.supplier.id, name: p.supplier.name } })
         }));
 
-    // Sanitize Stocks to remove Prisma objects/Decimals
-    const sanitizedStocks = allStocks.map((s: any) => ({
-        warehouseId: s.warehouseId,
-        productId: s.productId,
-        quantity: s.quantity || 0
+    // Sanitize Stocks - SUPER SANITIZE
+    const sanitizedStocks = (allStocks || []).map((s: any) => ({
+        warehouseId: String(s.warehouseId),
+        productId: String(s.productId),
+        quantity: Number(s.quantity || 0)
     }));
 
     // Map reps to handle nulls
     const agencyReps = allUsers
         .filter((u: any) => u && u.role === 'SALES_REPRESENTATIVE' && u.agencyId === warehouse.agencyId)
         .map((u: any) => ({
-            ...u,
-            agencyId: u.agencyId || undefined,
-            pricingType: u.pricingType || undefined,
-            warehouseId: u.warehouseId || undefined
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            ...(u.agencyId && { agencyId: u.agencyId }),
+            ...(u.pricingType && { pricingType: u.pricingType }),
+            ...(u.warehouseId && { warehouseId: u.warehouseId })
         }));
 
     // Map transactions to the UI format
@@ -98,37 +113,60 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                 if (t.type === 'SALE') {
                     if (t.note && t.note.includes('تحميل للمندوب')) displayType = 'LOAD_TO_REP';
                 } else if (t.type === 'PURCHASE') {
-                    if (t.note && t.note.includes('مرتجع')) displayType = 'RETURN';
+                    if (t.note && (t.note.includes('مرتجع') || t.type === 'RETURN_OUT')) displayType = 'RETURN';
                     else displayType = 'SUPPLY';
                 }
 
+                // Determine party name
+                const partyName = t.customer?.name || t.supplier?.name || (t.type === 'SALE' ? 'عميل نقدي' : 'توريد مخزن');
+
                 uiTransactions.push({
                     id: `${t.id}-${item.id}`,
+                    baseId: t.id,
                     productId: item.productId,
                     type: displayType,
-                    quantityChange: t.type === 'SALE' ? -item.quantity : item.quantity,
+                    rawType: t.type,
+                    quantityChange: (t.type === 'SALE' || t.type === 'RETURN_OUT') ? -item.quantity : item.quantity,
                     newQuantity: item.quantity,
                     date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
                     price: Number(item.price || 0),
-                    note: t.note || ''
+                    note: t.note || '',
+                    partyName,
+                    userName: t.user?.name || 'غير معروف',
+                    items: (t.items || []).map((i: any) => ({
+                        productId: String(i.productId),
+                        productName: String(i.product?.name || "صنف محذوف"),
+                        quantity: Number(i.quantity || 0),
+                        price: Number(i.price || 0),
+                        total: Number(i.quantity || 0) * Number(i.price || 0)
+                    })),
+                    paymentInfo: {
+                        type: t.paymentType,
+                        paidAmount: Number(t.paidAmount || 0),
+                        totalAmount: Number(t.totalAmount || 0)
+                    }
                 });
             });
         }
     });
 
-    // Map Rep Stocks
-    const mappedRepStocks = allRepStocks.map((s: any) => ({
-        repId: s.warehouseId,
-        productId: s.productId,
-        quantity: s.quantity || 0
+    // Map Rep Stocks - SUPER SANITIZE
+    const mappedRepStocks = (allRepStocks || []).map((s: any) => ({
+        repId: String(s.warehouseId),
+        productId: String(s.productId),
+        quantity: Number(s.quantity || 0)
     }));
 
-    // Map Customers
-    const mappedCustomers = allCustomers.map((c: any) => ({
-        ...c,
-        phone: c.phone || undefined,
-        representativeId: c.representativeId || undefined
+    // Map Customers - SUPER SANITIZE
+    const mappedCustomers = (allCustomers || []).map((c: any) => ({
+        id: String(c.id),
+        name: String(c.name || ""),
+        ...(c.phone && { phone: String(c.phone) }),
+        ...(c.address && { address: String(c.address) }),
+        ...(c.representativeId && { representativeId: String(c.representativeId) }),
+        agencyId: String(c.agencyId)
     }));
+    const sanitizedCustomers = mappedCustomers;
 
     // Stats Calculations
     const totalItems = agencyProducts.length;
@@ -181,8 +219,9 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                     reps={agencyReps}
                     transactions={uiTransactions}
                     allRepStocks={mappedRepStocks}
-                    allCustomers={mappedCustomers}
+                    allCustomers={sanitizedCustomers}
                     warehouses={allWarehouses}
+                    userRole={user.role}
                 />
             </div>
         </div>

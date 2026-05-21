@@ -1,6 +1,6 @@
 'use client';
 
-import { deleteUser, updateUser } from "@/lib/actions";
+import { updateUser, deleteUser } from "@/lib/actions";
 import { useState } from "react";
 import EditUserModal from "./edit-user-modal";
 
@@ -11,27 +11,23 @@ type User = {
     role: string;
     agencyId?: string;
     agencyIds?: string[];
+    warehouseId?: string;
     image: string | null;
 };
 
 type Props = {
     users: User[];
     agencies: Array<{ id: string, name: string }>;
+    warehouses: Array<{ id: string, name: string, agencyId: string | null }>;
+    currentUserRole?: string;
 }
 
-export default function UsersList({ users, agencies }: Props) {
+export default function UsersList({ users, agencies, warehouses, currentUserRole }: Props) {
     const [editingUser, setEditingUser] = useState<User | null>(null);
-
-    const handleDelete = async (id: string) => {
-        if (confirm("هل أنت متأكد من حذف هذا المستخدم؟")) {
-            await deleteUser(id);
-        }
-    }
 
     const getAgencyNames = (user: User) => {
         const ids = user.agencyIds || (user.agencyId ? [user.agencyId] : []);
         if (ids.length === 0) return 'الكل / غير محدد';
-
         const names = ids.map(id => agencies.find(a => a.id === id)?.name || 'غير معروف');
         return names.join('، ');
     }
@@ -42,6 +38,8 @@ export default function UsersList({ users, agencies }: Props) {
             case 'MANAGER': return 'مدير توكيلات';
             case 'ACCOUNTANT': return 'محاسب';
             case 'WAREHOUSE_KEEPER': return 'أمين مخزن';
+            case 'SALES_REPRESENTATIVE': return 'مندوب مبيعات';
+            case 'SALES_RECORDER': return 'مسجل مبيعات';
             default: return role;
         }
     }
@@ -56,6 +54,8 @@ export default function UsersList({ users, agencies }: Props) {
         }
     }
 
+    const isAdmin = currentUserRole === 'ADMIN';
+
     return (
         <>
             <div className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
@@ -65,13 +65,13 @@ export default function UsersList({ users, agencies }: Props) {
                             <th className="p-4 font-semibold">المستخدم</th>
                             <th className="p-4 font-semibold">الدور</th>
                             <th className="p-4 font-semibold">التخصيص</th>
-                            <th className="p-4 font-semibold">إجراءات</th>
+                            {isAdmin && <th className="p-4 font-semibold">إجراءات</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {users.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="p-8 text-center text-gray-400 text-sm">
+                                <td colSpan={isAdmin ? 4 : 3} className="p-8 text-center text-gray-400 text-sm">
                                     لا يوجد مستخدمين حتى الآن
                                 </td>
                             </tr>
@@ -96,20 +96,39 @@ export default function UsersList({ users, agencies }: Props) {
                                     </span>
                                 </td>
                                 <td className="p-4 text-gray-500 text-sm whitespace-normal max-w-xs">{getAgencyNames(user)}</td>
-                                <td className="p-4">
-                                    <button
-                                        className="text-emerald-600 hover:text-emerald-800 font-medium ml-3"
-                                        onClick={() => setEditingUser(user)}
-                                    >
-                                        تعديل
-                                    </button>
-                                    <button
-                                        className="text-red-500 hover:text-red-700 font-medium"
-                                        onClick={() => handleDelete(user.id)}
-                                    >
-                                        حذف
-                                    </button>
-                                </td>
+                                {isAdmin && (
+                                    <td className="p-4">
+                                        {user.role === 'SALES_REPRESENTATIVE' && (
+                                            <a
+                                                href={`/dashboard/reps/${user.id}`}
+                                                className="ml-3 text-blue-600 hover:text-blue-800 text-sm font-bold transition-colors"
+                                            >
+                                                عرض المديونية
+                                            </a>
+                                        )}
+                                        <button
+                                            className="text-emerald-600 hover:text-emerald-800 text-sm font-medium transition-colors ml-3"
+                                            onClick={() => setEditingUser(user)}
+                                        >
+                                            تعديل
+                                        </button>
+                                        <button
+                                            className="text-red-600 hover:text-red-800 text-sm font-medium transition-colors"
+                                            onClick={async () => {
+                                                if (confirm(`هل أنت متأكد من حذف المستخدم "${user.name}"؟`)) {
+                                                    try {
+                                                        await deleteUser(user.id);
+                                                        window.location.reload();
+                                                    } catch (error: any) {
+                                                        alert(error.message || "حدث خطأ أثناء الحذف");
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            حذف
+                                        </button>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>
@@ -121,6 +140,7 @@ export default function UsersList({ users, agencies }: Props) {
                 <EditUserModal
                     user={editingUser}
                     agencies={agencies}
+                    warehouses={warehouses}
                     updateUserAction={updateUser}
                     closeModal={() => setEditingUser(null)}
                 />
