@@ -87,7 +87,6 @@ model Supplier {
   accounts  AccountRecord[]
 
   @@index([agencyId])
->>>>>>> ac7891d6482bc5561e874b72213b44fc865a65d0
 }
 
 model Warehouse {
