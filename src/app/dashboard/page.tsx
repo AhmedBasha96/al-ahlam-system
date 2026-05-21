@@ -143,6 +143,37 @@ export default async function DashboardPage() {
                 </div>
             </div>
 
+            {/* Loading Request Notifications */}
+            {stats.loadingRequests && (stats.loadingRequests.pendingApproval > 0 || stats.loadingRequests.pendingFulfillment > 0 || (stats.loadingRequests.userPending || 0) > 0) && (
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                            <Clock className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-emerald-900">تنبيهات طلبات التحميل</h3>
+                            <div className="text-sm text-emerald-700 flex gap-4 mt-1">
+                                {user.role === 'MANAGER' || user.role === 'ADMIN' && stats.loadingRequests.pendingApproval > 0 && (
+                                    <span>يوجد <strong>{stats.loadingRequests.pendingApproval}</strong> طلبات تحتاج موافقتك</span>
+                                )}
+                                {user.role === 'WAREHOUSE_KEEPER' || user.role === 'ADMIN' && stats.loadingRequests.pendingFulfillment > 0 && (
+                                    <span>يوجد <strong>{stats.loadingRequests.pendingFulfillment}</strong> طلبات معتمدة بانتظار التحميل</span>
+                                )}
+                                {user.role === 'SALES_REPRESENTATIVE' && (stats.loadingRequests.userPending || 0) > 0 && (
+                                    <span>لديك <strong>{stats.loadingRequests.userPending}</strong> طلبات تحميل جاري متابعتها</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <Link 
+                        href="/dashboard/loading-requests" 
+                        className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition text-sm font-bold shrink-0"
+                    >
+                        عرض الطلبات
+                    </Link>
+                </div>
+            )}
+
 
             {/* Alerts & Notifications */}
             {(stats.outOfStockProducts.length > 0 || stats.lowStockProducts.length > 0) && (

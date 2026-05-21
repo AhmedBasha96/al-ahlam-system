@@ -39,6 +39,11 @@ export interface DashboardStats {
             product: { name: string };
         }>;
     }>;
+    loadingRequests?: {
+        pendingApproval: number;
+        pendingFulfillment: number;
+        userPending?: number;
+    };
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -212,6 +217,23 @@ export async function getDashboardStats(): Promise<DashboardStats> {
                 ...tx,
                 totalAmount: Number(tx.totalAmount),
             })),
+            loadingRequests: {
+                pendingApproval: await prisma.loadingRequest.count({
+                    where: { 
+                        status: 'PENDING',
+                        ...(isRestricted && currentUser.role === 'MANAGER' ? { agencyId: { in: (currentUser as any).agencyIds } } : {})
+                    }
+                }),
+                pendingFulfillment: await prisma.loadingRequest.count({
+                    where: { 
+                        status: 'APPROVED',
+                        ...(isRestricted && currentUser.role === 'WAREHOUSE_KEEPER' ? { warehouseId: (currentUser as any).warehouseId } : {})
+                    }
+                }),
+                userPending: currentUser.role === 'SALES_REPRESENTATIVE' 
+                    ? await prisma.loadingRequest.count({ where: { repId: currentUser.id, status: { in: ['PENDING', 'APPROVED'] } } })
+                    : undefined
+            }
         };
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);

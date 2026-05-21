@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from 'next/link';
 import LoadStockForm from "./load-stock-form";
 import { updateStock, supplyStock } from "@/lib/actions";
 import WarehouseAuditForm from "./warehouse-audit-form";
@@ -206,8 +207,22 @@ export default function WarehouseOperations({ warehouseId, agencyProducts, allSt
                         stocks={allStocks.filter(s => s.warehouseId === warehouseId)}
                     />
                 ) : activeTab === 'loading' ? (
-                    <div className="max-w-4xl mx-auto">
-                        <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} />
+                    <div className="max-w-4xl mx-auto space-y-4">
+                        <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">⚡</span>
+                                <div>
+                                    <p className="text-blue-900 font-bold">تم تطبيق نظام سيكل التحميل الجديد!</p>
+                                    <p className="text-blue-700 text-sm">يجب على المندوب إرسال طلب أولاً، ثم موافقة المدير، ثم التحميل من هنا.</p>
+                                </div>
+                            </div>
+                            <Link href="/dashboard/loading-requests" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-bold shadow-sm">
+                                اذهب لإدارة الطلبات
+                            </Link>
+                        </div>
+                        <div className="opacity-50 pointer-events-none grayscale">
+                            <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} />
+                        </div>
                     </div>
                 ) : activeTab === 'rep-audit' ? (
                     <div className="space-y-6">

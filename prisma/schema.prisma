@@ -25,6 +25,7 @@ model User {
   agency         Agency?         @relation(fields: [agencyId], references: [id])
   warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id])
   agencies       Agency[]        @relation("UserAgencies")
+  loadingRequests LoadingRequest[] @relation("RepLoadingRequests")
 
   @@index([agencyId], map: "User_agencyId_fkey")
   @@index([warehouseId], map: "User_warehouseId_fkey")
@@ -45,6 +46,7 @@ model Agency {
   directUsers  User[]
   warehouses   Warehouse[]
   users        User[]          @relation("UserAgencies")
+  loadingRequests LoadingRequest[]
 }
 
 model Warehouse {
@@ -57,6 +59,7 @@ model Warehouse {
   transactions Transaction[]
   users        User[]
   agency       Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  loadingRequests LoadingRequest[]
 
   @@index([agencyId], map: "Warehouse_agencyId_fkey")
 }
@@ -220,6 +223,37 @@ model Installment {
   @@index([loanId], map: "Installment_loanId_fkey")
 }
 
+model LoadingRequest {
+  id              String               @id @default(uuid())
+  repId           String
+  warehouseId     String
+  agencyId        String
+  status          LoadingRequestStatus @default(PENDING)
+  note            String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  representative User                 @relation("RepLoadingRequests", fields: [repId], references: [id])
+  warehouse       Warehouse            @relation(fields: [warehouseId], references: [id])
+  agency          Agency               @relation(fields: [agencyId], references: [id])
+  items           LoadingRequestItem[]
+
+  @@index([agencyId])
+  @@index([repId])
+  @@index([warehouseId])
+}
+
+model LoadingRequestItem {
+  id               String         @id @default(uuid())
+  loadingRequestId String
+  productId        String
+  quantity         Int
+  loadingRequest   LoadingRequest @relation(fields: [loadingRequestId], references: [id], onDelete: Cascade)
+  product          Product        @relation(fields: [productId], references: [id])
+
+  @@index([loadingRequestId])
+  @@index([productId])
+}
+
 enum Role {
   ADMIN
   MANAGER
@@ -264,4 +298,11 @@ enum InstallmentStatus {
   PENDING
   PAID
   OVERDUE
+}
+
+enum LoadingRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
 }

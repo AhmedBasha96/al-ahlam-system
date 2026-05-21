@@ -614,6 +614,24 @@ export async function getProducts() {
     });
 }
 
+export async function getProductsWithStock(warehouseId: string) {
+    const products = await prisma.product.findMany({
+        include: {
+            stocks: {
+                where: { warehouseId }
+            }
+        }
+    });
+
+    return products.map(p => ({
+        ...p,
+        stock: p.stocks[0]?.quantity || 0,
+        factoryPrice: Number(p.factoryPrice),
+        wholesalePrice: Number(p.wholesalePrice),
+        retailPrice: Number(p.retailPrice)
+    }));
+}
+
 export async function createProduct(formData: FormData) {
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
@@ -1339,4 +1357,153 @@ export async function updateSalesSession(
         console.error("updateSalesSession error:", error);
         return { success: false, error: String(error) };
     }
+}
+
+// --- Loading Request Actions ---
+
+export async function createLoadingRequest(data: FormData) {
+    const user = await getCurrentUser();
+    const warehouseId = data.get('warehouseId') as string;
+    const itemsJson = data.get('items') as string;
+    const note = data.get('note') as string;
+
+    if (!warehouseId || !itemsJson) throw new Error("Invalid Data");
+
+    let items: { productId: string; quantity: number }[] = JSON.parse(itemsJson);
+    if (items.length === 0) throw new Error("No items to request");
+
+    const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
+    if (!warehouse) throw new Error("Warehouse not found");
+
+    await prisma.loadingRequest.create({
+        data: {
+            repId: user.id,
+            warehouseId,
+            agencyId: warehouse.agencyId,
+            note,
+            items: {
+                create: items.map(item => ({
+                    productId: item.productId,
+                    quantity: item.quantity
+                }))
+            }
+        }
+    });
+
+    revalidatePath('/dashboard', 'layout');
+    return { success: true };
+}
+
+export async function getLoadingRequests() {
+    const user = await getCurrentUser();
+    
+    let where: any = {};
+    if (user.role === 'SALES_REPRESENTATIVE') {
+        where.repId = user.id;
+    } else if (user.role === 'MANAGER') {
+        where.agencyId = { in: user.agencyIds };
+    } else if (user.role === 'WAREHOUSE_KEEPER') {
+        where.warehouseId = user.warehouseId;
+        where.status = { in: ['APPROVED', 'COMPLETED'] };
+    } else if (user.role === 'ADMIN') {
+        // Admin sees everything
+    }
+
+    return await prisma.loadingRequest.findMany({
+        where,
+        include: {
+            representative: true,
+            warehouse: true,
+            agency: true,
+            items: {
+                include: {
+                    product: true
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+}
+
+export async function updateLoadingRequestStatus(requestId: string, status: 'APPROVED' | 'REJECTED') {
+    const user = await getCurrentUser();
+    if (user.role !== 'MANAGER' && user.role !== 'ADMIN') throw new Error("Unauthorized");
+
+    await prisma.loadingRequest.update({
+        where: { id: requestId },
+        data: { status }
+    });
+
+    revalidatePath('/dashboard', 'layout');
+    return { success: true };
+}
+
+export async function completeLoadingRequest(requestId: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'WAREHOUSE_KEEPER' && user.role !== 'ADMIN') throw new Error("Unauthorized");
+
+    const request = await prisma.loadingRequest.findUnique({
+        where: { id: requestId },
+        include: { items: true, representative: true }
+    });
+
+    if (!request) throw new Error("Request not found");
+    if (request.status !== 'APPROVED') throw new Error("Request must be approved first");
+
+    // Perform the actual loading
+    await prisma.$transaction(async (tx) => {
+        for (const item of request.items) {
+            // Check stock
+            const sourceStock = await tx.stock.findUnique({
+                where: { warehouseId_productId: { warehouseId: request.warehouseId, productId: item.productId } }
+            });
+
+            if (!sourceStock || sourceStock.quantity < item.quantity) {
+                const product = await tx.product.findUnique({ where: { id: item.productId } });
+                throw new Error(`الرصيد غير كافٍ للصنف: ${product?.name}`);
+            }
+
+            // Decrement warehouse
+            await tx.stock.update({
+                where: { warehouseId_productId: { warehouseId: request.warehouseId, productId: item.productId } },
+                data: { quantity: { decrement: item.quantity } }
+            });
+
+            // Increment rep
+            await tx.stock.upsert({
+                where: { warehouseId_productId: { warehouseId: request.repId, productId: item.productId } },
+                update: { quantity: { increment: item.quantity } },
+                create: { warehouseId: request.repId, productId: item.productId, quantity: item.quantity }
+            });
+
+            // Record transaction
+            await tx.transaction.create({
+                data: {
+                    type: 'SALE',
+                    totalAmount: 0,
+                    userId: request.repId,
+                    agencyId: request.agencyId,
+                    warehouseId: request.warehouseId,
+                    note: `تحميل للمندوب (بناء على طلب): ${request.representative.name}`,
+                    items: {
+                        create: [{
+                            productId: item.productId,
+                            quantity: item.quantity,
+                            price: 0,
+                            cost: Number(await tx.product.findUnique({ where: { id: item.productId } }).then(p => p?.factoryPrice || 0))
+                        }]
+                    }
+                }
+            });
+        }
+
+        // Update request status
+        await tx.loadingRequest.update({
+            where: { id: requestId },
+            data: { status: 'COMPLETED' }
+        });
+    });
+
+    revalidatePath('/dashboard', 'layout');
+    return { success: true };
 }
