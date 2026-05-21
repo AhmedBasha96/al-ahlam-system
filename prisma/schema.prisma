@@ -127,6 +127,7 @@ model Product {
   supplier         Supplier?         @relation(fields: [supplierId], references: [id])
   stocks           Stock[]
   transactionItems TransactionItem[]
+  loadingRequestItems LoadingRequestItem[]
 
   @@index([agencyId], map: "Product_agencyId_fkey")
   @@index([supplierId])
