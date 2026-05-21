@@ -26,5 +26,15 @@ ALTER TABLE `AccountRecord` ADD CONSTRAINT `AccountRecord_customerId_fkey` FOREI
 -- AddForeignKey
 ALTER TABLE `Bank` ADD CONSTRAINT `Bank_agencyId_fkey` FOREIGN KEY (`agencyId`) REFERENCES `Agency`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- CreateTable (Missing Implicit M-N Table)
+CREATE TABLE `_KeeperWarehouses` (
+    `A` VARCHAR(191) NOT NULL,
+    `B` VARCHAR(191) NOT NULL,
 
+    UNIQUE INDEX `_KeeperWarehouses_AB_unique`(`A`, `B`),
+    INDEX `_KeeperWarehouses_B_index`(`B`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- AddForeignKey
+ALTER TABLE `_KeeperWarehouses` ADD CONSTRAINT `_KeeperWarehouses_A_fkey` FOREIGN KEY (`A`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `_KeeperWarehouses` ADD CONSTRAINT `_KeeperWarehouses_B_fkey` FOREIGN KEY (`B`) REFERENCES `Warehouse`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
