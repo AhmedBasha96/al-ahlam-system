@@ -59,7 +59,6 @@ export default async function WarehousesPage() {
                                         </td>
                                     </tr>
                                 ) : warehouses.map((warehouse: any) => {
-                                    const agency = agencies.find((a: any) => a.id === warehouse.agencyId);
                                     return (
                                         <tr key={warehouse.id} className="hover:bg-gray-50">
                                             <td className="p-4 font-medium">
@@ -67,7 +66,7 @@ export default async function WarehousesPage() {
                                                     {warehouse.name}
                                                 </Link>
                                             </td>
-                                            <td className="p-4 text-gray-600">{agency?.name || 'غير محدد'}</td>
+                                            <td className="p-4 text-gray-600">{warehouse.agency?.name || 'غير محدد'}</td>
                                             <td className="p-4 text-gray-500">
                                                 {warehouse.createdAt instanceof Date
                                                     ? warehouse.createdAt.toLocaleDateString('en-GB')
