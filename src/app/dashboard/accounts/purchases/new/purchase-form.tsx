@@ -21,9 +21,10 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const router = useRouter();
     const [warehouseId, setWarehouseId] = useState("");
     const [supplierId, setSupplierId] = useState("");
-    const [items, setItems] = useState<{ productId: string, cartons: number, units: number, cost: number, discountPercentage: number, taxPercentage: number }[]>([
-        { productId: "", cartons: 0, units: 0, cost: 0, discountPercentage: 0, taxPercentage: 0 }
+    const [items, setItems] = useState<{ productId: string, cartons: number, cost: number, discountPercentage: number, taxPercentage: number }[]>([
+        { productId: "", cartons: 0, cost: 0, discountPercentage: 0, taxPercentage: 0 }
     ]);
+    const [barcodeInput, setBarcodeInput] = useState("");
     const [paidAmount, setPaidAmount] = useState(0);
     const [note, setNote] = useState("");
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -38,24 +39,32 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const filteredSuppliers = suppliers.filter(s => s.agencyId === agencyId);
 
     const totalAmount = items.reduce((sum, item) => {
-        const product = products.find(p => p.id === item.productId);
-        const upc = product?.unitsPerCarton || 1;
-
-        let itemBase = 0;
-        if (item.cartons > 0 || item.units > 0) {
-            const totalUnits = (item.cartons * upc) + item.units;
-            const unitCost = item.cartons > 0 ? (item.cost / upc) : item.cost;
-            itemBase = totalUnits * unitCost;
-        }
-        
+        let itemBase = item.cartons * item.cost;
         const discountAmount = itemBase * (item.discountPercentage / 100);
         const taxAmount = itemBase * (item.taxPercentage / 100);
-        
         return sum + (itemBase - discountAmount + taxAmount);
     }, 0);
 
-    const addItem = () => {
-        setItems([...items, { productId: "", cartons: 0, units: 0, cost: 0, discountPercentage: 0, taxPercentage: 0 }]);
+    const addItem = (productId = "") => {
+        setItems([...items, { productId, cartons: 0, cost: 0, discountPercentage: 0, taxPercentage: 0 }]);
+    };
+
+    const handleBarcodeSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const product = products.find(p => p.barcode === barcodeInput);
+            if (product) {
+                const emptyRowIndex = items.findIndex(it => it.productId === "");
+                if (emptyRowIndex !== -1) {
+                    updateItem(emptyRowIndex, 'productId', product.id);
+                } else {
+                    setItems([...items, { productId: product.id, cartons: 1, cost: Number(product.factoryPrice), discountPercentage: 0, taxPercentage: 0 }]);
+                }
+                setBarcodeInput("");
+            } else {
+                alert("المنتج غير موجود!");
+            }
+        }
     };
 
     const removeItem = (index: number) => {
@@ -66,27 +75,13 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         const newItems = [...items];
         let newItem = { ...newItems[index], [field]: value };
 
-        if (field === 'productId') {
-            newItem.cartons = 0;
-            newItem.units = 0;
+        const product = products.find(p => p.id === newItem.productId);
+
+        if (field === 'productId' && product) {
+            newItem.cost = Number(product.factoryPrice);
             newItem.discountPercentage = 0;
             newItem.taxPercentage = 0;
-        }
-
-        const product = products.find(p => p.id === newItem.productId);
-        const upc = product?.unitsPerCarton || 1;
-
-        if (field === 'units' && value >= upc && upc > 0) {
-            newItem.cartons += Math.floor(value / upc);
-            newItem.units = value % upc;
-        }
-
-        if (product && (field === 'productId' || field === 'cartons')) {
-            if (newItem.cartons > 0) {
-                newItem.cost = Number(product.factoryPrice);
-            } else {
-                newItem.cost = Number(product.unitFactoryPrice);
-            }
+            newItem.cartons = 0;
         }
 
         newItems[index] = newItem;
@@ -118,30 +113,14 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
             const product = products.find(p => p.id === it.productId);
             const upc = product?.unitsPerCarton || 1;
 
-            let totalUnits = 0;
-            let unitCost = 0;
-
-            if (it.cartons > 0) {
-                totalUnits = (it.cartons * upc) + it.units;
-                unitCost = it.cost / upc;
-            } else {
-                totalUnits = it.units;
-                unitCost = it.cost;
-            }
-
             return {
                 productId: it.productId,
-                quantity: totalUnits,
-                cost: unitCost,
+                quantity: it.cartons * upc, // Save total pieces in DB for consistency
+                cost: it.cost / upc,        // Save unit cost in DB
                 discountPercentage: it.discountPercentage,
                 taxPercentage: it.taxPercentage
             };
         });
-
-        formData.append('items', JSON.stringify(itemsForServer));
-        formData.append('paidAmount', paidAmount.toString());
-        formData.append('note', note);
-        formData.append('date', date);
 
         try {
             await createPurchaseInvoice(formData);
@@ -184,9 +163,6 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                     ))}
                                 </SelectContent>
                             </Select>
-                            {warehouseId && filteredSuppliers.length === 0 && (
-                                <p className="text-[10px] text-orange-500 mt-1">* لا يوجد موردين مسجلين لهذا التوكيل</p>
-                            )}
                         </div>
                         <div className="space-y-2">
                             <Label>تاريخ الفاتورة</Label>
@@ -195,20 +171,28 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                     </div>
 
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
-                            <Label className="text-lg font-semibold">الأصناف</Label>
-                            <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                                <Plus className="w-4 h-4 mr-1" /> إضافة صنف
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50 p-4 rounded-lg gap-4">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                <Label className="text-lg font-semibold whitespace-nowrap">البحث بالباركود:</Label>
+                                <Input 
+                                    placeholder="اضرب الباركود هنا..." 
+                                    className="max-w-xs border-emerald-500 focus-visible:ring-emerald-500"
+                                    value={barcodeInput}
+                                    onChange={e => setBarcodeInput(e.target.value)}
+                                    onKeyDown={handleBarcodeSearch}
+                                />
+                            </div>
+                            <Button type="button" variant="outline" size="sm" onClick={() => addItem()}>
+                                <Plus className="w-4 h-4 mr-1" /> صنف يدوي
                             </Button>
                         </div>
 
                         {items.map((item, index) => {
                             const product = products.find(p => p.id === item.productId);
-                            const upc = product?.unitsPerCarton || 1;
 
                             return (
                                 <div key={index} className="grid md:grid-cols-12 gap-4 items-end border-b pb-4">
-                                    <div className="md:col-span-4 space-y-2">
+                                    <div className="md:col-span-5 space-y-2">
                                         <Label>المنتج</Label>
                                         <Select value={item.productId} onValueChange={(val) => updateItem(index, 'productId', val)} required>
                                             <SelectTrigger>
@@ -220,41 +204,27 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        {product && (
-                                            <p className="text-[10px] text-gray-400">الكرتونة = {upc} علبة</p>
-                                        )}
                                     </div>
                                     <div className="md:col-span-2 space-y-2">
-                                        <Label className="text-center block">كراتين</Label>
+                                        <Label className="text-center block font-bold text-blue-800">عدد الكراتين</Label>
                                         <Input
                                             type="number"
                                             min="0"
                                             value={item.cartons}
                                             onChange={(e) => updateItem(index, 'cartons', Number(e.target.value))}
-                                            className="text-center font-bold"
+                                            className="text-center font-bold text-lg border-blue-200"
                                         />
                                     </div>
                                     <div className="md:col-span-2 space-y-2">
-                                        <Label className="text-center block">علب</Label>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            value={item.units}
-                                            onChange={(e) => updateItem(index, 'units', Number(e.target.value))}
-                                            className="text-center font-bold"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2 space-y-2">
-                                        <Label>سعر الشراء</Label>
+                                        <Label>سعر الكرتونة</Label>
                                         <div className="relative">
                                             <Input
                                                 type="number"
                                                 step="0.01"
                                                 value={item.cost}
-                                                readOnly
-                                                className="bg-gray-100 font-mono text-blue-700 font-bold text-sm"
+                                                onChange={(e) => updateItem(index, 'cost', Number(e.target.value))}
+                                                className="bg-white font-mono text-blue-700 font-bold"
                                             />
-                                            <span className="absolute left-1 top-1 text-[8px] text-gray-400">{item.cartons > 0 ? 'كرتونة' : 'قطعة'}</span>
                                         </div>
                                     </div>
                                     <div className="md:col-span-1 space-y-2">
@@ -291,42 +261,39 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                         })}
                     </div>
 
-                    <div className="bg-slate-50 p-6 rounded-lg space-y-4">
-                        <div className="flex justify-between text-xl font-bold">
+                    <div className="bg-slate-50 p-6 rounded-lg space-y-4 shadow-inner">
+                        <div className="flex justify-between text-2xl font-bold text-slate-800">
                             <span>إجمالي الفاتورة:</span>
                             <span>{new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(totalAmount)}</span>
                         </div>
 
                         <div className="grid md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>المدفوع</Label>
+                                <Label className="font-bold">المدفوع نقداً</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
                                     value={paidAmount}
                                     onChange={(e) => setPaidAmount(Number(e.target.value))}
+                                    className="text-lg font-bold text-emerald-700"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>المتبقي (آجل)</Label>
-                                <div className="p-2 bg-white border rounded-md text-red-600 font-bold">
+                                <Label className="font-bold text-red-600">المتبقي (مديونية للمورد)</Label>
+                                <div className="p-2 bg-white border border-red-100 rounded-md text-red-600 font-bold text-lg">
                                     {new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(totalAmount - paidAmount)}
                                 </div>
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label>ملاحظات</Label>
-                            <Input value={note} onChange={e => setNote(e.target.value)} placeholder="رقم الفاتورة الورقية، اسم المورد..." />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="invoice-image">📎 إرفاق صورة الفاتورة (اختياري)</Label>
-                            <Input id="invoice-image" name="image" type="file" accept="image/*" className="file:mr-2 file:px-3 file:py-1 file:rounded-md file:border-0 file:bg-emerald-100 file:text-emerald-700 file:font-semibold hover:file:bg-emerald-200" />
+                            <Label>ملاحظات إضافية</Label>
+                            <Input value={note} onChange={e => setNote(e.target.value)} placeholder="رقم الفاتورة الورقية أو أي ملاحظات..." />
                         </div>
                     </div>
 
-                    <Button type="submit" className="w-full bg-slate-900 hover:bg-black font-bold h-12 rounded-xl" size="lg" disabled={isSubmitting}>
+                    <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 font-bold h-14 rounded-xl text-lg shadow-lg" size="lg" disabled={isSubmitting}>
+                        <Plus className="w-5 h-5 mr-2" />
                         {isSubmitting ? 'جاري الحفظ...' : 'تأكيد وحفظ فاتورة الشراء'}
                     </Button>
                 </form>
@@ -336,7 +303,7 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                     onOpenChange={setShowConfirm}
                     onConfirm={handleConfirmSubmit}
                     title="تأكيد فاتورة مشتريات"
-                    description="هل أنت متأكد من صحة الكميات والأسعار؟ سيتم إضافة الأصناف للمخزن وتحديث حساب المورد."
+                    description="هل أنت متأكد من صحة عدد الكراتين والأسعار؟ سيتم إضافة المخزون فوراً."
                     confirmText="نعم، حفظ الفاتورة"
                 />
             </CardContent>
