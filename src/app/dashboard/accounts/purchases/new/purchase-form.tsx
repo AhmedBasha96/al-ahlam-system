@@ -196,13 +196,22 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
 
                         {items.map((item, index) => {
                             const product = products.find(p => p.id === item.productId);
+                            
+                            // Row calculations
+                            const itemBase = item.cartons * item.cost;
+                            const itemDiscountAmount = itemBase * (item.discountPercentage / 100);
+                            const itemTaxAmount = itemBase * (item.taxPercentage / 100);
+                            const itemNet = itemBase - itemDiscountAmount + itemTaxAmount;
 
                             return (
-                                <div key={index} className="grid md:grid-cols-12 gap-4 items-end border-b pb-4">
-                                    <div className="md:col-span-5 space-y-2">
-                                        <Label>المنتج</Label>
+                                <div key={index} className="grid md:grid-cols-12 gap-4 items-start border-b pb-4 bg-white p-2 rounded-lg shadow-sm mb-2 hover:bg-slate-50 transition-colors">
+                                    <div className="md:col-span-4 space-y-2">
+                                        <Label className="flex justify-between">
+                                            <span>المنتج</span>
+                                            {product && <span className="text-[10px] text-blue-500 font-mono">[{product.barcode}]</span>}
+                                        </Label>
                                         <Select value={item.productId} onValueChange={(val) => updateItem(index, 'productId', val)} required>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="h-10 text-sm">
                                                 <SelectValue placeholder="اختر المنتج" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -212,51 +221,57 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="md:col-span-2 space-y-2">
-                                        <Label className="text-center block font-bold text-blue-800">عدد الكراتين</Label>
+                                    <div className="md:col-span-1 space-y-2">
+                                        <Label className="text-center block text-[11px] font-bold">كراتين</Label>
                                         <Input
                                             type="number"
                                             min="0"
                                             value={item.cartons}
                                             onChange={(e) => updateItem(index, 'cartons', Number(e.target.value))}
-                                            className="text-center font-bold text-lg border-blue-200"
+                                            className="text-center font-bold text-blue-800 h-10"
                                         />
                                     </div>
                                     <div className="md:col-span-2 space-y-2">
-                                        <Label>سعر الكرتونة</Label>
-                                        <div className="relative">
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                value={item.cost}
-                                                onChange={(e) => updateItem(index, 'cost', Number(e.target.value))}
-                                                className="bg-white font-mono text-blue-700 font-bold"
-                                            />
-                                        </div>
+                                        <Label className="text-[11px]">سعر الكرتونة</Label>
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={item.cost}
+                                            onChange={(e) => updateItem(index, 'cost', Number(e.target.value))}
+                                            className="font-mono text-blue-700 font-bold h-10"
+                                        />
                                     </div>
                                     <div className="md:col-span-1 space-y-2">
-                                        <Label className="text-xs text-orange-600">خصم %</Label>
+                                        <Label className="text-[10px] text-orange-600 block text-center">خصم %</Label>
                                         <Input
                                             type="number"
                                             min="0"
                                             max="100"
                                             value={item.discountPercentage}
                                             onChange={(e) => updateItem(index, 'discountPercentage', Number(e.target.value))}
-                                            className="text-center text-sm border-orange-200"
+                                            className="text-center text-xs border-orange-100 h-10"
                                         />
+                                        {itemDiscountAmount > 0 && <p className="text-[9px] text-center text-orange-500 font-bold">-{itemDiscountAmount.toFixed(1)}</p>}
                                     </div>
                                     <div className="md:col-span-1 space-y-2">
-                                        <Label className="text-xs text-emerald-600">ضريبة %</Label>
+                                        <Label className="text-[10px] text-emerald-600 block text-center">ضريبة %</Label>
                                         <Input
                                             type="number"
                                             min="0"
                                             max="100"
                                             value={item.taxPercentage}
                                             onChange={(e) => updateItem(index, 'taxPercentage', Number(e.target.value))}
-                                            className="text-center text-sm border-emerald-200"
+                                            className="text-center text-xs border-emerald-100 h-10"
                                         />
+                                        {itemTaxAmount > 0 && <p className="text-[9px] text-center text-emerald-500 font-bold">+{itemTaxAmount.toFixed(1)}</p>}
                                     </div>
-                                    <div className="md:col-span-1 flex justify-end mb-1">
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label className="text-[11px] font-bold text-slate-700">الصافي</Label>
+                                        <div className="h-10 bg-slate-100 rounded flex items-center justify-center font-mono font-bold text-slate-800 text-sm border border-slate-200">
+                                            {itemNet.toFixed(2)}
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-1 flex justify-end pt-8">
                                         {items.length > 1 && (
                                             <Button type="button" variant="destructive" size="icon" onClick={() => removeItem(index)} className="h-8 w-8">
                                                 <Trash2 className="w-4 h-4" />
