@@ -25,6 +25,7 @@ type PurchaseTransaction = {
         productId: string;
         product: {
             name: string;
+            unitsPerCarton: number;
         };
         quantity: number;
         price: number;
@@ -215,15 +216,30 @@ export default function PurchaseHistoryTable({
                     id={viewingTx.id}
                     partyName={agencyName}
                     userName={viewingTx.user.name}
-                    items={viewingTx.items.map(i => ({
-                        productId: i.productId,
-                        productName: i.product.name,
-                        quantity: i.quantity,
-                        price: i.price,
-                        discountPercentage: Number(i.discountPercentage || 0),
-                        taxPercentage: Number(i.taxPercentage || 0),
-                        total: (i.quantity * i.price) - ((i.quantity * i.price) * (Number(i.discountPercentage || 0) / 100)) + ((i.quantity * i.price) * (Number(i.taxPercentage || 0) / 100))
-                    }))}
+                    items={viewingTx.items.map(i => {
+                        const totalBase = i.quantity * i.price;
+                        const discountAmt = totalBase * (Number(i.discountPercentage || 0) / 100);
+                        const taxAmt = (totalBase - discountAmt) * (Number(i.taxPercentage || 0) / 100);
+                        
+                        const cartons = Math.floor(i.quantity / (i.product.unitsPerCarton || 1));
+                        const pieces = i.quantity % (i.product.unitsPerCarton || 1);
+                        const formattedQty = cartons > 0 
+                            ? `${cartons} كرتونة${pieces > 0 ? ` + ${pieces} قطعة` : ''}`
+                            : `${pieces} قطعة`;
+
+                        return {
+                            productId: i.productId,
+                            productName: i.product.name,
+                            quantity: i.quantity,
+                            formattedQuantity: formattedQty,
+                            price: i.price,
+                            discountPercentage: Number(i.discountPercentage || 0),
+                            discountAmount: discountAmt,
+                            taxPercentage: Number(i.taxPercentage || 0),
+                            taxAmount: taxAmt,
+                            total: totalBase - discountAmt + taxAmt
+                        };
+                    })}
                     paymentInfo={{
                         type: viewingTx.paymentType,
                         paidAmount: viewingTx.paidAmount,

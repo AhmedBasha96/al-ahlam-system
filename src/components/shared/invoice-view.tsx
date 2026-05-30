@@ -12,7 +12,9 @@ interface InvoiceItem {
     price: number;
     originalPrice?: number;
     discountPercentage?: number;
+    discountAmount?: number;
     taxPercentage?: number;
+    taxAmount?: number;
     total: number;
     formattedQuantity?: string;
     displayPrice?: number;
@@ -170,12 +172,12 @@ export function InvoiceView({
                         <thead>
                             <tr className="bg-slate-100 text-slate-600 text-[10px] font-black border-b border-slate-200">
                                 <th className="p-2 w-10 text-center">#</th>
-                                <th className="p-2">اسم الصنف</th>
-                                <th className="p-2 text-center w-20">الكمية</th>
-                                <th className="p-2 text-center w-24">السعر</th>
-                                <th className="p-2 text-center w-16">خصم%</th>
-                                <th className="p-2 text-center w-16">ضريبة%</th>
-                                <th className="p-2 text-left w-28">الإجمالي</th>
+                                <th className="p-2">الصنف (وحدة كرتونة)</th>
+                                <th className="p-2 text-center w-28">الكمية</th>
+                                <th className="p-2 text-center w-20">السعر</th>
+                                <th className="p-2 text-center w-28">الخصم</th>
+                                <th className="p-2 text-center w-28">الضريبة</th>
+                                <th className="p-2 text-left w-28 text-indigo-700">الإجمالي</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -185,23 +187,29 @@ export function InvoiceView({
                                     <td className="p-2">
                                         <div className="font-bold text-slate-800 text-[11px] leading-tight">{item.productName}</div>
                                     </td>
-                                    <td className="p-2 text-center font-black text-slate-900">
-                                        {item.formattedQuantity || item.quantity}
+                                    <td className="p-2 text-center font-black text-slate-900 bg-blue-50/20">
+                                        {item.formattedQuantity || `${item.quantity} قطعة`}
                                     </td>
                                     <td className="p-2 text-center font-bold text-slate-600">
                                         {(item.displayPrice || item.price).toLocaleString()}
                                     </td>
                                     <td className="p-2 text-center">
                                         {item.discountPercentage ? (
-                                            <span className="text-rose-600 font-bold">%{item.discountPercentage}</span>
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-rose-600 font-bold">%{item.discountPercentage}</span>
+                                                <span className="text-[9px] text-rose-400">({item.discountAmount?.toLocaleString()})</span>
+                                            </div>
                                         ) : <span className="text-slate-300">—</span>}
                                     </td>
                                     <td className="p-2 text-center">
                                         {item.taxPercentage ? (
-                                            <span className="text-emerald-600 font-bold">%{item.taxPercentage}</span>
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-emerald-600 font-bold">%{item.taxPercentage}</span>
+                                                <span className="text-[9px] text-emerald-400">({item.taxAmount?.toLocaleString()})</span>
+                                            </div>
                                         ) : <span className="text-slate-300">—</span>}
                                     </td>
-                                    <td className="p-2 text-left font-black text-slate-900 bg-slate-50/30">
+                                    <td className="p-2 text-left font-black text-slate-900 bg-indigo-50/30">
                                         {item.total.toLocaleString()}
                                     </td>
                                 </tr>
