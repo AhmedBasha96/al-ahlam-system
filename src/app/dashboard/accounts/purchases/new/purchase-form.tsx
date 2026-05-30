@@ -245,6 +245,7 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                         <Label className="text-[10px] text-orange-600 block text-center">خصم %</Label>
                                         <Input
                                             type="number"
+                                            step="any"
                                             min="0"
                                             max="100"
                                             value={item.discountPercentage}
@@ -257,6 +258,7 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                         <Label className="text-[10px] text-emerald-600 block text-center">ضريبة %</Label>
                                         <Input
                                             type="number"
+                                            step="any"
                                             min="0"
                                             max="100"
                                             value={item.taxPercentage}
