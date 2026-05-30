@@ -246,24 +246,30 @@ export async function getWarehouses() {
     } else {
         const fullUser = await prisma.user.findUnique({
             where: { id: user.id },
-            include: { warehouses: true }
+            include: { warehouses: true, agencies: true }
         });
-        if (fullUser?.warehouses && fullUser.warehouses.length > 0) {
-            // If warehouse keeper, only show their assigned warehouses
-            if (user.role === 'WAREHOUSE_KEEPER') {
+
+        if (!fullUser) return [];
+
+        if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouses.length > 0) {
+            // If warehouse keeper, only show their explicitly assigned warehouses
+            warehouses = await prisma.warehouse.findMany({
+                where: { id: { in: fullUser.warehouses.map(w => w.id) } },
+                include: { agency: true }
+            });
+        } else {
+            // For Sales Reps and others, show warehouses belonging to their assigned agencies
+            const agencyIds = fullUser.agencies.map(a => a.id);
+            if (fullUser.agencyId) agencyIds.push(fullUser.agencyId);
+            
+            if (agencyIds.length > 0) {
                 warehouses = await prisma.warehouse.findMany({
-                    where: { id: { in: fullUser.warehouses.map(w => w.id) } },
+                    where: { agencyId: { in: agencyIds } },
                     include: { agency: true }
                 });
             } else {
-                const agencyId = fullUser.agencyId;
-                warehouses = agencyId ? await prisma.warehouse.findMany({
-                    where: { agencyId },
-                    include: { agency: true }
-                }) : [];
+                warehouses = [];
             }
-        } else {
-            warehouses = [];
         }
     }
 
