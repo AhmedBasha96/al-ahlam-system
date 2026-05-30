@@ -119,7 +119,6 @@ export default function WarehouseOperations({
     return (
         <div className="space-y-6">
             {/* Tabs Navigation */}
-            {/* ... (keep existing tabs) ... */}
             <div className="flex border-b border-gray-200 overflow-x-auto">
                 <button
                     onClick={() => setActiveTab('inventory')}
@@ -171,7 +170,6 @@ export default function WarehouseOperations({
             {/* Tab Content */}
             <div className="animate-in fade-in duration-300">
                 {activeTab === 'inventory' ? (
-                    /* ... inventory table (keep existing) ... */
                     <div className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
                         <table className="w-full text-right">
                             <thead className="bg-emerald-50 text-emerald-900 border-b border-emerald-100">
@@ -189,7 +187,6 @@ export default function WarehouseOperations({
                                 {agencyProducts.map(product => {
                                     const stockEntry = allStocks.find(s => s.warehouseId === warehouseId && s.productId === product.id);
                                     const currentStock = stockEntry?.quantity || 0;
-                                    const isSupplying = supplyModeProductId === product.id;
 
                                     return (
                                         <tr key={product.id} className="hover:bg-gray-50 transition-colors">
@@ -267,7 +264,6 @@ export default function WarehouseOperations({
                         </table>
                     </div>
                 ) : activeTab === 'loading' ? (
-<<<<<<< HEAD
                     <div className="max-w-4xl mx-auto space-y-4">
                         <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
@@ -284,14 +280,10 @@ export default function WarehouseOperations({
                         <div className="opacity-50 pointer-events-none grayscale">
                             <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} />
                         </div>
-=======
-                    <div className="max-w-4xl mx-auto">
-                        <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} stocks={allStocks} />
                     </div>
                 ) : activeTab === 'returns' ? (
                     <div className="max-w-4xl mx-auto">
                         <WarehouseReturnForm warehouseId={warehouseId} products={agencyProducts} stocks={allStocks} />
->>>>>>> ac7891d6482bc5561e874b72213b44fc865a65d0
                     </div>
                 ) : activeTab === 'rep-audit' ? (
                     <div className="space-y-6">
