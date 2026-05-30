@@ -69,87 +69,97 @@ export async function createPurchaseInvoice(formData: FormData) {
 
     if (items.length === 0) throw new Error('لا توجد أصناف في الفاتورة');
 
+    console.log(`[createPurchaseInvoice] Starting for warehouse: ${warehouseId}, supplier: ${supplierId}`);
+
     const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
     if (!warehouse) throw new Error('المخزن غير موجود');
+    if (!warehouse.agencyId) throw new Error('هذا المخزن غير مرتبط بتوكيل. يرجى اختيار مخزن آخر أو ربط المخزن بتوكيل.');
 
     const user = await getCurrentUser();
 
     // Calculate total amount accounting for discount and tax per item
     const totalAmount = items.reduce((sum, item) => {
-        const itemBase = item.quantity * item.cost;
+        const itemBase = Number(item.quantity) * Number(item.cost);
         const discountAmount = itemBase * (Number(item.discountPercentage || 0) / 100);
         const taxAmount = itemBase * (Number(item.taxPercentage || 0) / 100);
         return sum + (itemBase - discountAmount + taxAmount);
     }, 0);
 
+    console.log(`[createPurchaseInvoice] Total Amount: ${totalAmount}, Paid: ${paidAmount}`);
+
     // Convert image to Base64 if provided
     let imageUrl: string | null = null;
-    if (imageFile && imageFile.size > 0) {
-        const arrayBuffer = await imageFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
+    try {
+        if (imageFile && imageFile.size > 0) {
+            const buffer = Buffer.from(await imageFile.arrayBuffer());
+            imageUrl = `data:${imageFile.type};base64,${buffer.toString('base64')}`;
+            console.log('[createPurchaseInvoice] Image converted successfully');
         }
-        const base64 = btoa(binary);
-        imageUrl = `data:${imageFile.type};base64,${base64}`;
+    } catch (imgError) {
+        console.error('[createPurchaseInvoice] Image conversion failed:', imgError);
+        // Continue without image instead of failing the whole invoice
     }
 
-    const transaction = await prisma.$transaction(async (tx) => {
-        // 1. Update Stock
-        for (const item of items) {
-            await tx.stock.upsert({
-                where: { warehouseId_productId: { warehouseId, productId: item.productId } },
-                update: { quantity: { increment: item.quantity } },
-                create: { warehouseId, productId: item.productId, quantity: item.quantity }
-            });
-        }
-
-        // 2. Create Transaction
-        const purchase = await (tx as any).transaction.create({
-            data: {
-                type: 'PURCHASE',
-                totalAmount,
-                paidAmount,
-                remainingAmount: totalAmount - paidAmount,
-                userId: user.id,
-                agencyId: warehouse.agencyId,
-                warehouseId,
-                supplierId: supplierId || null,
-                note: note || 'فاتورة مشتريات',
-                createdAt: dateStr ? new Date(dateStr) : new Date(),
-                imageUrl: imageUrl,
-                items: {
-                    create: items.map(item => ({
-                        productId: item.productId,
-                        quantity: item.quantity,
-                        price: item.cost,
-                        cost: item.cost,
-                        discountPercentage: Number(item.discountPercentage || 0),
-                        taxPercentage: Number(item.taxPercentage || 0)
-                    }))
-                }
+    try {
+        const transactionResult = await prisma.$transaction(async (tx) => {
+            // 1. Update Stock
+            for (const item of items) {
+                await tx.stock.upsert({
+                    where: { warehouseId_productId: { warehouseId, productId: item.productId } },
+                    update: { quantity: { increment: item.quantity } },
+                    create: { warehouseId, productId: item.productId, quantity: item.quantity }
+                });
             }
-        });
 
-        // 3. Record Journal Entry (If cash paid)
-        if (paidAmount > 0) {
-            await recordJournalEntry(tx, {
-                amount: paidAmount,
-                type: 'CREDIT',
-                description: `سداد نقدي فاتورة مشتريات رقم ${purchase.id}`,
-                referenceId: purchase.id,
-                referenceType: 'PURCHASE',
-                agencyId: warehouse.agencyId,
-                userId: user.id
+            // 2. Create Transaction
+            const purchase = await tx.transaction.create({
+                data: {
+                    type: 'PURCHASE',
+                    totalAmount,
+                    paidAmount,
+                    remainingAmount: totalAmount - paidAmount,
+                    userId: user.id,
+                    agencyId: warehouse.agencyId,
+                    warehouseId,
+                    supplierId: supplierId || null,
+                    note: note || 'فاتورة مشتريات',
+                    createdAt: dateStr ? new Date(dateStr) : new Date(),
+                    imageUrl: imageUrl,
+                    items: {
+                        create: items.map(item => ({
+                            productId: item.productId,
+                            quantity: item.quantity,
+                            price: item.cost,
+                            cost: item.cost,
+                            discountPercentage: Number(item.discountPercentage || 0),
+                            taxPercentage: Number(item.taxPercentage || 0)
+                        }))
+                    }
+                }
             });
-        }
 
-        return purchase;
-    }, { timeout: 15000 });
+            // 3. Record Journal Entry (If cash paid)
+            if (paidAmount > 0) {
+                await recordJournalEntry(tx, {
+                    amount: paidAmount,
+                    type: 'CREDIT',
+                    description: `سداد نقدي فاتورة مشتريات رقم ${purchase.id}`,
+                    referenceId: purchase.id,
+                    referenceType: 'PURCHASE',
+                    agencyId: warehouse.agencyId,
+                    userId: user.id
+                });
+            }
 
-    revalidatePath('/dashboard/accounts', 'layout');
-    return { success: true, id: transaction.id };
+            return purchase;
+        }, { timeout: 20000 });
+
+        revalidatePath('/dashboard/accounts', 'layout');
+        return { success: true, id: transactionResult.id };
+    } catch (error: any) {
+        console.error('[createPurchaseInvoice] Transaction failed:', error);
+        throw new Error(error.message || 'حدث خطأ أثناء حفظ الفاتورة في قاعدة البيانات');
+    }
 }
 
 /**
