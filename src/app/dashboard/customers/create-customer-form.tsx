@@ -8,10 +8,11 @@ type Props = {
     agencies: { id: string, name: string }[];
     createCustomerAction: (formData: FormData) => Promise<void>;
     userRole?: string;
-    userAgencyId?: string;
+    userAgencyId?: string | null;
+    userId?: string;
 };
 
-export default function CreateCustomerForm({ representatives, agencies, createCustomerAction, userRole, userAgencyId }: Props) {
+export default function CreateCustomerForm({ representatives, agencies, createCustomerAction, userRole, userAgencyId, userId }: Props) {
     const isRep = userRole === 'SALES_REPRESENTATIVE';
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
@@ -62,25 +63,29 @@ export default function CreateCustomerForm({ representatives, agencies, createCu
                 </div>
             </div>
 
-            <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">المندوبين المسؤولين (اختر واحد أو أكثر)</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 bg-gray-50 p-4 rounded-xl border border-gray-200 max-h-48 overflow-y-auto">
-                    {representatives.map(rep => (
-                        <label key={rep.id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-emerald-100">
-                            <input
-                                type="checkbox"
-                                name="representativeIds"
-                                value={rep.id}
-                                className="w-5 h-5 accent-emerald-600 rounded"
-                            />
-                            <span className="text-sm font-medium text-gray-700">{rep.name}</span>
-                        </label>
-                    ))}
+            {!isRep ? (
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">المندوبين المسؤولين (اختر واحد أو أكثر)</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 bg-gray-50 p-4 rounded-xl border border-gray-200 max-h-48 overflow-y-auto">
+                        {representatives.map(rep => (
+                            <label key={rep.id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-emerald-100">
+                                <input
+                                    type="checkbox"
+                                    name="representativeIds"
+                                    value={rep.id}
+                                    className="w-5 h-5 accent-emerald-600 rounded"
+                                />
+                                <span className="text-sm font-medium text-gray-700">{rep.name}</span>
+                            </label>
+                        ))}
+                    </div>
+                    {representatives.length === 0 && (
+                        <p className="text-xs text-red-500 mt-1">لا يوجد مناديب متاحين حالياً</p>
+                    )}
                 </div>
-                {representatives.length === 0 && (
-                    <p className="text-xs text-red-500 mt-1">لا يوجد مناديب متاحين حالياً</p>
-                )}
-            </div>
+            ) : (
+                <input type="hidden" name="representativeIds" value={userId} />
+            )}
 
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">التوكيل / الشركة</label>

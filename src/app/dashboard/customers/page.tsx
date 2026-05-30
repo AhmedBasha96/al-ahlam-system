@@ -42,12 +42,13 @@ export default async function CustomersPage() {
                             <span className="bg-emerald-100 p-1.5 rounded-lg">👤</span>
                             إضافة عميل جديد
                         </h3>
-                        <CreateCustomerForm
-                            representatives={representatives}
-                            agencies={agencies}
-                            createCustomerAction={createCustomer}
-                            userRole={user.role}
+                        <CreateCustomerForm 
+                            representatives={representatives} 
+                            agencies={agencies} 
+                            createCustomerAction={createCustomer} 
+                            userRole={user.role} 
                             userAgencyId={user.agencyId}
+                            userId={user.id}
                         />
                     </div>
                 </div>

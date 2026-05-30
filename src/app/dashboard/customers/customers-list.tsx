@@ -51,18 +51,20 @@ export default function CustomersList({ customers, representatives, agencies, us
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <div className="md:w-64">
-                    <select
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500 outline-none bg-white shadow-sm text-sm font-bold appearance-none"
-                        value={repFilter}
-                        onChange={(e) => setRepFilter(e.target.value)}
-                    >
-                        <option value="">كل المندوبين</option>
-                        {representatives.map(rep => (
-                            <option key={rep.id} value={rep.id}>{rep.name}</option>
-                        ))}
-                    </select>
-                </div>
+                {!isRep && (
+                    <div className="md:w-64">
+                        <select
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500 outline-none bg-white shadow-sm text-sm font-bold appearance-none"
+                            value={repFilter}
+                            onChange={(e) => setRepFilter(e.target.value)}
+                        >
+                            <option value="">كل المندوبين</option>
+                            {representatives.map(rep => (
+                                <option key={rep.id} value={rep.id}>{rep.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* Table */}
