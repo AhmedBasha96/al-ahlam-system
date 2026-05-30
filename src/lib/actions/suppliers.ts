@@ -6,28 +6,47 @@ import { getCurrentUser } from "@/lib/actions";
 
 export async function getSuppliers(agencyId?: string) {
     const user = await getCurrentUser();
+    let suppliers: any[] = [];
 
-    let where: any = {};
-    if (agencyId) {
-        where.agencyId = agencyId;
-    } else if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
-        where.agencyId = user.agencyId;
+    try {
+        let where: any = {};
+        if (agencyId) {
+            where.agencyId = agencyId;
+        } else if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
+            where.agencyId = user.agencyId;
+        }
+
+        suppliers = await (prisma as any).supplier.findMany({
+            where,
+            include: {
+                agency: true,
+                _count: {
+                    select: {
+                        products: true,
+                        transactions: true,
+                        accounts: true
+                    }
+                }
+            },
+            orderBy: { name: 'asc' }
+        });
+    } catch (error) {
+        console.error('[getSuppliers] Fetch failed with includes, falling back:', error);
+        // Fallback: fetch without potentially broken relations
+        let where: any = {};
+        if (agencyId) {
+            where.agencyId = agencyId;
+        } else if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
+            where.agencyId = user.agencyId;
+        }
+        
+        suppliers = await (prisma as any).supplier.findMany({
+            where,
+            orderBy: { name: 'asc' }
+        });
     }
 
-    return await (prisma as any).supplier.findMany({
-        where,
-        include: {
-            agency: true,
-            _count: {
-                select: {
-                    products: true,
-                    transactions: true,
-                    accounts: true
-                }
-            }
-        },
-        orderBy: { name: 'asc' }
-    });
+    return suppliers;
 }
 
 export async function createSupplier(formData: FormData) {
