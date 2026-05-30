@@ -918,19 +918,30 @@ export async function deleteTransaction(id: string) {
 
 export async function getProducts() {
     const user = await getCurrentUser();
+    let products: any[] = [];
 
-    if (user.role === 'ADMIN' || user.role === 'MANAGER') {
-        return await (prisma as any).product.findMany({
-            include: { agency: true, supplier: true, stocks: true },
+    try {
+        if (user.role === 'ADMIN' || user.role === 'MANAGER') {
+            products = await (prisma as any).product.findMany({
+                include: { agency: true, supplier: true, stocks: true },
+                orderBy: { name: 'asc' }
+            });
+        } else {
+            products = await (prisma as any).product.findMany({
+                where: { agencyId: user.agencyId },
+                include: { agency: true, supplier: true, stocks: true },
+                orderBy: { name: 'asc' }
+            });
+        }
+    } catch (error) {
+        console.error('[getProducts] Fetch failed with includes, falling back:', error);
+        // Fallback: fetch without potentially broken relations
+        products = await (prisma as any).product.findMany({
             orderBy: { name: 'asc' }
         });
     }
 
-    return await (prisma as any).product.findMany({
-        where: { agencyId: user.agencyId },
-        include: { agency: true, supplier: true, stocks: true },
-        orderBy: { name: 'asc' }
-    });
+    return products;
 }
 
 export async function getProductsWithStock(warehouseId: string) {
