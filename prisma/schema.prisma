@@ -203,6 +203,7 @@ model TransactionItem {
   price             Decimal
   originalPrice     Decimal     @default(0.00)
   discountPercentage Decimal    @default(0.00)
+  taxPercentage      Decimal    @default(0.00)
   createdAt         DateTime    @default(now())
   cost          Decimal     @default(0.0000000000)
   sellUnit      String?     @default("PIECE")

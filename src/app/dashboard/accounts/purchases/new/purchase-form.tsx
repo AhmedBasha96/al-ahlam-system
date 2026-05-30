@@ -21,8 +21,8 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const router = useRouter();
     const [warehouseId, setWarehouseId] = useState("");
     const [supplierId, setSupplierId] = useState("");
-    const [items, setItems] = useState<{ productId: string, cartons: number, units: number, cost: number }[]>([
-        { productId: "", cartons: 0, units: 0, cost: 0 }
+    const [items, setItems] = useState<{ productId: string, cartons: number, units: number, cost: number, discountPercentage: number, taxPercentage: number }[]>([
+        { productId: "", cartons: 0, units: 0, cost: 0, discountPercentage: 0, taxPercentage: 0 }
     ]);
     const [paidAmount, setPaidAmount] = useState(0);
     const [note, setNote] = useState("");
@@ -41,18 +41,21 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         const product = products.find(p => p.id === item.productId);
         const upc = product?.unitsPerCarton || 1;
 
-        let itemTotal = 0;
-        if (item.cartons > 0) {
-            const effectiveCartons = item.cartons + (item.units / upc);
-            itemTotal = (effectiveCartons * item.cost);
-        } else {
-            itemTotal = (item.units * item.cost);
+        let itemBase = 0;
+        if (item.cartons > 0 || item.units > 0) {
+            const totalUnits = (item.cartons * upc) + item.units;
+            const unitCost = item.cartons > 0 ? (item.cost / upc) : item.cost;
+            itemBase = totalUnits * unitCost;
         }
-        return sum + itemTotal;
+        
+        const discountAmount = itemBase * (item.discountPercentage / 100);
+        const taxAmount = itemBase * (item.taxPercentage / 100);
+        
+        return sum + (itemBase - discountAmount + taxAmount);
     }, 0);
 
     const addItem = () => {
-        setItems([...items, { productId: "", cartons: 0, units: 0, cost: 0 }]);
+        setItems([...items, { productId: "", cartons: 0, units: 0, cost: 0, discountPercentage: 0, taxPercentage: 0 }]);
     };
 
     const removeItem = (index: number) => {
@@ -66,6 +69,8 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         if (field === 'productId') {
             newItem.cartons = 0;
             newItem.units = 0;
+            newItem.discountPercentage = 0;
+            newItem.taxPercentage = 0;
         }
 
         const product = products.find(p => p.id === newItem.productId);
@@ -76,7 +81,7 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
             newItem.units = value % upc;
         }
 
-        if (product) {
+        if (product && (field === 'productId' || field === 'cartons')) {
             if (newItem.cartons > 0) {
                 newItem.cost = Number(product.factoryPrice);
             } else {
@@ -127,7 +132,9 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
             return {
                 productId: it.productId,
                 quantity: totalUnits,
-                cost: unitCost
+                cost: unitCost,
+                discountPercentage: it.discountPercentage,
+                taxPercentage: it.taxPercentage
             };
         });
 
@@ -237,27 +244,44 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                             className="text-center font-bold"
                                         />
                                     </div>
-                                    <div className="md:col-span-3 space-y-2">
-                                        <Label>سعر الشراء ({item.cartons > 0 ? 'للكرتونة' : 'للقطعة'})</Label>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label>سعر الشراء</Label>
                                         <div className="relative">
                                             <Input
                                                 type="number"
                                                 step="0.01"
                                                 value={item.cost}
                                                 readOnly
-                                                className="bg-gray-100 font-mono text-blue-700 font-bold"
+                                                className="bg-gray-100 font-mono text-blue-700 font-bold text-sm"
                                             />
-                                            <span className="absolute left-2 top-2 text-[10px] text-gray-400">سعر المصنع</span>
+                                            <span className="absolute left-1 top-1 text-[8px] text-gray-400">{item.cartons > 0 ? 'كرتونة' : 'قطعة'}</span>
                                         </div>
-                                        {product && upc > 0 && item.cartons > 0 && (
-                                            <p className="text-[10px] text-blue-500 font-bold">
-                                                تساوي {(item.cost / upc).toFixed(2)} ج.م للعلبة
-                                            </p>
-                                        )}
                                     </div>
-                                    <div className="md:col-span-1 flex justify-end">
+                                    <div className="md:col-span-1 space-y-2">
+                                        <Label className="text-xs text-orange-600">خصم %</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={item.discountPercentage}
+                                            onChange={(e) => updateItem(index, 'discountPercentage', Number(e.target.value))}
+                                            className="text-center text-sm border-orange-200"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-1 space-y-2">
+                                        <Label className="text-xs text-emerald-600">ضريبة %</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={item.taxPercentage}
+                                            onChange={(e) => updateItem(index, 'taxPercentage', Number(e.target.value))}
+                                            className="text-center text-sm border-emerald-200"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-1 flex justify-end mb-1">
                                         {items.length > 1 && (
-                                            <Button type="button" variant="destructive" size="icon" onClick={() => removeItem(index)}>
+                                            <Button type="button" variant="destructive" size="icon" onClick={() => removeItem(index)} className="h-8 w-8">
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>
                                         )}

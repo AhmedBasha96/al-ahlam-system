@@ -156,7 +156,13 @@ export async function createPurchaseInvoice(formData: FormData) {
     const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
-    const items: { productId: string, quantity: number, cost: number }[] = JSON.parse(itemsJson);
+    const items: { 
+        productId: string, 
+        quantity: number, 
+        cost: number,
+        discountPercentage?: number,
+        taxPercentage?: number
+    }[] = JSON.parse(itemsJson);
 
     if (!warehouseId || items.length === 0) throw new Error('Invalid Purchase Data');
 
@@ -165,7 +171,13 @@ export async function createPurchaseInvoice(formData: FormData) {
 
     const user = await getCurrentUser();
 
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.cost), 0);
+    // Calculate total amount accounting for discount and tax per item
+    const totalAmount = items.reduce((sum, item) => {
+        const itemBase = item.quantity * item.cost;
+        const discountAmount = itemBase * (Number(item.discountPercentage || 0) / 100);
+        const taxAmount = itemBase * (Number(item.taxPercentage || 0) / 100);
+        return sum + (itemBase - discountAmount + taxAmount);
+    }, 0);
 
     // Convert image to Base64 if provided
     let imageUrl: string | null = null;
@@ -209,7 +221,9 @@ export async function createPurchaseInvoice(formData: FormData) {
                         productId: item.productId,
                         quantity: item.quantity,
                         price: item.cost,
-                        cost: item.cost
+                        cost: item.cost,
+                        discountPercentage: Number(item.discountPercentage || 0),
+                        taxPercentage: Number(item.taxPercentage || 0)
                     }))
                 }
             }
