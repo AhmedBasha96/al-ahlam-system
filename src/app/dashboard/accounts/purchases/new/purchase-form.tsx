@@ -38,12 +38,19 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     // Filter suppliers by agency
     const filteredSuppliers = suppliers.filter(s => s.agencyId === agencyId);
 
-    const totalAmount = items.reduce((sum, item) => {
-        let itemBase = item.cartons * item.cost;
+    const totalSummary = items.reduce((acc, item) => {
+        const itemBase = item.cartons * item.cost;
         const discountAmount = itemBase * (item.discountPercentage / 100);
         const taxAmount = itemBase * (item.taxPercentage / 100);
-        return sum + (itemBase - discountAmount + taxAmount);
-    }, 0);
+        
+        return {
+            discounts: acc.discounts + discountAmount,
+            taxes: acc.taxes + taxAmount,
+            base: acc.base + itemBase
+        };
+    }, { discounts: 0, taxes: 0, base: 0 });
+
+    const totalAmount = totalSummary.base - totalSummary.discounts + totalSummary.taxes;
 
     const addItem = (productId = "") => {
         setItems([...items, { productId, cartons: 0, cost: 0, discountPercentage: 0, taxPercentage: 0 }]);
@@ -91,9 +98,9 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        const validItems = items.filter(it => it.productId && (it.cartons > 0 || it.units > 0));
+        const validItems = items.filter(it => it.productId && it.cartons > 0);
         if (validItems.length === 0) {
-            alert("يرجى إضافة صنف واحد على الأقل بكمية صحيحة");
+            alert("يرجى إضافة صنف واحد على الأقل بكمية صحيحة بالكراتين");
             return;
         }
 
@@ -104,7 +111,7 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         setIsSubmitting(true);
         setShowConfirm(false);
 
-        const validItems = items.filter(it => it.productId && (it.cartons > 0 || it.units > 0));
+        const validItems = items.filter(it => it.productId && it.cartons > 0);
         const formData = new FormData();
         formData.append('warehouseId', warehouseId);
         formData.append('supplierId', supplierId);
@@ -261,34 +268,64 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                         })}
                     </div>
 
-                    <div className="bg-slate-50 p-6 rounded-lg space-y-4 shadow-inner">
-                        <div className="flex justify-between text-2xl font-bold text-slate-800">
-                            <span>إجمالي الفاتورة:</span>
-                            <span>{new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(totalAmount)}</span>
+                    <div className="bg-slate-50 p-6 rounded-lg space-y-4 shadow-inner border border-slate-200">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b pb-4">
+                            <div className="text-center">
+                                <Label className="text-slate-500 block mb-1">إجمالي السعر (قبل التعديل)</Label>
+                                <span className="text-lg font-semibold">{totalSummary.base.toFixed(2)} ج.م</span>
+                            </div>
+                            <div className="text-center">
+                                <Label className="text-orange-600 block mb-1">إجمالي الخصومات (-)</Label>
+                                <span className="text-lg font-semibold text-orange-600">{totalSummary.discounts.toFixed(2)} ج.م</span>
+                            </div>
+                            <div className="text-center">
+                                <Label className="text-emerald-600 block mb-1">إجمالي الضرائب (+)</Label>
+                                <span className="text-lg font-semibold text-emerald-600">{totalSummary.taxes.toFixed(2)} ج.m</span>
+                            </div>
                         </div>
 
-                        <div className="grid md:grid-cols-2 gap-4">
+                        <div className="flex justify-between items-center text-3xl font-black text-slate-900 pt-2">
+                            <span>الإجمالي النهائي:</span>
+                            <span className="text-blue-700">{new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(totalAmount)}</span>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
                             <div className="space-y-2">
-                                <Label className="font-bold">المدفوع نقداً</Label>
+                                <Label className="font-bold text-slate-700">المبلغ المدفوع (كاش)</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
                                     value={paidAmount}
                                     onChange={(e) => setPaidAmount(Number(e.target.value))}
-                                    className="text-lg font-bold text-emerald-700"
+                                    className="text-xl font-bold text-emerald-700 h-12 border-2 border-emerald-100 focus-visible:ring-emerald-500"
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label className="font-bold text-red-600">المتبقي (مديونية للمورد)</Label>
-                                <div className="p-2 bg-white border border-red-100 rounded-md text-red-600 font-bold text-lg">
+                                <div className="h-12 flex items-center px-4 bg-red-50 border-2 border-red-100 rounded-md text-red-600 font-black text-xl">
                                     {new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(totalAmount - paidAmount)}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>ملاحظات إضافية</Label>
-                            <Input value={note} onChange={e => setNote(e.target.value)} placeholder="رقم الفاتورة الورقية أو أي ملاحظات..." />
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>ملاحظات إضافية</Label>
+                                <Input value={note} onChange={e => setNote(e.target.value)} placeholder="رقم الفاتورة الورقية أو أي ملاحظات..." />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="invoice-image" className="flex items-center gap-2">
+                                    📎 إرفاق صورة الفاتورة
+                                    {/* <span className="text-[10px] text-gray-400">(اختياري)</span> */}
+                                </Label>
+                                <Input 
+                                    id="invoice-image" 
+                                    name="image" 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="file:bg-blue-50 file:text-blue-700 file:border-0 file:rounded-md file:px-2 file:py-1 cursor-pointer"
+                                />
+                            </div>
                         </div>
                     </div>
 
