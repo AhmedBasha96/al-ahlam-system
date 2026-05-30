@@ -321,6 +321,7 @@ export async function resetAllData() {
 
 export async function getWarehouses() {
     const user = await getCurrentUser();
+    console.log(`[getWarehouses] Fetching for user: ${user.id}, role: ${user.role}`);
 
     let warehouses: any[];
     if (user.role === 'ADMIN' || user.role === 'MANAGER') {
@@ -366,10 +367,16 @@ export async function getWarehouses() {
     }
 
     // Filter out virtual representative warehouses from the main list
-    return warehouses.filter(w => {
+    console.log(`[getWarehouses] Total warehouses found in DB: ${warehouses.length}`);
+
+    // Filter out representative custody warehouses if needed
+    const filtered = warehouses.filter(w => {
         const name = String(w.name || "");
         return !name.startsWith('عهدة المندوب:');
     });
+
+    console.log(`[getWarehouses] Returning ${filtered.length} warehouses after filtering`);
+    return filtered;
 }
 
 export async function getWarehouse(id: string) {
