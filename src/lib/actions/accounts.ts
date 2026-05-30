@@ -182,3 +182,115 @@ export async function getPurchaseInvoices(agencyIdFilter?: string) {
         }))
     }));
 }
+
+/**
+ * Creates an INCOME or EXPENSE account record.
+ * Used as a form action from income/expenses pages.
+ */
+export async function createAccountRecord(formData: FormData) {
+    'use server';
+
+    const type = formData.get('type') as string; // 'INCOME' | 'EXPENSE'
+    const amount = Number(formData.get('amount'));
+    const description = formData.get('description') as string;
+    const category = formData.get('category') as string || null;
+    const agencyId = formData.get('agencyId') as string;
+    const supplierId = formData.get('supplierId') as string;
+    const dateStr = formData.get('date') as string;
+    const imageFile = formData.get('image') as File | null;
+
+    if (!amount || amount <= 0) throw new Error('يرجى إدخال مبلغ صحيح');
+    if (!description) throw new Error('يرجى إدخال البيان');
+
+    const user = await getCurrentUser();
+
+    // Convert image to Base64 if provided
+    let imageUrl: string | null = null;
+    if (imageFile && imageFile.size > 0) {
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+        imageUrl = `data:${imageFile.type};base64,${base64}`;
+    }
+
+    const recordType = type === 'INCOME' ? 'INCOME' : 'EXPENSE';
+    const resolvedAgencyId = agencyId && agencyId !== 'GENERAL' ? agencyId : null;
+    const resolvedSupplierId = supplierId && supplierId !== 'NONE' ? supplierId : null;
+
+    await prisma.$transaction(async (tx) => {
+        const record = await tx.accountRecord.create({
+            data: {
+                type: recordType,
+                amount,
+                description,
+                category,
+                agencyId: resolvedAgencyId,
+                userId: user.id,
+                supplierId: resolvedSupplierId,
+                createdAt: dateStr ? new Date(dateStr) : new Date(),
+                imageUrl,
+            }
+        });
+
+        // Record journal entry
+        await recordJournalEntry(tx, {
+            amount,
+            type: recordType === 'INCOME' ? 'DEBIT' : 'CREDIT',
+            description: `${recordType === 'INCOME' ? 'إيراد' : 'مصروف'}: ${description}`,
+            referenceId: record.id,
+            referenceType: recordType,
+            agencyId: resolvedAgencyId,
+            userId: user.id
+        });
+
+        return record;
+    }, { timeout: 10000 });
+
+    revalidatePath('/dashboard/accounts', 'layout');
+}
+
+/**
+ * Updates an existing account record (amount, description, category).
+ */
+export async function updateAccountRecord(
+    id: string,
+    updates: { amount?: number; description?: string; category?: string }
+) {
+    'use server';
+
+    if (!id) throw new Error('معرف السجل مطلوب');
+
+    const data: any = {};
+    if (updates.amount !== undefined) data.amount = updates.amount;
+    if (updates.description !== undefined) data.description = updates.description;
+    if (updates.category !== undefined) data.category = updates.category;
+
+    await prisma.accountRecord.update({
+        where: { id },
+        data
+    });
+
+    revalidatePath('/dashboard/accounts', 'layout');
+    return { success: true };
+}
+
+/**
+ * Deletes an account record by ID.
+ */
+export async function deleteAccountRecord(id: string) {
+    'use server';
+
+    if (!id) throw new Error('معرف السجل مطلوب');
+
+    await prisma.accountRecord.delete({
+        where: { id }
+    });
+
+    revalidatePath('/dashboard/accounts', 'layout');
+    return { success: true };
+}
+
