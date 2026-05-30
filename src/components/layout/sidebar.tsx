@@ -49,7 +49,7 @@ export default function Sidebar({ role }: SidebarProps) {
         { href: '/dashboard/accounts/reps-custody', label: 'عهد وتحصيلات المناديب', icon: Wallet, visible: canSeeAccounts },
         { href: '/dashboard/reports/sales', label: 'تقارير المبيعات', icon: History, visible: canSeeSalesReports },
         { href: '/dashboard/reps/targets', label: 'أهداف المناديب', icon: TrendingUp, visible: role === 'ADMIN' || role === 'MANAGER' },
-        { href: '/dashboard/loading-requests', label: 'طلبات التحميل', icon: FileText, visible: role === 'ADMIN' || role === 'MANAGER' || role === 'WAREHOUSE_KEEPER' || role === 'SALES_REPRESENTATIVE' },
+        { href: '/dashboard/loading-requests', label: 'طلبات التحميل', icon: FileText, visible: true },
         { href: '/dashboard/record-sales', label: 'تسجيل فواتير', icon: PlusCircle, visible: false, highlighted: true },
         { href: '/dashboard/users', label: 'المستخدمين', icon: Users, visible: canSeeUsers },
         { href: '/dashboard/customers', label: 'العملاء', icon: Users, visible: canSeeCustomers },
