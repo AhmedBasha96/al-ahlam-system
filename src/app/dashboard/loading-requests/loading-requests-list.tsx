@@ -192,26 +192,6 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                                 )}
                             </button>
                         )}
-
-                        {(userRole === 'ADMIN') && req.status === 'PENDING' && (
-                           <button
-                                onClick={() => handleStatusUpdate(req.id, 'APPROVED')}
-                                disabled={loading === req.id}
-                                className="flex-1 bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 text-sm font-bold shadow-sm"
-                            >
-                                {loading === req.id ? 'جاري...' : '✅ موافقة (أدمن)'}
-                           </button>
-                        )}
-                        
-                        {(userRole === 'ADMIN') && req.status === 'APPROVED' && (
-                            <button
-                                onClick={() => handleComplete(req.id)}
-                                disabled={loading === req.id}
-                                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 text-sm font-bold shadow-sm flex items-center justify-center gap-2"
-                            >
-                                {loading === req.id ? 'جاري التحديث...' : 'تم التحميل (أدمن)'}
-                            </button>
-                        )}
                     </div>
                 </div>
             ))}
