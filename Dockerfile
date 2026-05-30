@@ -14,11 +14,18 @@ RUN apt-get update \
 # Stage: builder - copy code and build the application
 FROM node:20-bullseye-slim AS builder
 WORKDIR /app
+# Install openssl (required by Prisma engine on Debian-slim)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 # Copy preinstalled node_modules for faster builds
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Provide a dummy DATABASE_URL so prisma generate can resolve the schema
+# (.env is excluded by .dockerignore; the real URL is injected at runtime)
+ENV DATABASE_URL="mysql://dummy:dummy@localhost:3306/dummy"
 # Generate Prisma client and build the Next app
-RUN npm run prisma:generate || npx prisma generate \
+RUN npx prisma generate \
   && npm run build \
   && npm prune --production
 
@@ -28,7 +35,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 # Small runtime utilities for healthchecks
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl ca-certificates \
+  && apt-get install -y --no-install-recommends curl openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy only production artifacts
