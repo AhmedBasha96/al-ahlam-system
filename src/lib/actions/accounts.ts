@@ -294,3 +294,233 @@ export async function deleteAccountRecord(id: string) {
     return { success: true };
 }
 
+/**
+ * Fetches all agencies (id + name).
+ */
+export async function getAgencies() {
+    const agencies = await prisma.agency.findMany({
+        select: { id: true, name: true, createdAt: true, updatedAt: true },
+        orderBy: { name: 'asc' }
+    });
+    return agencies;
+}
+
+/**
+ * Fetches account records filtered by type (INCOME / EXPENSE).
+ */
+export async function getAccountRecords(type: 'INCOME' | 'EXPENSE') {
+    const records = await prisma.accountRecord.findMany({
+        where: { type },
+        include: {
+            agency: { select: { name: true } },
+            createdBy: { select: { name: true } },
+            supplier: { select: { name: true } },
+            customer: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+    return records.map(r => ({
+        ...r,
+        amount: Number(r.amount),
+    }));
+}
+
+/**
+ * Builds a treasury ledger from JournalEntry records.
+ * Returns an array of transactions with running balance, sorted newest-first.
+ */
+export async function getTreasuryTransactions(agencyId?: string) {
+    'use server';
+
+    const whereClause: any = {};
+    if (agencyId && agencyId !== 'ALL') {
+        if (agencyId === 'GENERAL') {
+            whereClause.agencyId = null;
+        } else {
+            whereClause.agencyId = agencyId;
+        }
+    }
+
+    const entries = await prisma.journalEntry.findMany({
+        where: whereClause,
+        include: {
+            agency: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'asc' }
+    });
+
+    // Build ledger with running balance
+    let balance = 0;
+    const ledger = entries.map(entry => {
+        const amount = entry.type === 'DEBIT' ? Number(entry.amount) : -Number(entry.amount);
+        balance += amount;
+        return {
+            id: entry.id,
+            type: entry.referenceType || (entry.type === 'DEBIT' ? 'INCOME' : 'EXPENSE'),
+            description: entry.description,
+            amount,
+            balance,
+            date: entry.createdAt,
+            agencyName: entry.agency?.name || null,
+        };
+    });
+
+    // Return newest first
+    return ledger.reverse();
+}
+
+/**
+ * Sets or updates an initial/opening treasury balance for an agency (or general).
+ */
+export async function setInitialTreasuryBalance(agencyId: string | null, amount: number) {
+    'use server';
+
+    const user = await getCurrentUser();
+    const resolvedAgencyId = agencyId && agencyId !== 'GENERAL' && agencyId !== 'ALL' ? agencyId : null;
+
+    // Check if an INITIAL entry already exists for this agency
+    const existing = await prisma.journalEntry.findFirst({
+        where: {
+            referenceType: 'INITIAL',
+            agencyId: resolvedAgencyId,
+        }
+    });
+
+    if (existing) {
+        // Update existing opening balance
+        await prisma.journalEntry.update({
+            where: { id: existing.id },
+            data: { amount }
+        });
+    } else {
+        // Create new opening balance entry
+        await prisma.journalEntry.create({
+            data: {
+                amount,
+                type: 'DEBIT',
+                description: 'رصيد بداية المدة',
+                referenceType: 'INITIAL',
+                agencyId: resolvedAgencyId,
+                userId: user.id,
+                status: 'CONFIRMED'
+            }
+        });
+    }
+
+    revalidatePath('/dashboard/accounts', 'layout');
+    return { success: true };
+}
+
+/**
+ * Calculates a financial summary for the accounts dashboard.
+ */
+export async function getFinancialSummary(startDate: Date, endDate: Date, agencyId?: string) {
+    const whereBase: any = {
+        createdAt: { gte: startDate, lte: endDate }
+    };
+    if (agencyId) whereBase.agencyId = agencyId;
+
+    // Total sales
+    const salesAgg = await prisma.transaction.aggregate({
+        where: { ...whereBase, type: 'SALE' },
+        _sum: { totalAmount: true, paidAmount: true }
+    });
+    const totalSales = Number(salesAgg._sum.totalAmount || 0);
+
+    // Total purchases
+    const purchasesAgg = await prisma.transaction.aggregate({
+        where: { ...whereBase, type: 'PURCHASE' },
+        _sum: { totalAmount: true }
+    });
+    const totalPurchases = Number(purchasesAgg._sum.totalAmount || 0);
+
+    // Expenses from account records
+    const expenseAgg = await prisma.accountRecord.aggregate({
+        where: { ...whereBase, type: 'EXPENSE' },
+        _sum: { amount: true }
+    });
+    const expenses = Number(expenseAgg._sum.amount || 0);
+
+    // Income from account records
+    const incomeAgg = await prisma.accountRecord.aggregate({
+        where: { ...whereBase, type: 'INCOME' },
+        _sum: { amount: true }
+    });
+    const otherIncome = Number(incomeAgg._sum.amount || 0);
+
+    // Gross profit
+    const grossProfit = totalSales - totalPurchases;
+
+    // Treasury balance from journal entries (all time, not just this period)
+    const journalWhere: any = {};
+    if (agencyId) journalWhere.agencyId = agencyId;
+
+    const debitAgg = await prisma.journalEntry.aggregate({
+        where: { ...journalWhere, type: 'DEBIT' },
+        _sum: { amount: true }
+    });
+    const creditAgg = await prisma.journalEntry.aggregate({
+        where: { ...journalWhere, type: 'CREDIT' },
+        _sum: { amount: true }
+    });
+    const treasuryBalance = Number(debitAgg._sum.amount || 0) - Number(creditAgg._sum.amount || 0);
+
+    // Check if there's an initial balance entry
+    const hasInitialBalance = await prisma.journalEntry.findFirst({
+        where: { ...journalWhere, referenceType: 'INITIAL' },
+        select: { id: true }
+    });
+
+    return {
+        totalSales,
+        totalPurchases,
+        expenses,
+        otherIncome,
+        grossProfit,
+        treasuryBalance,
+        hasInitialBalance: !!hasInitialBalance,
+    };
+}
+
+/**
+ * Fetches supplier balances for a specific agency.
+ */
+export async function getAgencySuppliersBalances(agencyId: string) {
+    const suppliers = await prisma.supplier.findMany({
+        where: { agencyId },
+        select: {
+            id: true,
+            name: true,
+            phone: true,
+        }
+    });
+
+    const balances = await Promise.all(suppliers.map(async (supplier) => {
+        // Total purchased from this supplier
+        const purchaseAgg = await prisma.transaction.aggregate({
+            where: { supplierId: supplier.id, type: 'PURCHASE' },
+            _sum: { totalAmount: true, paidAmount: true }
+        });
+
+        // Payments made via account records
+        const paymentAgg = await prisma.accountRecord.aggregate({
+            where: { supplierId: supplier.id, type: 'EXPENSE' },
+            _sum: { amount: true }
+        });
+
+        const totalPurchased = Number(purchaseAgg._sum.totalAmount || 0);
+        const paidInPurchases = Number(purchaseAgg._sum.paidAmount || 0);
+        const additionalPayments = Number(paymentAgg._sum.amount || 0);
+
+        const currentBalance = totalPurchased - paidInPurchases - additionalPayments;
+
+        return {
+            id: supplier.id,
+            name: supplier.name,
+            phone: supplier.phone,
+            currentBalance,
+        };
+    }));
+
+    return balances;
+}
