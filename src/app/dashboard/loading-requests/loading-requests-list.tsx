@@ -23,6 +23,7 @@ type LoadingRequest = {
     };
     status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
     note: string | null;
+    adminNote: string | null;
     createdAt: Date;
     items: RequestItem[];
 }
@@ -34,6 +35,7 @@ type Props = {
 
 export default function LoadingRequestsList({ initialRequests, userRole }: Props) {
     const [loading, setLoading] = useState<string | null>(null);
+    const [adminNote, setAdminNote] = useState<{ [key: string]: string }>({});
     const router = useRouter();
 
     const handleStatusUpdate = async (id: string, status: 'APPROVED' | 'REJECTED') => {
@@ -41,7 +43,7 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
         
         setLoading(id);
         try {
-            await updateLoadingRequestStatus(id, status);
+            await updateLoadingRequestStatus(id, status, adminNote[id]);
             router.refresh();
         } catch (error) {
             alert(error instanceof Error ? error.message : "حدث خطأ");
@@ -133,21 +135,38 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                         </div>
                         {req.note && (
                             <div className="mt-4 p-3 bg-blue-50/50 rounded-lg border border-blue-100 text-sm text-blue-800 italic">
-                                <span className="font-bold not-italic ml-1">ملاحظة:</span> "{req.note}"
+                                <span className="font-bold not-italic ml-1">ملاحظة المندوب:</span> "{req.note}"
+                            </div>
+                        )}
+                        {req.adminNote && (
+                            <div className="mt-2 p-3 bg-red-50/50 rounded-lg border border-red-100 text-sm text-red-800 italic">
+                                <span className="font-bold not-italic ml-1">ملاحظة الإدارة:</span> "{req.adminNote}"
                             </div>
                         )}
                     </div>
 
+                    {/* Admin Note Input */}
+                    {(userRole === 'MANAGER' || userRole === 'ADMIN') && req.status === 'PENDING' && (
+                        <div className="px-4 pb-2">
+                            <textarea
+                                placeholder="إضافة ملاحظات الإدارة (اختياري)..."
+                                value={adminNote[req.id] || ""}
+                                onChange={(e) => setAdminNote({ ...adminNote, [req.id]: e.target.value })}
+                                className="w-full text-xs border border-gray-200 rounded-lg p-2 bg-gray-50 focus:ring-1 focus:ring-emerald-500 outline-none h-16"
+                            />
+                        </div>
+                    )}
+
                     {/* Actions */}
                     <div className="p-4 border-t border-gray-50 flex gap-2">
-                        {userRole === 'MANAGER' && req.status === 'PENDING' && (
+                        {(userRole === 'MANAGER' || userRole === 'ADMIN') && req.status === 'PENDING' && (
                             <>
                                 <button
                                     onClick={() => handleStatusUpdate(req.id, 'APPROVED')}
                                     disabled={loading === req.id}
                                     className="flex-1 bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 text-sm font-bold shadow-sm"
                                 >
-                                    {loading === req.id ? 'جاري...' : '✅ موافقة'}
+                                    {loading === req.id ? 'جاري...' : (userRole === 'ADMIN' ? '✅ موافقة (أدمن)' : '✅ موافقة')}
                                 </button>
                                 <button
                                     onClick={() => handleStatusUpdate(req.id, 'REJECTED')}

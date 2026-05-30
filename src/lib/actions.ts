@@ -2199,6 +2199,17 @@ export async function createLoadingRequest(data: FormData) {
     const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
     if (!warehouse) throw new Error("Warehouse not found");
 
+    // Server-side validation: prevent requesting out-of-stock items
+    for (const item of items) {
+        const stock = await prisma.stock.findUnique({
+            where: { warehouseId_productId: { warehouseId, productId: item.productId } }
+        });
+        if (!stock || stock.quantity < item.quantity) {
+            const prod = await prisma.product.findUnique({ where: { id: item.productId } });
+            throw new Error(`عفواً، الصنف (${prod?.name}) غير متوفر بكمية كافية في هذا المخزن حالياً.`);
+        }
+    }
+
     await prisma.loadingRequest.create({
         data: {
             repId: user.id,
@@ -2249,13 +2260,13 @@ export async function getLoadingRequests() {
     });
 }
 
-export async function updateLoadingRequestStatus(requestId: string, status: 'APPROVED' | 'REJECTED') {
+export async function updateLoadingRequestStatus(requestId: string, status: 'APPROVED' | 'REJECTED', adminNote?: string) {
     const user = await getCurrentUser();
     if (user.role !== 'MANAGER' && user.role !== 'ADMIN') throw new Error("Unauthorized");
 
     await prisma.loadingRequest.update({
         where: { id: requestId },
-        data: { status }
+        data: { status, adminNote }
     });
 
     revalidatePath('/dashboard', 'layout');
