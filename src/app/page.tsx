@@ -8,23 +8,36 @@ export default async function LoginPage(props: any) {
   async function handleLogin(formData: FormData) {
     'use server';
     try {
-      const username = formData.get('username') as string;
-      const password = formData.get('password') as string;
+      const username = (formData.get('username') as string || '').trim().toLowerCase();
+      const password = formData.get('password') as string || '';
 
-      console.log(`[Login] Attempting login for: ${username}`);
+      console.log(`[Login] Attempting login for: "${username}"`);
       const users = await getAllUsers();
-      const user = users.find((u: any) => u.username === username);
+      
+      const user = users.find((u: any) => u.username.toLowerCase() === username);
 
-      if (user && password) {
-        if (user.username === 'admin' && password !== '12345') {
-          redirect('/?error=wrongpassword');
-          return;
+      if (user) {
+        // Special case for legacy admin if needed, otherwise use bcrypt
+        let isCorrect = false;
+        
+        if (user.username === 'admin' && password === '12345') {
+          isCorrect = true;
+        } else {
+          // Use bcrypt for regular users (like 'ahmed')
+          const bcrypt = require('bcrypt');
+          isCorrect = await bcrypt.compare(password, user.password);
         }
 
-        console.log(`[Login] Success for ${username}. Setting mock user and redirecting...`);
-        await setMockUser(user.id, user.role, (user as any).agencyId);
-        redirect('/dashboard');
+        if (isCorrect) {
+          console.log(`[Login] Success for ${username}. Setting mock user and redirecting...`);
+          await setMockUser(user.id, user.role, (user as any).agencyId);
+          redirect('/dashboard');
+        } else {
+          console.warn(`[Login] Wrong password for user: ${username}`);
+          redirect('/?error=wrongpassword');
+        }
       } else {
+        console.warn(`[Login] User not found: ${username}. Total users in DB: ${users.length}`);
         redirect('/?error=invalid');
       }
     } catch (error: any) {

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>Database ERD</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: #1e293b;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <pre class="mermaid">
+            erDiagram
+                Agency ||--o{ User : "manages"
+                Agency ||--o{ Warehouse : "owns"
+                Agency ||--o{ Customer : "serves"
+                Agency ||--o{ Product : "catalog"
+                Agency ||--o{ Transaction : "records"
+                Agency ||--o{ Bank : "finances"
+                Agency ||--o{ Supplier : "buys_from"
+
+                User ||--o{ Customer : "rep_for"
+                User ||--o{ Transaction : "executes"
+                User ||--o{ LoadingRequest : "requests"
+                User }o--o{ Warehouse : "keeper_of"
+
+                Warehouse ||--o{ Stock : "stores"
+                Warehouse ||--o{ Transaction : "source"
+                Warehouse ||--o{ LoadingRequest : "fulfills"
+
+                Product ||--o{ Stock : "inventory"
+                Product ||--o{ TransactionItem : "sold"
+                Product ||--o{ LoadingRequestItem : "item_req"
+
+                Customer ||--o{ Transaction : "buys"
+                Supplier ||--o{ Product : "supplies"
+                
+                Transaction ||--|{ TransactionItem : "contains"
+                LoadingRequest ||--|{ LoadingRequestItem : "contains"
+                
+                Bank ||--o{ Loan : "issues"
+                Loan ||--|{ Installment : "has"
+        </pre>
+    </div>
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'dark',
+            er: { useMaxWidth: false }
+        });
+    </script>
+</body>
+</html>
