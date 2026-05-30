@@ -1,3 +1,5 @@
+'use server';
+
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/actions';
@@ -188,8 +190,6 @@ export async function getPurchaseInvoices(agencyIdFilter?: string) {
  * Used as a form action from income/expenses pages.
  */
 export async function createAccountRecord(formData: FormData) {
-    'use server';
-
     const type = formData.get('type') as string; // 'INCOME' | 'EXPENSE'
     const amount = Number(formData.get('amount'));
     const description = formData.get('description') as string;
@@ -260,8 +260,6 @@ export async function updateAccountRecord(
     id: string,
     updates: { amount?: number; description?: string; category?: string }
 ) {
-    'use server';
-
     if (!id) throw new Error('معرف السجل مطلوب');
 
     const data: any = {};
@@ -282,8 +280,6 @@ export async function updateAccountRecord(
  * Deletes an account record by ID.
  */
 export async function deleteAccountRecord(id: string) {
-    'use server';
-
     if (!id) throw new Error('معرف السجل مطلوب');
 
     await prisma.accountRecord.delete({
@@ -330,8 +326,6 @@ export async function getAccountRecords(type: 'INCOME' | 'EXPENSE') {
  * Returns an array of transactions with running balance, sorted newest-first.
  */
 export async function getTreasuryTransactions(agencyId?: string) {
-    'use server';
-
     const whereClause: any = {};
     if (agencyId && agencyId !== 'ALL') {
         if (agencyId === 'GENERAL') {
@@ -373,8 +367,6 @@ export async function getTreasuryTransactions(agencyId?: string) {
  * Sets or updates an initial/opening treasury balance for an agency (or general).
  */
 export async function setInitialTreasuryBalance(agencyId: string | null, amount: number) {
-    'use server';
-
     const user = await getCurrentUser();
     const resolvedAgencyId = agencyId && agencyId !== 'GENERAL' && agencyId !== 'ALL' ? agencyId : null;
 
