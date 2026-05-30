@@ -87,6 +87,15 @@ export default async function WarehousesPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Debug Info */}
+            <div className="mt-8 p-4 bg-gray-100 rounded-lg text-[10px] font-mono text-gray-500 overflow-auto">
+                <p>Debug: UserRole={currentUser.role}, UserId={currentUser.id}, TotalWH={warehouses.length}</p>
+                <details>
+                    <summary>Raw Warehouses Data</summary>
+                    <pre>{JSON.stringify(warehouses, null, 2)}</pre>
+                </details>
+            </div>
         </div>
     );
 }

@@ -57,19 +57,20 @@ export async function getCurrentUser() {
         };
     }
 
-    const agencyIds = dbUser.agencies.map(a => a.id);
-    if (dbUser.agencyId && !agencyIds.includes(dbUser.agencyId)) {
-        agencyIds.push(dbUser.agencyId);
+    const d = dbUser as any;
+    const agencyIds = d.agencies?.map((a: any) => a.id) || [];
+    if (d.agencyId && !agencyIds.includes(d.agencyId)) {
+        agencyIds.push(d.agencyId);
     }
 
     return {
-        id: dbUser.id,
-        role: dbUser.role,
-        name: dbUser.name,
-        agencyId: dbUser.agencyId || undefined,
+        id: d.id,
+        role: d.role,
+        name: d.name,
+        agencyId: d.agencyId || undefined,
         agencyIds: agencyIds,
-        warehouseId: dbUser.warehouses?.[0]?.id || undefined,
-        warehouseIds: dbUser.warehouses?.map(w => w.id) || []
+        warehouseId: d.warehouses?.[0]?.id || undefined,
+        warehouseIds: d.warehouses?.map((w: any) => w.id) || []
     };
 }
 
@@ -331,22 +332,27 @@ export async function getWarehouses() {
         const fullUser = await prisma.user.findUnique({
             where: { id: user.id },
             include: { warehouses: true, agencies: true }
-        });
+        }) as any;
 
-        if (!fullUser) return [];
+        if (!fullUser) {
+            console.log(`[getWarehouses] Full user record not found for ID: ${user.id}`);
+            return [];
+        }
 
-        if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouses.length > 0) {
+        if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouses?.length > 0) {
             // If warehouse keeper, only show their explicitly assigned warehouses
             warehouses = await prisma.warehouse.findMany({
-                where: { id: { in: fullUser.warehouses.map(w => w.id) } },
+                where: { id: { in: fullUser.warehouses.map((w: any) => w.id) } },
                 include: { agency: true },
                 orderBy: { createdAt: 'desc' }
             });
         } else {
             // For Sales Reps and others, show warehouses belonging to their assigned agencies
-            const agencyIds = fullUser.agencies.map(a => a.id);
+            const agencyIds = fullUser.agencies?.map((a: any) => a.id) || [];
             if (fullUser.agencyId) agencyIds.push(fullUser.agencyId);
             
+            console.log(`[getWarehouses] Role: ${user.role}, AgencyIds:`, agencyIds);
+
             if (agencyIds.length > 0) {
                 warehouses = await prisma.warehouse.findMany({
                     where: { agencyId: { in: agencyIds } },
@@ -360,7 +366,10 @@ export async function getWarehouses() {
     }
 
     // Filter out virtual representative warehouses from the main list
-    return warehouses.filter(w => !w.name.startsWith('عهدة المندوب:'));
+    return warehouses.filter(w => {
+        const name = String(w.name || "");
+        return !name.startsWith('عهدة المندوب:');
+    });
 }
 
 export async function getWarehouse(id: string) {
@@ -372,10 +381,10 @@ export async function getWarehouse(id: string) {
 
 export async function createWarehouse(formData: FormData) {
     try {
-        const name = formData.get('name') as string;
+        const name = (formData.get('name') as string)?.trim();
         const agencyId = formData.get('agencyId') as string;
 
-        console.log(`[createWarehouse] Name: ${name}, AgencyId: ${agencyId}`);
+        console.log(`[createWarehouse] Starting... Name: "${name}", AgencyId: ${agencyId}`);
 
         if (!name || !agencyId) {
             console.error('[createWarehouse] Missing name or agencyId');
@@ -383,7 +392,7 @@ export async function createWarehouse(formData: FormData) {
         }
 
         const user = await getCurrentUser();
-        console.log(`[createWarehouse] User Role: ${user.role}`);
+        console.log(`[createWarehouse] User Role: ${user.role}, UserId: ${user.id}`);
         
         if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
             console.error('[createWarehouse] Unauthorized role:', user.role);
@@ -397,13 +406,13 @@ export async function createWarehouse(formData: FormData) {
             }
         });
 
-        console.log(`[createWarehouse] Successfully created warehouse: ${newWarehouse.id}`);
+        console.log(`[createWarehouse] Successfully created warehouse. ID: ${newWarehouse.id}, Name: ${newWarehouse.name}`);
 
         revalidatePath('/dashboard/warehouses');
         revalidatePath('/dashboard', 'layout');
         
         return { success: true, id: newWarehouse.id };
-    } catch (error) {
+    } catch (error: any) {
         console.error('[createWarehouse] Error:', error);
         throw error;
     }
