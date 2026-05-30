@@ -301,6 +301,7 @@ model LoadingRequest {
   agencyId        String
   status          LoadingRequestStatus @default(PENDING)
   note            String?
+  adminNote       String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
   representative User                 @relation("RepLoadingRequests", fields: [repId], references: [id])
