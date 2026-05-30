@@ -103,8 +103,16 @@ export async function getAgencies() {
         });
     }
 
+    // Collect all agency IDs from both direct and many-to-many relations
+    const allAgencyIds = [...(user as any).agencyIds || []];
+    if (user.agencyId && !allAgencyIds.includes(user.agencyId)) {
+        allAgencyIds.push(user.agencyId);
+    }
+
+    if (allAgencyIds.length === 0) return [];
+
     return await prisma.agency.findMany({
-        where: { id: user.agencyId },
+        where: { id: { in: allAgencyIds } },
         orderBy: { createdAt: 'desc' }
     });
 }

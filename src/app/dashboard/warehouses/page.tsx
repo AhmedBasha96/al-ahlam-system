@@ -10,8 +10,11 @@ export default async function WarehousesPage() {
 
     try {
         warehouses = await getWarehouses();
-        agencies = await getAgencies();
     } catch (e) { console.error("Warehouses fetch error:", e); }
+
+    try {
+        agencies = await getAgencies();
+    } catch (e) { console.error("Agencies fetch error:", e); }
 
     // Role-based Permission Check
     const currentUser = await getCurrentUser();
