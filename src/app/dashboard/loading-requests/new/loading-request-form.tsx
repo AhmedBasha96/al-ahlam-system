@@ -9,6 +9,7 @@ type Product = {
     image: string | null;
     name: string;
     stock: number;
+    unitsPerCarton: number;
 }
 
 type Warehouse = {
@@ -22,14 +23,15 @@ type Props = {
 
 type OrderItem = {
     productId: string;
-    quantity: number;
+    cartons: number;
+    units: number;
 }
 
 export default function LoadingRequestForm({ warehouses }: Props) {
     const [loading, setLoading] = useState(false);
     const [warehouseId, setWarehouseId] = useState("");
     const [products, setProducts] = useState<Product[]>([]);
-    const [items, setItems] = useState<OrderItem[]>([{ productId: "", quantity: 1 }]);
+    const [items, setItems] = useState<OrderItem[]>([{ productId: "", cartons: 0, units: 0 }]);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const router = useRouter();
 
@@ -44,7 +46,7 @@ export default function LoadingRequestForm({ warehouses }: Props) {
     }, [warehouseId]);
 
     const handleAddItem = () => {
-        setItems([...items, { productId: "", quantity: 1 }]);
+        setItems([...items, { productId: "", cartons: 0, units: 0 }]);
     };
 
     const handleRemoveItem = (index: number) => {
@@ -59,19 +61,41 @@ export default function LoadingRequestForm({ warehouses }: Props) {
         setItems(newItems);
     };
 
+    // Calculate total quantity for each item
+    const calculateTotalQuantity = (item: OrderItem) => {
+        const product = products.find(p => p.id === item.productId);
+        const upc = product?.unitsPerCarton || 1;
+        return (item.cartons * upc) + item.units;
+    };
+
+    // Format stock display
+    const formatStock = (stock: number, upc: number) => {
+        if (upc <= 1) return `${stock} قطعة`;
+        const cartons = Math.floor(stock / upc);
+        const units = stock % upc;
+        if (cartons === 0) return `${units} قطعة`;
+        return `${cartons} كرتونة ${units > 0 ? `و ${units} قطعة` : ''}`;
+    };
+
     const handleSubmit = async (formData: FormData) => {
         setLoading(true);
         setMessage(null);
         try {
-            formData.append('items', JSON.stringify(items));
+            // Convert items to simple { productId, quantity } for the backend
+            const formattedItems = items.map(item => ({
+                productId: item.productId,
+                quantity: calculateTotalQuantity(item)
+            }));
+            
+            formData.append('items', JSON.stringify(formattedItems));
             const result = await createLoadingRequest(formData);
             if (result.success) {
                 setMessage({ type: 'success', text: "تم إرسال طلب التحميل بنجاح في انتظار موافقة المدير" });
-                setItems([{ productId: "", quantity: 1 }]);
+                setItems([{ productId: "", cartons: 0, units: 0 }]);
                 setTimeout(() => router.push('/dashboard/loading-requests'), 2000);
             }
-        } catch (error) {
-            setMessage({ type: 'error', text: error instanceof Error ? error.message : "حدث خطأ أثناء إرسال الطلب" });
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || "حدث خطأ أثناء إرسال الطلب" });
         } finally {
             setLoading(false);
         }
@@ -126,12 +150,13 @@ export default function LoadingRequestForm({ warehouses }: Props) {
                 <div className="space-y-3">
                     <div className="flex justify-between items-center">
                         <label className="block text-sm font-medium text-gray-700">قائمة الأصناف المطلوبة</label>
-                        <span className="text-xs text-emerald-600 font-medium">الكمية المطلوبة يجب أن تكون متوفرة في المخزن</span>
+                        <span className="text-xs text-emerald-600 font-medium">سيتم حساب إجمالي القطع تلقائياً</span>
                     </div>
                     
                     {items.map((item, index) => {
                         const selectedProduct = products.find(p => p.id === item.productId);
-                        const isOverStock = selectedProduct && item.quantity > selectedProduct.stock;
+                        const totalRequested = calculateTotalQuantity(item);
+                        const isOverStock = selectedProduct && totalRequested > selectedProduct.stock;
 
                         return (
                             <div key={index} className="flex gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-100 flex-wrap md:flex-nowrap">
@@ -157,29 +182,45 @@ export default function LoadingRequestForm({ warehouses }: Props) {
                                             <option value="">اختر المنتج...</option>
                                             {products.map(product => (
                                                 <option key={product.id} value={product.id} disabled={product.stock <= 0}>
-                                                    {product.name} (المتوفر: {product.stock}) {product.stock <= 0 ? '- [منتهي]' : ''}
+                                                    {product.name} (المتوفر: {formatStock(product.stock, product.unitsPerCarton)}) {product.stock <= 0 ? '- [منتهي]' : ''}
                                                 </option>
                                             ))}
                                         </select>
                                     </div>
                                 </div>
 
-                                <div className="w-32">
-                                    <label className="block text-xs text-gray-500 mb-1">الكمية المطلوبة</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={item.quantity}
-                                        onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                                        className={`w-full border rounded-lg p-2 focus:ring-2 outline-none text-center font-bold ${
-                                            isOverStock ? 'border-red-500 text-red-600 focus:ring-red-500 bg-red-50' : 'border-gray-200 focus:ring-emerald-500 bg-white'
-                                        }`}
-                                        placeholder="0"
-                                        required
-                                    />
-                                    {isOverStock && (
-                                        <p className="text-[10px] text-red-500 mt-1 font-bold">عفواً! الكمية غير متوفرة</p>
-                                    )}
+                                <div className="flex gap-2 items-center">
+                                    <div className="w-24">
+                                        <label className="block text-[10px] text-gray-400 mb-1">كرتونة</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={item.cartons}
+                                            onChange={(e) => handleItemChange(index, 'cartons', Number(e.target.value))}
+                                            className="w-full border rounded-lg p-2 border-gray-200 bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    <span className="text-gray-300 pt-5">و</span>
+                                    <div className="w-24">
+                                        <label className="block text-[10px] text-gray-400 mb-1">قطعة</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={item.units}
+                                            onChange={(e) => handleItemChange(index, 'units', Number(e.target.value))}
+                                            className="w-full border rounded-lg p-2 border-gray-200 bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="min-w-[120px] text-left md:text-right">
+                                    <label className="block text-[10px] text-gray-400 mb-1">إجمالي القطع</label>
+                                    <div className={`text-lg font-black ${isOverStock ? 'text-red-600' : 'text-emerald-700'}`}>
+                                        {totalRequested}
+                                        {isOverStock && <span className="text-[10px] block text-red-500">تجاوز المتاح!</span>}
+                                    </div>
                                 </div>
 
                                 <div className="flex gap-2">
@@ -213,8 +254,9 @@ export default function LoadingRequestForm({ warehouses }: Props) {
                     <button
                         type="submit"
                         disabled={loading || !warehouseId || items.some(item => {
+                            const total = calculateTotalQuantity(item);
                             const prod = products.find(p => p.id === item.productId);
-                            return !item.productId || item.quantity <= 0 || (prod && item.quantity > prod.stock);
+                            return !item.productId || total <= 0 || (prod && total > prod.stock);
                         })}
                         className="flex-1 bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 font-bold text-lg shadow-md disabled:bg-gray-400"
                     >
