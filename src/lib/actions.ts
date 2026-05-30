@@ -363,22 +363,42 @@ export async function getWarehouse(id: string) {
 }
 
 export async function createWarehouse(formData: FormData) {
-    const name = formData.get('name') as string;
-    const agencyId = formData.get('agencyId') as string;
+    try {
+        const name = formData.get('name') as string;
+        const agencyId = formData.get('agencyId') as string;
 
-    if (!name || !agencyId) throw new Error('Name and Agency are required');
-    const user = await getCurrentUser();
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error('Unauthorized');
+        console.log(`[createWarehouse] Name: ${name}, AgencyId: ${agencyId}`);
 
-    await prisma.warehouse.create({
-        data: {
-            name,
-            agencyId,
+        if (!name || !agencyId) {
+            console.error('[createWarehouse] Missing name or agencyId');
+            throw new Error('Name and Agency are required');
         }
-    });
 
-    revalidatePath('/dashboard', 'layout');
-    revalidatePath('/dashboard/warehouses', 'page');
+        const user = await getCurrentUser();
+        console.log(`[createWarehouse] User Role: ${user.role}`);
+        
+        if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
+            console.error('[createWarehouse] Unauthorized role:', user.role);
+            throw new Error('Unauthorized');
+        }
+
+        const newWarehouse = await prisma.warehouse.create({
+            data: {
+                name,
+                agencyId,
+            }
+        });
+
+        console.log(`[createWarehouse] Successfully created warehouse: ${newWarehouse.id}`);
+
+        revalidatePath('/dashboard', 'layout');
+        revalidatePath('/dashboard/warehouses', 'page');
+        
+        return { success: true, id: newWarehouse.id };
+    } catch (error) {
+        console.error('[createWarehouse] Error:', error);
+        throw error;
+    }
 }
 
 export async function deleteWarehouse(id: string) {
