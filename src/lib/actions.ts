@@ -303,7 +303,7 @@ export async function resetAllData() {
         prisma.loan.deleteMany(),
         prisma.warehouse.deleteMany(),
         prisma.user.updateMany({
-            data: { agencyId: null, warehouseId: null }
+            data: { agencyId: null }
         })
     ]);
 
@@ -411,10 +411,13 @@ export async function deleteWarehouse(id: string) {
             where: { warehouseId: id }
         });
 
-        // 2. Unlink users from this warehouse
+        // 2. Unlink users from this warehouse (if any are keepers)
         await tx.user.updateMany({
-            where: { warehouseId: id },
-            data: { warehouseId: null }
+            where: { warehouses: { some: { id } } },
+            data: {
+                // Since it's a many-to-many, we can't easily clear it with updateMany scalar data.
+                // However, deleting the warehouse will automatically clean up the join table.
+            }
         });
 
         // 3. Unlink transactions from this warehouse
