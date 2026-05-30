@@ -156,8 +156,8 @@ export default function LoadingRequestForm({ warehouses }: Props) {
                                         >
                                             <option value="">اختر المنتج...</option>
                                             {products.map(product => (
-                                                <option key={product.id} value={product.id}>
-                                                    {product.name} (المتوفر: {product.stock})
+                                                <option key={product.id} value={product.id} disabled={product.stock <= 0}>
+                                                    {product.name} (المتوفر: {product.stock}) {product.stock <= 0 ? '- [منتهي]' : ''}
                                                 </option>
                                             ))}
                                         </select>
@@ -178,7 +178,7 @@ export default function LoadingRequestForm({ warehouses }: Props) {
                                         required
                                     />
                                     {isOverStock && (
-                                        <p className="text-[10px] text-red-500 mt-1">أكبر من المتوفر!</p>
+                                        <p className="text-[10px] text-red-500 mt-1 font-bold">عفواً! الكمية غير متوفرة</p>
                                     )}
                                 </div>
 
@@ -212,8 +212,11 @@ export default function LoadingRequestForm({ warehouses }: Props) {
 
                     <button
                         type="submit"
-                        disabled={loading || !warehouseId || items.some(item => !item.productId || item.quantity <= 0)}
-                        className="flex-1 bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 font-bold text-lg shadow-md"
+                        disabled={loading || !warehouseId || items.some(item => {
+                            const prod = products.find(p => p.id === item.productId);
+                            return !item.productId || item.quantity <= 0 || (prod && item.quantity > prod.stock);
+                        })}
+                        className="flex-1 bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 font-bold text-lg shadow-md disabled:bg-gray-400"
                     >
                         {loading ? 'جاري الإرسال...' : 'إرسال طلب التحميل للمدير'}
                     </button>
