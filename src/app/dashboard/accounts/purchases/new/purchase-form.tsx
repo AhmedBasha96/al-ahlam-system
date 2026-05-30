@@ -115,6 +115,9 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         const formData = new FormData();
         formData.append('warehouseId', warehouseId);
         formData.append('supplierId', supplierId);
+        formData.append('paidAmount', paidAmount.toString());
+        formData.append('note', note);
+        formData.append('date', date);
 
         const itemsForServer = validItems.map(it => {
             const product = products.find(p => p.id === it.productId);
@@ -128,6 +131,14 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                 taxPercentage: it.taxPercentage
             };
         });
+
+        formData.append('items', JSON.stringify(itemsForServer));
+
+        // Get image from input
+        const fileInput = document.getElementById('invoice-image') as HTMLInputElement;
+        if (fileInput && fileInput.files?.[0]) {
+            formData.append('image', fileInput.files[0]);
+        }
 
         try {
             await createPurchaseInvoice(formData);
