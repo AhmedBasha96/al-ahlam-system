@@ -57,12 +57,17 @@ export async function getCurrentUser() {
         };
     }
 
+    const agencyIds = dbUser.agencies.map(a => a.id);
+    if (dbUser.agencyId && !agencyIds.includes(dbUser.agencyId)) {
+        agencyIds.push(dbUser.agencyId);
+    }
+
     return {
         id: dbUser.id,
         role: dbUser.role,
         name: dbUser.name,
         agencyId: dbUser.agencyId || undefined,
-        agencyIds: dbUser.agencies.map(a => a.id),
+        agencyIds: agencyIds,
         warehouseId: dbUser.warehouses?.[0]?.id || undefined,
         warehouseIds: dbUser.warehouses?.map(w => w.id) || []
     };
@@ -319,7 +324,8 @@ export async function getWarehouses() {
     let warehouses: any[];
     if (user.role === 'ADMIN' || user.role === 'MANAGER') {
         warehouses = await prisma.warehouse.findMany({
-            include: { agency: true }
+            include: { agency: true },
+            orderBy: { createdAt: 'desc' }
         });
     } else {
         const fullUser = await prisma.user.findUnique({
@@ -333,7 +339,8 @@ export async function getWarehouses() {
             // If warehouse keeper, only show their explicitly assigned warehouses
             warehouses = await prisma.warehouse.findMany({
                 where: { id: { in: fullUser.warehouses.map(w => w.id) } },
-                include: { agency: true }
+                include: { agency: true },
+                orderBy: { createdAt: 'desc' }
             });
         } else {
             // For Sales Reps and others, show warehouses belonging to their assigned agencies
@@ -343,7 +350,8 @@ export async function getWarehouses() {
             if (agencyIds.length > 0) {
                 warehouses = await prisma.warehouse.findMany({
                     where: { agencyId: { in: agencyIds } },
-                    include: { agency: true }
+                    include: { agency: true },
+                    orderBy: { createdAt: 'desc' }
                 });
             } else {
                 warehouses = [];
@@ -391,8 +399,8 @@ export async function createWarehouse(formData: FormData) {
 
         console.log(`[createWarehouse] Successfully created warehouse: ${newWarehouse.id}`);
 
+        revalidatePath('/dashboard/warehouses');
         revalidatePath('/dashboard', 'layout');
-        revalidatePath('/dashboard/warehouses', 'page');
         
         return { success: true, id: newWarehouse.id };
     } catch (error) {

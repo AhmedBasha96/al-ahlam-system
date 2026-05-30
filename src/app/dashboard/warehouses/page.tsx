@@ -1,6 +1,7 @@
 import { createWarehouse, getAgencies, getWarehouses, getCurrentUser } from "@/lib/actions";
 import Link from "next/link";
 import DeleteWarehouseButton from "./delete-warehouse-button";
+import WarehouseForm from "./warehouse-form";
 
 export const dynamic = "force-dynamic";
 
@@ -30,27 +31,7 @@ export default async function WarehousesPage() {
                 {/* Create Warehouse Form - Only for Admin/Manager */}
                 {isAdminOrManager && (
                     <div className="lg:col-span-1">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100">
-                            <h3 className="text-lg font-bold mb-4 text-emerald-800">إضافة مخزن جديد</h3>
-                            <form action={createWarehouse} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">اسم المخزن</label>
-                                    <input name="name" type="text" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="الاسم" required />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">تابع لتوكيل</label>
-                                    <select name="agencyId" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" required>
-                                        <option value="">اختر التوكيل...</option>
-                                        {agencies.map((agency: any) => (
-                                            <option key={agency.id} value={agency.id}>{agency.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <button type="submit" className="w-full bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition">
-                                    إضافة المخزن
-                                </button>
-                            </form>
-                        </div>
+                        <WarehouseForm agencies={agencies} />
                     </div>
                 )}
 
