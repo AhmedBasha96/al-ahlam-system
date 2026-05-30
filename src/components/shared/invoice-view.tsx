@@ -12,6 +12,7 @@ interface InvoiceItem {
     price: number;
     originalPrice?: number;
     discountPercentage?: number;
+    taxPercentage?: number;
     total: number;
     formattedQuantity?: string;
     displayPrice?: number;
@@ -21,8 +22,8 @@ interface InvoiceItem {
 interface InvoiceViewProps {
     invoiceId: string;
     date: Date | string;
-    partyName: string; // Customer or Supplier Name
-    userName: string;  // Representative or User Name
+    partyName: string;
+    userName: string;
     items: InvoiceItem[];
     totalAmount: number;
     paidAmount?: number;
@@ -46,8 +47,18 @@ export function InvoiceView({
     const invoiceRef = useRef<HTMLDivElement>(null);
     const [isSharing, setIsSharing] = useState(false);
 
-    const totalBeforeDiscount = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
-    const totalSavings = totalBeforeDiscount - totalAmount;
+    // Calculate totals for summary
+    const summary = items.reduce((acc, item) => {
+        const itemBase = item.quantity * (item.originalPrice || item.price);
+        const discountAmount = itemBase * (Number(item.discountPercentage || 0) / 100);
+        const taxAmount = itemBase * (Number(item.taxPercentage || 0) / 100);
+        
+        return {
+            baseTotal: acc.baseTotal + itemBase,
+            totalDiscount: acc.totalDiscount + discountAmount,
+            totalTax: acc.totalTax + taxAmount
+        };
+    }, { baseTotal: 0, totalDiscount: 0, totalTax: 0 });
 
     const isPurchase = type === 'PURCHASE' || type === 'RETURN_OUT';
     const isReturn = type === 'RETURN_IN' || type === 'RETURN_OUT';
@@ -68,24 +79,19 @@ export function InvoiceView({
 
     const handleWhatsApp = async () => {
         if (!invoiceRef.current) return;
-
         setIsSharing(true);
         try {
-            // Give it a tiny bit of time to ensure it's rendered correctly
             await new Promise(r => setTimeout(r, 200));
-
             const dataUrl = await toPng(invoiceRef.current, {
                 quality: 1,
                 backgroundColor: '#ffffff',
-                pixelRatio: 2, // Better quality for mobile
+                pixelRatio: 2,
                 cacheBust: true,
             });
-
             const response = await fetch(dataUrl);
             const blob = await response.blob();
             const file = new File([blob], `invoice-${invoiceId.slice(0, 8)}.png`, { type: 'image/png' });
 
-            // Check if Web Share API is available and can share files
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
@@ -93,199 +99,196 @@ export function InvoiceView({
                     text: `فاتورة ${title} للعميل ${partyName}`,
                 });
             } else {
-                // Fallback: Download the image on desktop/browsers without share API
                 const link = document.createElement('a');
                 link.download = `invoice-${invoiceId.slice(0, 8)}.png`;
                 link.href = dataUrl;
                 link.click();
-                alert("تم تحميل صورة الفاتورة. يرجى إرسالها يدوياً عبر واتساب.");
             }
         } catch (error) {
             console.error('Error sharing image:', error);
-            alert("عذراً، حدث خطأ أثناء تحويل الفاتورة لصورة.");
         } finally {
             setIsSharing(false);
         }
     };
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
             <div
                 ref={invoiceRef}
-                className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100"
+                className="bg-white p-12 rounded-none md:rounded-3xl shadow-xl border border-slate-100 min-h-[1100px] flex flex-col"
                 id="printable-invoice"
             >
-                {/* Header */}
-                <div className="flex justify-between items-start mb-8">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-white rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm print:shadow-none">
+                {/* Header Section */}
+                <div className="flex justify-between items-center mb-10 pb-8 border-b-2 border-slate-900">
+                    <div className="flex items-center gap-6">
+                        <div className="w-24 h-24 bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200">
                             <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
                         </div>
                         <div>
-                            <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-1">{title}</h1>
-                            <div className="flex items-center gap-2 text-slate-500 font-bold">
-                                <Hash className="w-4 h-4" />
-                                <span>رقم الفاتورة: {invoiceId.slice(0, 8)}</span>
+                            <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">{title}</h1>
+                            <div className="bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-black inline-block">
+                                NO: {invoiceId.slice(0, 8).toUpperCase()}
                             </div>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <div className="text-2xl font-black text-indigo-600 mb-1">الاحلام للتجارة</div>
-                        <div className="text-sm text-slate-400 font-bold tracking-widest uppercase">
-                            {type === 'SALE' ? 'Sales Invoice' : type === 'PURCHASE' ? 'Purchase Invoice' : type === 'INCOME' ? 'Income Voucher' : type === 'EXPENSE' ? 'Expense Voucher' : 'Transaction Record'}
+                    <div className="text-left">
+                        <div className="text-3xl font-black text-indigo-700">الاحلام للتجارة</div>
+                        <div className="text-sm font-bold text-slate-500 mt-1 uppercase tracking-widest">H&M For General Agencies</div>
+                        <div className="text-[10px] text-slate-400 mt-1 font-bold">Sales - Purchase - Warehouse Management</div>
+                    </div>
+                </div>
+
+                {/* Client & Date Info */}
+                <div className="grid grid-cols-2 gap-12 mb-10 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                    <div className="space-y-4">
+                        <div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">صادرة إلى / {partyLabel}:</span>
+                            <span className="text-xl font-black text-slate-900">{partyName}</span>
                         </div>
-                        <div className="text-[10px] text-slate-400 font-bold mt-1">
-                            H&M For Agencies
+                        <div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">المسؤول عن الحركة / {userLabel}:</span>
+                            <span className="font-bold text-slate-800">{userName}</span>
+                        </div>
+                    </div>
+                    <div className="space-y-4 text-left">
+                        <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm">
+                            <span className="text-xs font-black text-slate-500">التاريخ:</span>
+                            <span className="font-black text-slate-800">{new Date(date).toLocaleDateString('ar-EG', { dateStyle: 'full' })}</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm">
+                            <span className="text-xs font-black text-slate-500">طريقة السداد:</span>
+                            <span className="font-black text-indigo-600">{paymentType === 'CASH' ? 'نقدي (كاش)' : paymentType === 'CREDIT' ? 'آجل' : 'دفع جزئي'}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Info Grid */}
-                <div className="grid grid-cols-2 gap-8 mb-8 pb-8 border-b border-slate-50">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                                <User className="w-5 h-5 text-indigo-600" />
-                            </div>
-                            <div>
-                                <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">{partyLabel}</div>
-                                <div className="font-bold text-slate-800">{partyName}</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
-                                <Calendar className="w-5 h-5 text-emerald-600" />
-                            </div>
-                            <div>
-                                <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">التاريخ</div>
-                                <div className="font-bold text-slate-800">{new Date(date).toLocaleDateString('ar-EG')}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center">
-                                <ShoppingBag className="w-5 h-5 text-rose-600" />
-                            </div>
-                            <div>
-                                <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">{userLabel}</div>
-                                <div className="font-bold text-slate-800">{userName}</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                                <DollarSign className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div>
-                                <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">طريقة الدفع</div>
-                                <div className="font-bold text-slate-800">{paymentType === 'CASH' ? 'نقدي (كاش)' : paymentType === 'CREDIT' ? 'آجل' : 'دفع جزئي'}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Items Table */}
-                <div className="mb-8">
-                    <table className="w-full text-right">
+                {/* Main Items Table */}
+                <div className="flex-grow mb-12">
+                    <table className="w-full text-right border-collapse">
                         <thead>
-                            <tr className="text-slate-400 text-xs font-black uppercase border-b border-slate-50">
-                                <th className="py-4 text-right">الصنف</th>
-                                <th className="py-4 text-center">الكمية</th>
-                                <th className="py-4 text-center">السعر</th>
-                                <th className="py-4 text-center">الخصم</th>
-                                <th className="py-4 text-left">الإجمالي</th>
+                            <tr className="bg-slate-900 text-white text-xs font-black">
+                                <th className="p-4 rounded-tr-xl">اسم الصنف</th>
+                                <th className="p-4 text-center">الكمية</th>
+                                <th className="p-4 text-center">السعر</th>
+                                <th className="p-4 text-center">خصم %</th>
+                                <th className="p-4 text-center">ضريبة %</th>
+                                <th className="p-4 text-left rounded-tl-xl">الإجمالي</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody className="divide-y divide-slate-100">
                             {items.map((item, idx) => (
-                                <tr key={idx} className="group">
-                                    <td className="py-4">
-                                        <div className="font-bold text-slate-800">{item.productName}</div>
-                                        {item.discountPercentage && item.discountPercentage > 0 ? (
-                                            <div className="text-[10px] text-rose-500 font-bold">
-                                                السعر قبل الخصم: {item.originalPrice?.toLocaleString()} ج.م
-                                            </div>
-                                        ) : null}
+                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                    <td className="p-4">
+                                        <div className="font-black text-slate-900">{item.productName}</div>
+                                        <div className="text-[9px] text-slate-400 font-bold">Product ID: {item.productId.slice(0,6)}</div>
                                     </td>
-                                    <td className="py-4 text-center font-black text-indigo-600">{item.formattedQuantity || item.quantity}</td>
-                                    <td className="py-4 text-center">
-                                        <div className="text-slate-900 font-bold">{(item.displayPrice || item.price).toLocaleString()}</div>
+                                    <td className="p-4 text-center font-black text-indigo-600">
+                                        {item.formattedQuantity || item.quantity}
                                     </td>
-                                    <td className="py-4 text-center">
-                                        {item.discountPercentage && item.discountPercentage > 0 ? (
-                                            <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-lg text-[10px] font-black border border-rose-100 italic">
-                                                %{item.discountPercentage}
-                                            </span>
-                                        ) : (
-                                            <span className="text-slate-300 font-bold">—</span>
-                                        )}
+                                    <td className="p-4 text-center font-bold text-slate-700">
+                                        {(item.displayPrice || item.price).toLocaleString()}
                                     </td>
-                                    <td className="py-4 text-left font-black text-slate-900">{item.total.toLocaleString()}</td>
+                                    <td className="p-4 text-center">
+                                        {item.discountPercentage ? (
+                                            <span className="text-rose-600 font-black text-xs">%{item.discountPercentage}</span>
+                                        ) : <span className="text-slate-300">—</span>}
+                                    </td>
+                                    <td className="p-4 text-center">
+                                        {item.taxPercentage ? (
+                                            <span className="text-emerald-600 font-black text-xs">%{item.taxPercentage}</span>
+                                        ) : <span className="text-slate-300">—</span>}
+                                    </td>
+                                    <td className="p-4 text-left font-black text-slate-900 border-l border-slate-50">
+                                        {item.total.toLocaleString()}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
 
-                {/* Totals Section */}
-                <div className="bg-slate-50 rounded-3xl p-6 space-y-3">
-                    {totalSavings > 0 && (
-                        <>
-                            <div className="flex justify-between items-center text-xs font-bold text-slate-400">
-                                <span>الإجمالي قبل الخصم</span>
-                                <span>{totalBeforeDiscount.toLocaleString()} ج.م</span>
+                {/* Footer Totals Section */}
+                <div className="mt-auto pt-8 border-t-2 border-slate-100">
+                    <div className="flex justify-between items-start gap-12">
+                        <div className="flex-grow bg-slate-100/50 p-6 rounded-[2rem] border border-slate-200 shadow-inner max-w-sm">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">تفاصيل مالية إضافية</h4>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-bold">إجمالي السعر الأساسي:</span>
+                                    <span className="font-mono">{summary.baseTotal.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-rose-500 font-bold">إجمالي الخصومات:</span>
+                                    <span className="font-mono">-{summary.totalDiscount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-emerald-600 font-bold">إجمالي الضرائب:</span>
+                                    <span className="font-mono">+{summary.totalTax.toLocaleString()}</span>
+                                </div>
                             </div>
-                            <div className="flex justify-between items-center text-xs font-bold text-rose-500">
-                                <span>قيمة الخصم</span>
-                                <span>- {totalSavings.toLocaleString()} ج.م</span>
+                        </div>
+
+                        <div className="w-[350px] space-y-4">
+                            <div className="flex justify-between items-center px-4 py-2 bg-slate-50 rounded-xl">
+                                <span className="text-[10px] font-black text-slate-400 uppercase">المدفوع نقداً</span>
+                                <span className="text-xl font-black text-emerald-600 font-mono">{paidAmount.toLocaleString()}</span>
                             </div>
-                            <div className="border-t border-slate-100 my-1"></div>
-                        </>
-                    )}
-                    <div className="flex justify-between items-center text-sm font-bold text-slate-500">
-                        <span>إجمالي الفاتورة (الصافي)</span>
-                        <span>{totalAmount.toLocaleString()} ج.م</span>
+                            <div className="flex justify-between items-center px-4 py-2 bg-rose-50 rounded-xl">
+                                <span className="text-[10px] font-black text-rose-400 uppercase">المتبقي (مديونية)</span>
+                                <span className="text-xl font-black text-rose-600 font-mono">{remainingAmount.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center px-6 py-6 bg-slate-900 text-white rounded-[2rem] shadow-2xl shadow-indigo-200">
+                                <div className="text-[10px] font-black uppercase tracking-widest opacity-60">الإجمالي النهائي</div>
+                                <div className="text-4xl font-black font-mono tracking-tighter">
+                                    {totalAmount.toLocaleString()} <span className="text-sm font-sans italic opacity-60">EGP</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
-                        <span>المدفوع</span>
-                        <span>{paidAmount.toLocaleString()} ج.م</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-3 border-t border-slate-200">
-                        <span className="text-lg font-black text-slate-900">المتبقي</span>
-                        <span className="text-2xl font-black text-indigo-600">{remainingAmount.toLocaleString()} ج.م</span>
+                    
+                    {/* Authorized Signature area for print */}
+                    <div className="mt-16 flex justify-between px-12 opacity-0 print:opacity-100">
+                        <div className="text-center border-t border-slate-300 pt-2 w-48">
+                            <p className="text-xs font-black text-slate-400">توقيع المستلم</p>
+                        </div>
+                        <div className="text-center border-t border-slate-300 pt-2 w-48">
+                            <p className="text-xs font-black text-slate-400">ختم الشركة</p>
+                        </div>
                     </div>
                 </div>
 
                 <style jsx global>{`
                     @media print {
                         .no-print { display: none !important; }
-                        body { background: white !important; }
+                        body { background: white !important; padding: 0 !important; margin: 0 !important; }
                         #printable-invoice { 
                             box-shadow: none !important; 
                             border: none !important; 
-                            padding: 0 !important;
+                            padding: 2cm !important;
                             max-width: 100% !important;
+                            min-height: 100vh !important;
+                            border-radius: 0 !important;
                         }
                     }
                 `}</style>
             </div>
 
-            {/* Actions (Hidden on Print & Not Captured in Image) */}
-            <div className="mt-8 grid grid-cols-2 gap-4 no-print">
+            {/* Actions Panel */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 no-print px-4">
                 <Button
                     onClick={handlePrint}
-                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-6 rounded-2xl flex gap-2"
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-black py-8 rounded-3xl flex flex-col items-center gap-2 shadow-xl hover:-translate-y-1 transition-all"
                 >
-                    <Printer className="w-5 h-5" />
-                    طباعة الفاتورة
+                    <Printer className="w-6 h-6" />
+                    <span>طباعة الفاتورة (A4)</span>
                 </Button>
                 <Button
                     onClick={handleWhatsApp}
                     disabled={isSharing}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-2xl flex gap-2 disabled:opacity-50"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black py-8 rounded-3xl flex flex-col items-center gap-2 shadow-xl hover:-translate-y-1 transition-all disabled:opacity-50"
                 >
-                    <Share2 className="w-5 h-5" />
-                    {isSharing ? 'جاري التحويل...' : 'ارسال صوره عبر واتساب'}
+                    <Share2 className="w-6 h-6" />
+                    <span>{isSharing ? 'جاري التحضير...' : 'مشاركة عبر واتساب'}</span>
                 </Button>
             </div>
         </div>

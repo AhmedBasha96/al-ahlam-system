@@ -1,9 +1,13 @@
 'use client';
 
 import { useState } from "react";
-import { FileText, Wallet, Clock } from "lucide-react";
+import { FileText, Wallet, Clock, Trash2 } from "lucide-react";
 import { updateTransaction } from "@/lib/actions";
+import { deleteTransaction } from "@/lib/actions/accounts";
 import TransactionModal from "@/components/shared/transaction-modal";
+import { useRouter } from "next/navigation";
+
+// Types remain same...
 
 type PurchaseTransaction = {
     id: string;
@@ -18,11 +22,14 @@ type PurchaseTransaction = {
         name: string;
     };
     items: {
+        productId: string;
         product: {
             name: string;
         };
         quantity: number;
         price: number;
+        discountPercentage?: number;
+        taxPercentage?: number;
     }[];
 }
 
@@ -38,7 +45,10 @@ export default function PurchaseHistoryTable({
     const [viewingTx, setViewingTx] = useState<PurchaseTransaction | null>(null);
     const [editingTx, setEditingTx] = useState<PurchaseTransaction | null>(null);
     const [paymentTx, setPaymentTx] = useState<PurchaseTransaction | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const router = useRouter();
 
+    const isAdmin = userRole === 'ADMIN';
     const canEdit = userRole === 'ADMIN' || userRole === 'MANAGER' || userRole === 'SECURITY';
     const canPay = userRole === 'ADMIN' || userRole === 'MANAGER' || userRole === 'ACCOUNTANT';
 
@@ -145,7 +155,7 @@ export default function PurchaseHistoryTable({
                                     )}
                                 </td>
                                 <td className="px-6 py-5">
-                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all flex-wrap">
                                         <button
                                             onClick={() => setViewingTx(tx)}
                                             className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-800 transition"
@@ -168,6 +178,29 @@ export default function PurchaseHistoryTable({
                                                 سداد 📥
                                             </button>
                                         )}
+                                        {isAdmin && (
+                                            <button
+                                                onClick={async () => {
+                                                    if (confirm("هل أنت متأكد من حذف هذه الفاتورة؟ سيتم عكس كافة العمليات المرتبطة بها (المخزن والحسابات).")) {
+                                                        setDeletingId(tx.id);
+                                                        try {
+                                                            const res = await deleteTransaction(tx.id);
+                                                            if (res.success) {
+                                                                router.refresh();
+                                                            }
+                                                        } catch (e: any) {
+                                                            alert(e.message);
+                                                        } finally {
+                                                            setDeletingId(null);
+                                                        }
+                                                    }
+                                                }}
+                                                disabled={deletingId === tx.id}
+                                                className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-rose-600 hover:text-white transition disabled:opacity-50"
+                                            >
+                                                {deletingId === tx.id ? '...' : 'حذف 🗑️'}
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -183,11 +216,13 @@ export default function PurchaseHistoryTable({
                     partyName={agencyName}
                     userName={viewingTx.user.name}
                     items={viewingTx.items.map(i => ({
-                        productId: '', // Not strictly needed for view
+                        productId: i.productId,
                         productName: i.product.name,
                         quantity: i.quantity,
                         price: i.price,
-                        total: i.quantity * i.price
+                        discountPercentage: Number(i.discountPercentage || 0),
+                        taxPercentage: Number(i.taxPercentage || 0),
+                        total: (i.quantity * i.price) - ((i.quantity * i.price) * (Number(i.discountPercentage || 0) / 100)) + ((i.quantity * i.price) * (Number(i.taxPercentage || 0) / 100))
                     }))}
                     paymentInfo={{
                         type: viewingTx.paymentType,

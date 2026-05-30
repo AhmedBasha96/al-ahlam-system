@@ -526,3 +526,68 @@ export async function getAgencySuppliersBalances(agencyId: string) {
 
     return balances;
 }
+
+export async function deleteTransaction(transactionId: string) {
+    const user = await getCurrentUser();
+    if (user.role !== 'ADMIN') {
+        throw new Error("عذراً، هذه الصلاحية متوفرة لمدير النظام فقط.");
+    }
+
+    const prisma = (await import('@/lib/db')).default;
+
+    return await prisma.$transaction(async (tx) => {
+        // 1. Get the transaction details
+        const transaction = await tx.transaction.findUnique({
+            where: { id: transactionId },
+            include: { items: true }
+        });
+
+        if (!transaction) throw new Error("الفاتورة غير موجودة.");
+
+        // 2. Reverse Stock Changes if applicable
+        if (transaction.warehouseId && transaction.items.length > 0) {
+            for (const item of transaction.items) {
+                if (transaction.type === 'PURCHASE') {
+                    // Reverse Purchase: Decrement stock
+                    await tx.stock.update({
+                        where: {
+                            warehouseId_productId: {
+                                warehouseId: transaction.warehouseId,
+                                productId: item.productId
+                            }
+                        },
+                        data: { quantity: { decrement: item.quantity } }
+                    });
+                } else if (transaction.type === 'SALE') {
+                    // Reverse Sale: Increment stock
+                    await tx.stock.upsert({
+                        where: {
+                            warehouseId_productId: {
+                                warehouseId: transaction.warehouseId,
+                                productId: item.productId
+                            }
+                        },
+                        update: { quantity: { increment: item.quantity } },
+                        create: {
+                            warehouseId: transaction.warehouseId,
+                            productId: item.productId,
+                            quantity: item.quantity
+                        }
+                    });
+                }
+            }
+        }
+
+        // 3. Delete linked Journal Entries
+        await tx.journalEntry.deleteMany({
+            where: { referenceId: transactionId }
+        });
+
+        // 4. Delete the transaction (TransactionItems will be deleted by Cascade)
+        await tx.transaction.delete({
+            where: { id: transactionId }
+        });
+
+        return { success: true };
+    });
+}
