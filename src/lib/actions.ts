@@ -3,6 +3,7 @@
 import prisma from "@/lib/db";
 import { Role, TransactionType, PaymentType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import bcrypt from 'bcryptjs';
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { recordJournalEntry } from "./actions/accounts";
@@ -374,10 +375,11 @@ export async function createUser(formData: FormData) {
     const imageBase64 = await fileToBase64(imageFile);
 
     await prisma.$transaction(async (tx) => {
+        const hashedPassword = await bcrypt.hash(password, 10);
         const user = await tx.user.create({
             data: {
                 username,
-                password,
+                password: hashedPassword,
                 role,
                 name,
                 agencyId: agencyIds.length > 0 ? agencyIds[0] : null,
@@ -454,9 +456,10 @@ export async function resetUserPassword(userId: string, formData: FormData) {
     const newPassword = formData.get('password') as string;
     if (!newPassword) throw new Error('Password is required');
 
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
         where: { id: userId },
-        data: { password: newPassword }
+        data: { password: hashedPassword }
     });
 
     revalidatePath('/dashboard/users');
