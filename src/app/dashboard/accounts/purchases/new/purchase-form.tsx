@@ -141,11 +141,15 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
         }
 
         try {
-            await createPurchaseInvoice(formData);
-            router.push('/dashboard/accounts/purchases');
-        } catch (error) {
-            console.error(error);
-            alert('حدث خطأ أثناء حفظ الفاتورة');
+            const result = await createPurchaseInvoice(formData);
+            if (result && result.success) {
+                router.push('/dashboard/accounts/purchases');
+            } else {
+                alert('فشل حفظ الفاتورة: ' + (result?.error || 'خطأ غير معروف'));
+            }
+        } catch (error: any) {
+            console.error('Purchase invoice error:', error);
+            alert('حدث خطأ: ' + (error.message || 'خطأ غير متوقع أثناء الحفظ'));
         } finally {
             setIsSubmitting(false);
         }
