@@ -881,7 +881,14 @@ export async function getProducts() {
 }
 
 export async function getProductsWithStock(warehouseId: string) {
+    const warehouse = await prisma.warehouse.findUnique({
+        where: { id: warehouseId }
+    });
+
+    if (!warehouse) return [];
+
     const products = await prisma.product.findMany({
+        where: { agencyId: warehouse.agencyId },
         include: {
             stocks: {
                 where: { warehouseId }
