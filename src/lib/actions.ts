@@ -324,50 +324,63 @@ export async function getWarehouses() {
     console.log(`[getWarehouses] Fetching for user: ${user.id}, role: ${user.role}`);
 
     let warehouses: any[] = [];
-    try {
+
+    // Helper: build the where clause based on user role
+    async function buildWhere() {
         if (user.role === 'ADMIN' || user.role === 'MANAGER') {
+            return {}; // All warehouses
+        }
+
+        const fullUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: { warehouses: true, agencies: true }
+        }) as any;
+
+        if (!fullUser) return null; // No access
+
+        if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouses?.length > 0) {
+            return { id: { in: fullUser.warehouses.map((w: any) => w.id) } };
+        }
+
+        const agencyIds = fullUser.agencies?.map((a: any) => a.id) || [];
+        if (fullUser.agencyId) agencyIds.push(fullUser.agencyId);
+
+        if (agencyIds.length > 0) {
+            return { agencyId: { in: agencyIds } };
+        }
+
+        return null; // No access
+    }
+
+    try {
+        const where = await buildWhere();
+        if (where === null) {
+            return []; // User has no warehouse access
+        }
+
+        try {
+            // Primary: fetch with agency included
             warehouses = await prisma.warehouse.findMany({
+                where,
                 include: { agency: true },
                 orderBy: { createdAt: 'desc' }
             });
-        } else {
-            const fullUser = await prisma.user.findUnique({
-                where: { id: user.id },
-                include: { warehouses: true, agencies: true }
-            }) as any;
-
-            if (fullUser) {
-                if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouses?.length > 0) {
-                    warehouses = await prisma.warehouse.findMany({
-                        where: { id: { in: fullUser.warehouses.map((w: any) => w.id) } },
-                        include: { agency: true },
-                        orderBy: { createdAt: 'desc' }
-                    });
-                } else {
-                    const agencyIds = fullUser.agencies?.map((a: any) => a.id) || [];
-                    if (fullUser.agencyId) agencyIds.push(fullUser.agencyId);
-                    
-                    if (agencyIds.length > 0) {
-                        warehouses = await prisma.warehouse.findMany({
-                            where: { agencyId: { in: agencyIds } },
-                            include: { agency: true },
-                            orderBy: { createdAt: 'desc' }
-                        });
-                    }
-                }
-            }
+        } catch (includeError) {
+            console.error('[getWarehouses] Include fetch failed (data inconsistency), retrying without includes:', includeError);
+            // Fallback: same role-based filter but without include (handles null agency FK)
+            warehouses = await prisma.warehouse.findMany({
+                where,
+                orderBy: { createdAt: 'desc' }
+            });
         }
     } catch (error) {
-        console.error('[getWarehouses] Primary fetch failed, attempting without includes:', error);
-        // Fallback: fetch without include if there's a data inconsistency error
-        warehouses = await prisma.warehouse.findMany({
-            orderBy: { createdAt: 'desc' }
-        });
+        console.error('[getWarehouses] Complete fetch failure:', error);
+        return []; // Return empty array instead of crashing downstream
     }
 
     console.log(`[getWarehouses] Total warehouses found in DB: ${warehouses.length}`);
 
-    // Filter out representative custody warehouses if needed
+    // Filter out representative custody warehouses
     const filtered = warehouses.filter(w => {
         const name = String(w.name || "");
         return !name.startsWith('عهدة المندوب:');
@@ -378,10 +391,17 @@ export async function getWarehouses() {
 }
 
 export async function getWarehouse(id: string) {
-    return await prisma.warehouse.findUnique({
-        where: { id },
-        include: { agency: true }
-    });
+    try {
+        return await prisma.warehouse.findUnique({
+            where: { id },
+            include: { agency: true }
+        });
+    } catch (error) {
+        console.error('[getWarehouse] Include failed, fetching without agency:', error);
+        return await prisma.warehouse.findUnique({
+            where: { id }
+        });
+    }
 }
 
 export async function createWarehouse(formData: FormData) {
@@ -524,12 +544,12 @@ export async function createUser(formData: FormData) {
         });
 
         // If user is a sales rep, create a virtual warehouse for them
-        if (role === 'SALES_REPRESENTATIVE') {
+        if (role === 'SALES_REPRESENTATIVE' && agencyIds.length > 0 && agencyIds[0] !== '') {
             await tx.warehouse.create({
                 data: {
                     id: user.id,
                     name: `عهدة المندوب: ${name}`,
-                    agencyId: agencyIds.length > 0 ? agencyIds[0] : '',
+                    agencyId: agencyIds[0],
                 }
             });
         }
