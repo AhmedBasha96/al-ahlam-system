@@ -1,14 +1,45 @@
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUser } from '@/lib/session';
-import { recordJournalEntry } from './accounts';
+import { getCurrentUser } from '@/lib/actions';
+import { JournalEntryType } from '@prisma/client';
 
+/**
+ * Records a financial movement in the JournalEntry table.
+ * Used across the system to track cash flow.
+ */
+export async function recordJournalEntry(tx: any, data: {
+    amount: number;
+    type: 'DEBIT' | 'CREDIT';
+    description: string;
+    referenceId?: string;
+    referenceType?: string;
+    agencyId?: string | null;
+    userId: string;
+}) {
+    return await tx.journalEntry.create({
+        data: {
+            amount: data.amount,
+            type: data.type as JournalEntryType,
+            description: data.description,
+            referenceId: data.referenceId,
+            referenceType: data.referenceType,
+            agencyId: data.agencyId,
+            userId: data.userId,
+            status: 'CONFIRMED'
+        }
+    });
+}
+
+/**
+ * Creates a new purchase invoice.
+ * Supports carton-only entry, per-item discounts/taxes, and image upload.
+ */
 export async function createPurchaseInvoice(formData: FormData) {
     const warehouseId = formData.get('warehouseId') as string;
     const itemsJson = formData.get('items') as string;
     const paidAmount = Number(formData.get('paidAmount') || 0);
     const note = formData.get('note') as string;
-    const date = formData.get('date') as string;
+    const dateStr = formData.get('date') as string;
     const supplierId = formData.get('supplierId') as string;
     const imageFile = formData.get('image') as File | null;
 
@@ -37,7 +68,7 @@ export async function createPurchaseInvoice(formData: FormData) {
     if (items.length === 0) throw new Error('لا توجد أصناف في الفاتورة');
 
     const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
-    if (!warehouse) throw new Error('Warehouse not found');
+    if (!warehouse) throw new Error('المخزن غير موجود');
 
     const user = await getCurrentUser();
 
@@ -62,7 +93,7 @@ export async function createPurchaseInvoice(formData: FormData) {
         imageUrl = `data:${imageFile.type};base64,${base64}`;
     }
 
-    await prisma.$transaction(async (tx) => {
+    const transaction = await prisma.$transaction(async (tx) => {
         // 1. Update Stock
         for (const item of items) {
             await tx.stock.upsert({
@@ -73,7 +104,7 @@ export async function createPurchaseInvoice(formData: FormData) {
         }
 
         // 2. Create Transaction
-        const transaction = await (tx as any).transaction.create({
+        const purchase = await (tx as any).transaction.create({
             data: {
                 type: 'PURCHASE',
                 totalAmount,
@@ -84,7 +115,7 @@ export async function createPurchaseInvoice(formData: FormData) {
                 warehouseId,
                 supplierId: supplierId || null,
                 note: note || 'فاتورة مشتريات',
-                createdAt: date ? new Date(date) : new Date(),
+                createdAt: dateStr ? new Date(dateStr) : new Date(),
                 imageUrl: imageUrl,
                 items: {
                     create: items.map(item => ({
@@ -104,23 +135,29 @@ export async function createPurchaseInvoice(formData: FormData) {
             await recordJournalEntry(tx, {
                 amount: paidAmount,
                 type: 'CREDIT',
-                description: `سداد نقدي فاتورة مشتريات رقم ${transaction.id}`,
-                referenceId: transaction.id,
+                description: `سداد نقدي فاتورة مشتريات رقم ${purchase.id}`,
+                referenceId: purchase.id,
                 referenceType: 'PURCHASE',
                 agencyId: warehouse.agencyId,
                 userId: user.id
             });
         }
+
+        return purchase;
     }, { timeout: 15000 });
 
     revalidatePath('/dashboard/accounts', 'layout');
+    return { success: true, id: transaction.id };
 }
 
+/**
+ * Fetches purchase invoices for a given agency.
+ */
 export async function getPurchaseInvoices(agencyIdFilter?: string) {
     const whereClause: any = { type: 'PURCHASE' };
     if (agencyIdFilter) whereClause.agencyId = agencyIdFilter;
     
-    return await prisma.transaction.findMany({
+    const transactions = await prisma.transaction.findMany({
         where: whereClause,
         include: {
             user: { select: { name: true } },
@@ -130,6 +167,18 @@ export async function getPurchaseInvoices(agencyIdFilter?: string) {
         },
         orderBy: { createdAt: 'desc' }
     });
-}
 
-// ... other functions would follow, but I will keep only the ones relevant to purchases for brevity in this replace
+    return transactions.map(t => ({
+        ...t,
+        totalAmount: Number(t.totalAmount),
+        paidAmount: Number(t.paidAmount || 0),
+        remainingAmount: Number(t.remainingAmount || 0),
+        items: t.items.map(item => ({
+            ...item,
+            price: Number(item.price),
+            cost: Number(item.cost || 0),
+            discountPercentage: Number(item.discountPercentage || 0),
+            taxPercentage: Number(item.taxPercentage || 0)
+        }))
+    }));
+}
