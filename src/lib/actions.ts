@@ -323,50 +323,48 @@ export async function getWarehouses() {
     const user = await getCurrentUser();
     console.log(`[getWarehouses] Fetching for user: ${user.id}, role: ${user.role}`);
 
-    let warehouses: any[];
-    if (user.role === 'ADMIN' || user.role === 'MANAGER') {
-        warehouses = await prisma.warehouse.findMany({
-            include: { agency: true },
-            orderBy: { createdAt: 'desc' }
-        });
-    } else {
-        const fullUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            include: { warehouses: true, agencies: true }
-        }) as any;
-
-        if (!fullUser) {
-            console.log(`[getWarehouses] Full user record not found for ID: ${user.id}`);
-            return [];
-        }
-
-        if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouses?.length > 0) {
-            // If warehouse keeper, only show their explicitly assigned warehouses
+    let warehouses: any[] = [];
+    try {
+        if (user.role === 'ADMIN' || user.role === 'MANAGER') {
             warehouses = await prisma.warehouse.findMany({
-                where: { id: { in: fullUser.warehouses.map((w: any) => w.id) } },
                 include: { agency: true },
                 orderBy: { createdAt: 'desc' }
             });
         } else {
-            // For Sales Reps and others, show warehouses belonging to their assigned agencies
-            const agencyIds = fullUser.agencies?.map((a: any) => a.id) || [];
-            if (fullUser.agencyId) agencyIds.push(fullUser.agencyId);
-            
-            console.log(`[getWarehouses] Role: ${user.role}, AgencyIds:`, agencyIds);
+            const fullUser = await prisma.user.findUnique({
+                where: { id: user.id },
+                include: { warehouses: true, agencies: true }
+            }) as any;
 
-            if (agencyIds.length > 0) {
-                warehouses = await prisma.warehouse.findMany({
-                    where: { agencyId: { in: agencyIds } },
-                    include: { agency: true },
-                    orderBy: { createdAt: 'desc' }
-                });
-            } else {
-                warehouses = [];
+            if (fullUser) {
+                if (user.role === 'WAREHOUSE_KEEPER' && fullUser.warehouses?.length > 0) {
+                    warehouses = await prisma.warehouse.findMany({
+                        where: { id: { in: fullUser.warehouses.map((w: any) => w.id) } },
+                        include: { agency: true },
+                        orderBy: { createdAt: 'desc' }
+                    });
+                } else {
+                    const agencyIds = fullUser.agencies?.map((a: any) => a.id) || [];
+                    if (fullUser.agencyId) agencyIds.push(fullUser.agencyId);
+                    
+                    if (agencyIds.length > 0) {
+                        warehouses = await prisma.warehouse.findMany({
+                            where: { agencyId: { in: agencyIds } },
+                            include: { agency: true },
+                            orderBy: { createdAt: 'desc' }
+                        });
+                    }
+                }
             }
         }
+    } catch (error) {
+        console.error('[getWarehouses] Primary fetch failed, attempting without includes:', error);
+        // Fallback: fetch without include if there's a data inconsistency error
+        warehouses = await prisma.warehouse.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
     }
 
-    // Filter out virtual representative warehouses from the main list
     console.log(`[getWarehouses] Total warehouses found in DB: ${warehouses.length}`);
 
     // Filter out representative custody warehouses if needed
