@@ -9,7 +9,7 @@ COPY package*.json ./
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
-  && npm ci
+  && npm install
 
 # Stage: builder - copy code and build the application
 FROM node:20-bullseye-slim AS builder
