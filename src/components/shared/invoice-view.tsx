@@ -114,128 +114,128 @@ export function InvoiceView({
     };
 
     return (
-        <div className="max-w-4xl mx-auto py-10">
+        <div className="max-w-3xl mx-auto py-6 px-4">
             <div
                 ref={invoiceRef}
-                className="bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 min-h-[1100px] flex flex-col relative overflow-hidden p-10 font-sans"
+                className="bg-white rounded-[1.5rem] shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-slate-100 min-h-[1000px] flex flex-col relative overflow-hidden p-8 font-sans transition-all duration-700"
                 id="printable-invoice"
+                style={{ transform: 'scale(0.98)', transformOrigin: 'top center' }}
             >
-                {/* Background Decor - Non-printable watermark or accent */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/30 rounded-full blur-3xl -mr-32 -mt-32 no-print"></div>
+                {/* Background Decor */}
+                <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50/20 rounded-full blur-3xl -mr-24 -mt-24 no-print"></div>
 
                 {/* Header: Brand & Info */}
-                <div className="relative flex justify-between items-start mb-10 pb-10 border-b border-slate-100">
-                    <div className="flex gap-6">
-                        <div className="w-24 h-24 bg-slate-900 rounded-3xl flex items-center justify-center shadow-2xl p-4">
-                            <img src="/logo.jpg" alt="Logo" className="w-full h-full object-contain brightness-110 contrast-125" />
+                <div className="relative flex justify-between items-start mb-6 pb-6 border-b border-slate-100">
+                    <div className="flex gap-4">
+                        <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center shadow-xl p-3">
+                            <img src="/logo.jpg" alt="Logo" className="w-full h-full object-contain brightness-110" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-1 uppercase italic">{title}</h1>
+                            <h1 className="text-xl font-black text-slate-900 tracking-tight mb-0.5 uppercase italic leading-none">{title}</h1>
                             <div className="flex items-center gap-2">
-                                <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                    REF-{invoiceId.slice(0, 8).toUpperCase()}
+                                <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest">
+                                    REF-{invoiceId.slice(0, 6).toUpperCase()}
                                 </span>
-                                <span className="text-slate-400 text-[10px] font-bold">Document Generated Systematically</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="text-left space-y-1">
-                        <div className="text-4xl font-black text-slate-900 leading-none tracking-tighter">الاحلام <span className="text-indigo-600">للتجارة</span></div>
-                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">H&M Business Solutions</div>
-                        <div className="flex gap-4 pt-4 text-[9px] font-bold text-slate-500 justify-end">
-                            <span className="flex items-center gap-1"><Hash className="w-3 h-3 text-indigo-400" /> 0123456789</span>
-                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-indigo-400" /> Cairo, Egypt</span>
+                    <div className="text-left space-y-0.5">
+                        <div className="text-2xl font-black text-slate-900 leading-none tracking-tighter">الاحلام <span className="text-indigo-600 font-black">للتجارة</span></div>
+                        <div className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">H&M Business Solutions</div>
+                        <div className="flex gap-3 pt-2 text-[8px] font-bold text-slate-400 justify-end">
+                            <span className="flex items-center gap-1"><Hash className="w-2.5 h-2.5" /> 0123456789</span>
+                            <span className="flex items-center gap-1"><Calendar className="w-2.5 h-2.5" /> Cairo</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Info Grid: Client & Transaction */}
-                <div className="grid grid-cols-3 gap-6 mb-10">
-                    <div className="col-span-2 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 flex justify-between items-center group hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-500">
-                        <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="col-span-2 bg-slate-50/50 p-4 rounded-[1.2rem] border border-slate-100 flex justify-between items-center hover:bg-white hover:shadow-lg hover:shadow-indigo-500/5 transition-all">
+                        <div className="space-y-3">
                             <div>
-                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest block mb-1">صادرة لحساب / Client Name:</span>
-                                <div className="text-xl font-black text-slate-900 flex items-center gap-2">
-                                    <User className="w-4 h-4 text-indigo-600" />
+                                <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest block mb-0.5">صادرة لحساب / Client:</span>
+                                <div className="text-lg font-black text-slate-900 flex items-center gap-2 leading-none">
+                                    <User className="w-3.5 h-3.5 text-indigo-600" />
                                     {partyName}
                                 </div>
                             </div>
-                            <div className="flex gap-6">
+                            <div className="flex gap-4">
                                 <div>
-                                    <span className="text-[9px] font-black text-slate-300 uppercase block mb-1">المسؤول / Authorized By:</span>
-                                    <span className="text-xs font-bold text-slate-700">{userName}</span>
+                                    <span className="text-[8px] font-black text-slate-300 uppercase block mb-0.5">المسؤول / Admin:</span>
+                                    <span className="text-[10px] font-bold text-slate-600">{userName}</span>
                                 </div>
-                                <div className="border-r border-slate-200 h-6 my-auto"></div>
+                                <div className="border-r border-slate-200 h-4 my-auto"></div>
                                 <div>
-                                    <span className="text-[9px] font-black text-slate-300 uppercase block mb-1">التوثيق / Ref:</span>
-                                    <span className="text-xs font-bold text-slate-700 tracking-tighter shrink-0">DB-TX-{invoiceId.slice(-4).toUpperCase()}</span>
+                                    <span className="text-[8px] font-black text-slate-300 uppercase block mb-0.5">التوثيق / Ref:</span>
+                                    <span className="text-[10px] font-bold text-slate-500 tracking-tighter">DB-{invoiceId.slice(-4).toUpperCase()}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-indigo-600 p-6 rounded-[2rem] text-white space-y-4 shadow-xl">
+                    <div className="bg-indigo-600 p-4 rounded-[1.2rem] text-white flex flex-col justify-center space-y-3 shadow-lg">
                         <div className="flex justify-between items-center">
-                            <span className="text-[9px] font-black text-indigo-200 uppercase tracking-widest">تاريخ الاصدار / Date</span>
-                            <span className="text-xs font-black">{new Date(date).toLocaleDateString('ar-EG')}</span>
+                            <span className="text-[8px] font-black text-indigo-200 uppercase tracking-widest">تاريخ / Date</span>
+                            <span className="text-[10px] font-black">{new Date(date).toLocaleDateString('ar-EG')}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-[9px] font-black text-indigo-200 uppercase tracking-widest">نظام السداد / Method</span>
-                            <span className="text-xs font-black px-2 py-0.5 bg-white/10 rounded-md">
+                            <span className="text-[8px] font-black text-indigo-200 uppercase tracking-widest">السداد / Method</span>
+                            <span className="text-[10px] font-black px-1.5 py-0.5 bg-white/10 rounded-md">
                                 {paymentType === 'CASH' ? 'كاش' : paymentType === 'CREDIT' ? 'آجل' : 'جزئي'}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Items Table: Modern & Breathable */}
+                {/* Items Table: Compact & Focused */}
                 <div className="flex-grow">
-                    <table className="w-full text-right border-separate border-spacing-y-2">
+                    <table className="w-full text-right border-separate border-spacing-y-1.5">
                         <thead>
-                            <tr className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                                <th className="pb-4 pr-6">#</th>
-                                <th className="pb-4 text-slate-900">وصف الصنف / ITEM DESCRIPTION</th>
-                                <th className="pb-4 text-center">الكمية</th>
-                                <th className="pb-4 text-center">السعر</th>
-                                <th className="pb-4 text-center">الخصم</th>
-                                <th className="pb-4 text-center">الضريبة</th>
-                                <th className="pb-4 text-left pl-6">الإجمالي</th>
+                            <tr className="text-slate-400 text-[9px] font-black uppercase tracking-widest">
+                                <th className="pb-2 pr-4 w-8 text-center font-mono">#</th>
+                                <th className="pb-2 text-slate-900">الوصف / Description</th>
+                                <th className="pb-2 text-center w-24">الكمية</th>
+                                <th className="pb-2 text-center w-16">السعر</th>
+                                <th className="pb-2 text-center w-20">الخصم</th>
+                                <th className="pb-2 text-center w-20">الضريبة</th>
+                                <th className="pb-2 text-left pl-4 w-24 text-indigo-700">الإجمالي</th>
                             </tr>
                         </thead>
-                        <tbody className="text-xs font-bold">
+                        <tbody className="text-[10px] font-bold">
                             {items.map((item, idx) => (
-                                <tr key={idx} className="group transition-all">
-                                    <td className="py-4 pr-6 rounded-r-[1rem] bg-slate-50 text-slate-400 font-mono text-[10px]">{idx + 1}</td>
-                                    <td className="py-4 bg-slate-50">
-                                        <div className="text-slate-900 font-black">{item.productName}</div>
-                                        <div className="text-[9px] text-slate-400 tracking-tighter">SKU: PX-{item.productId.slice(0, 6).toUpperCase()}</div>
+                                <tr key={idx} className="group">
+                                    <td className="py-2.5 pr-4 rounded-r-[0.8rem] bg-slate-50/80 text-slate-400 font-mono text-[9px] text-center border-y border-r border-slate-100">{idx + 1}</td>
+                                    <td className="py-2.5 bg-slate-50/80 border-y border-slate-100">
+                                        <div className="text-slate-900 font-black leading-tight mb-0.5">{item.productName}</div>
+                                        <div className="text-[8px] text-slate-400 font-mono tracking-tighter uppercase opacity-60">ID: {item.productId.slice(0, 6)}</div>
                                     </td>
-                                    <td className="py-4 bg-slate-50 text-center font-black text-indigo-600">
-                                        <div className="bg-indigo-50 px-2 py-1 rounded-lg inline-block min-w-[60px]">
-                                            {item.formattedQuantity || `${item.quantity} Q`}
+                                    <td className="py-2.5 bg-slate-50/80 text-center font-black text-indigo-600 border-y border-slate-100">
+                                        <div className="bg-indigo-100/50 px-2 py-0.5 rounded-md inline-block min-w-[50px] text-[9px]">
+                                            {item.formattedQuantity || item.quantity}
                                         </div>
                                     </td>
-                                    <td className="py-4 bg-slate-50 text-center text-slate-700 font-mono">
+                                    <td className="py-2.5 bg-slate-50/80 text-center text-slate-600 font-mono border-y border-slate-100">
                                         {(item.displayPrice || item.price).toLocaleString()}
                                     </td>
-                                    <td className="py-4 bg-slate-50 text-center">
+                                    <td className="py-2.5 bg-slate-50/80 text-center border-y border-slate-100">
                                         {item.discountPercentage ? (
-                                            <div className="flex flex-col items-center">
+                                            <div className="flex flex-col items-center leading-none">
                                                 <span className="text-rose-600 font-black">%{item.discountPercentage}</span>
-                                                <span className="text-[8px] text-rose-300">-{item.discountAmount?.toLocaleString()}</span>
+                                                <span className="text-[7.5px] text-rose-300 font-mono mt-0.5">{item.discountAmount?.toLocaleString()}</span>
                                             </div>
                                         ) : <span className="text-slate-200">—</span>}
                                     </td>
-                                    <td className="py-4 bg-slate-50 text-center">
+                                    <td className="py-2.5 bg-slate-50/80 text-center border-y border-slate-100">
                                         {item.taxPercentage ? (
-                                            <div className="flex flex-col items-center">
+                                            <div className="flex flex-col items-center leading-none">
                                                 <span className="text-emerald-600 font-black">%{item.taxPercentage}</span>
-                                                <span className="text-[8px] text-emerald-300">+{item.taxAmount?.toLocaleString()}</span>
+                                                <span className="text-[7.5px] text-emerald-300 font-mono mt-0.5">{item.taxAmount?.toLocaleString()}</span>
                                             </div>
                                         ) : <span className="text-slate-200">—</span>}
                                     </td>
-                                    <td className="py-4 bg-slate-50 text-left pl-6 rounded-l-[1rem] font-black text-slate-900 group-hover:bg-indigo-50 transition-colors">
+                                    <td className="py-2.5 bg-slate-50/80 text-left pl-4 rounded-l-[0.8rem] font-black text-slate-900 border-y border-l border-slate-100 italic">
                                         {item.total.toLocaleString()}
                                     </td>
                                 </tr>
@@ -245,62 +245,63 @@ export function InvoiceView({
                 </div>
 
                 {/* Footer Logic: Summary & Auth */}
-                <div className="mt-12 pt-10 border-t border-slate-100 flex justify-between items-end">
-                    <div className="space-y-10 flex-grow">
-                        <div className="space-y-2">
-                            <h4 className="text-[10px] font-black text-slate-900 uppercase flex items-center gap-2">
-                                <FileText className="w-3 h-3 text-indigo-600" />
-                                تحذيرات وشروط قانونية
+                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-end">
+                    <div className="space-y-6 flex-grow">
+                        <div className="space-y-1.5 pt-4">
+                            <h4 className="text-[9px] font-black text-slate-900 uppercase flex items-center gap-1.5 tracking-tight group">
+                                <FileText className="w-2.5 h-2.5 text-indigo-600 group-hover:rotate-12 transition-transform" />
+                                ملاحظات قانونية / Terms
                             </h4>
-                            <p className="text-[9px] text-slate-400 leading-relaxed max-w-[400px]">
-                                تعتبر هذه الفاتورة وثيقة ملكية قانونية فور سداد كامل المبلغ الموضح في بند "الصافي النهائي". 
-                                في حال الدفع الآجل، يلتزم الطرف الثاني بالسداد في المواعيد المتفق عليها مسبقاً.
-                                لا تتحمل الشركة أي مسؤولية عن سوء الاستخدام بعد الاستلام.
+                            <p className="text-[8px] text-slate-400 leading-tight max-w-[320px]">
+                                البضاعة المباعة لا ترد ولا تستبدل إلا في حال وجود عيوب صناعة. 
+                                يرجى مراجعة الفاتورة بعناية قبل التوقيع على الاستلام.
                             </p>
                         </div>
                         
-                        <div className="flex gap-20">
+                        <div className="flex gap-12">
                             <div className="text-center">
-                                <div className="w-32 h-1 bg-slate-100 rounded-full mb-2"></div>
-                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">توقيع المستلم</span>
+                                <div className="w-24 h-0.5 bg-slate-100 mb-1.5 opacity-50"></div>
+                                <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none">توقيع المستلم</span>
                             </div>
                             <div className="text-center">
-                                <div className="w-32 h-1 bg-slate-100 rounded-full mb-2"></div>
-                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">ختم شركة الاحلام</span>
+                                <div className="w-24 h-0.5 bg-slate-100 mb-1.5 opacity-50"></div>
+                                <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none">ختم الشركة</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="w-[340px] bg-slate-900 text-white rounded-[2.5rem] p-8 space-y-5 shadow-[0_30px_60px_rgba(0,0,0,0.2)]">
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center text-[10px] font-black">
-                                <span className="text-slate-500 uppercase">Sub-Total الإجمالي</span>
+                    <div className="w-[300px] bg-slate-900 text-white rounded-[1.5rem] p-5 space-y-4 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 no-print"></div>
+                        
+                        <div className="space-y-2 relative z-10">
+                            <div className="flex justify-between items-center text-[9px] font-black opacity-60">
+                                <span className="uppercase">الإجمالي الفرعي</span>
                                 <span className="font-mono">{summary.baseTotal.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between items-center text-[10px] font-black">
-                                <span className="text-rose-400 uppercase">Discounts الخصم</span>
+                            <div className="flex justify-between items-center text-[9px] font-black text-rose-300">
+                                <span className="uppercase">إجمالي الخصم</span>
                                 <span className="font-mono">-{summary.totalDiscount.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between items-center text-[10px] font-black border-b border-white/10 pb-3">
-                                <span className="text-emerald-400 uppercase">Taxes الضرائب</span>
+                            <div className="flex justify-between items-center text-[9px] font-black text-emerald-300 border-b border-white/5 pb-2">
+                                <span className="uppercase">إجمالي الضريبة</span>
                                 <span className="font-mono">+{summary.totalTax.toLocaleString()}</span>
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-1">
-                            <div className="flex justify-between items-center opacity-70">
-                                <span className="text-[9px] font-black">Paid المدفوع</span>
-                                <span className="text-xs font-mono">{paidAmount.toLocaleString()}</span>
+                        <div className="flex flex-col gap-0.5 relative z-10 pt-1">
+                            <div className="flex justify-between items-center opacity-50">
+                                <span className="text-[8px] font-black uppercase">المدفوع / Paid</span>
+                                <span className="text-[10px] font-mono">{paidAmount.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between items-center opacity-70 border-b border-white/10 pb-3">
-                                <span className="text-[9px] font-black">Balance المتبقي</span>
-                                <span className="text-xs font-mono text-rose-400">{remainingAmount.toLocaleString()}</span>
+                            <div className="flex justify-between items-center opacity-50 border-b border-white/5 pb-2">
+                                <span className="text-[8px] font-black uppercase">المتبقي / Balance</span>
+                                <span className="text-[10px] font-mono text-rose-300">{remainingAmount.toLocaleString()}</span>
                             </div>
                             <div className="pt-2">
-                                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Grand Total الصافي</div>
-                                <div className="text-4xl font-black text-white font-mono tracking-tighter flex items-baseline gap-2">
+                                <div className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.1em] mb-0.5">الصافي النهائي / GRAND TOTAL</div>
+                                <div className="text-3xl font-black text-white font-mono tracking-tighter flex items-baseline gap-1.5">
                                     {totalAmount.toLocaleString()}
-                                    <span className="text-xs font-sans text-white/30 tracking-normal italic uppercase">Pounds</span>
+                                    <span className="text-[9px] font-sans text-white/30 tracking-normal italic font-medium">Pounds</span>
                                 </div>
                             </div>
                         </div>
