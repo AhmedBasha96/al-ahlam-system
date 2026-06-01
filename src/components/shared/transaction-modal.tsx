@@ -10,6 +10,7 @@ type TransactionItem = {
     price: number;
     originalPrice?: number;
     discountPercentage?: number;
+    unitsPerCarton?: number;
     total: number;
 }
 

@@ -142,6 +142,7 @@ export default function SupplierLedgerTable({
                         price: Number(i.price),
                         discountPercentage: Number(i.discountPercentage || 0),
                         taxPercentage: Number(i.taxPercentage || 0),
+                        unitsPerCarton: i.product?.unitsPerCarton || 1,
                         total: i.quantity * Number(i.price)
                     }))}
                     paymentInfo={{
@@ -168,6 +169,7 @@ export default function SupplierLedgerTable({
                         price: Number(i.price),
                         discountPercentage: Number(i.discountPercentage || 0),
                         taxPercentage: Number(i.taxPercentage || 0),
+                        unitsPerCarton: i.product?.unitsPerCarton || 1,
                         total: i.quantity * Number(i.price)
                     }))}
                     paymentInfo={{

@@ -137,6 +137,7 @@ export default function RepSessionTable({ sessions, userRole }: Props) {
                         originalPrice: Number(item.originalPrice || item.price),
                         discountPercentage: Number(item.discountPercentage || 0),
                         taxPercentage: Number(item.taxPercentage || 0),
+                        unitsPerCarton: item.product?.unitsPerCarton || 1,
                         total: item.quantity * Number(item.price)
                     }))}
                     paymentInfo={{
@@ -164,6 +165,7 @@ export default function RepSessionTable({ sessions, userRole }: Props) {
                         originalPrice: Number(item.originalPrice || item.price),
                         discountPercentage: Number(item.discountPercentage || 0),
                         taxPercentage: Number(item.taxPercentage || 0),
+                        unitsPerCarton: item.product?.unitsPerCarton || 1,
                         total: item.quantity * Number(item.price)
                     }))}
                     paymentInfo={{

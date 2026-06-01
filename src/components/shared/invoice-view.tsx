@@ -204,42 +204,69 @@ export function InvoiceView({
                             </tr>
                         </thead>
                         <tbody className="text-[10px] font-bold">
-                            {items.map((item, idx) => (
-                                <tr key={idx} className="group">
-                                    <td className="py-2.5 pr-4 rounded-r-[0.8rem] bg-slate-50/80 text-slate-400 font-mono text-[9px] text-center border-y border-r border-slate-100">{idx + 1}</td>
-                                    <td className="py-2.5 bg-slate-50/80 border-y border-slate-100">
-                                        <div className="text-slate-900 font-black leading-tight mb-0.5">{item.productName}</div>
-                                        <div className="text-[8px] text-slate-400 font-mono tracking-tighter uppercase opacity-60">ID: {item.productId.slice(0, 6)}</div>
-                                    </td>
-                                    <td className="py-2.5 bg-slate-50/80 text-center font-black text-indigo-600 border-y border-slate-100">
-                                        <div className="bg-indigo-100/50 px-2 py-0.5 rounded-md inline-block min-w-[50px] text-[9px]">
-                                            {item.formattedQuantity || item.quantity}
-                                        </div>
-                                    </td>
-                                    <td className="py-2.5 bg-slate-50/80 text-center text-slate-600 font-mono border-y border-slate-100">
-                                        {(item.displayPrice || item.price).toLocaleString()}
-                                    </td>
-                                    <td className="py-2.5 bg-slate-50/80 text-center border-y border-slate-100">
-                                        {item.discountPercentage ? (
-                                            <div className="flex flex-col items-center leading-none">
-                                                <span className="text-rose-600 font-black">%{item.discountPercentage}</span>
-                                                <span className="text-[7.5px] text-rose-300 font-mono mt-0.5">{item.discountAmount?.toLocaleString()}</span>
+                            {items.map((item, idx) => {
+                                const upc = item.unitsPerCarton || 1;
+                                const isCartonMode = upc > 1;
+                                
+                                let displayQty = item.formattedQuantity;
+                                let displayUnitPrice = item.displayPrice || item.price;
+                                
+                                if (!displayQty) {
+                                    if (isCartonMode) {
+                                        const cartons = Math.floor(item.quantity / upc);
+                                        const units = item.quantity % upc;
+                                        displayQty = cartons > 0 
+                                            ? `${cartons} ك${units > 0 ? ` + ${units} ق` : ''}`
+                                            : `${units} قطعة`;
+                                        displayUnitPrice = item.price * upc; // Show Carton Price
+                                    } else {
+                                        displayQty = `${item.quantity} قطعة`;
+                                    }
+                                }
+
+                                return (
+                                    <tr key={idx} className="group">
+                                        <td className="py-2.5 pr-4 rounded-r-[0.8rem] bg-slate-50/80 text-slate-400 font-mono text-[9px] text-center border-y border-r border-slate-100">{idx + 1}</td>
+                                        <td className="py-2.5 bg-slate-50/80 border-y border-slate-100">
+                                            <div className="text-slate-900 font-black leading-tight mb-0.5">{item.productName}</div>
+                                            <div className="text-[8px] text-slate-400 font-mono tracking-tighter uppercase opacity-60">
+                                                ID: {item.productId.slice(0, 6)} 
+                                                {isCartonMode && ` • (${upc} قطعة/ك)`}
                                             </div>
-                                        ) : <span className="text-slate-200">—</span>}
-                                    </td>
-                                    <td className="py-2.5 bg-slate-50/80 text-center border-y border-slate-100">
-                                        {item.taxPercentage ? (
-                                            <div className="flex flex-col items-center leading-none">
-                                                <span className="text-emerald-600 font-black">%{item.taxPercentage}</span>
-                                                <span className="text-[7.5px] text-emerald-300 font-mono mt-0.5">{item.taxAmount?.toLocaleString()}</span>
+                                        </td>
+                                        <td className="py-2.5 bg-slate-50/80 text-center font-black text-indigo-600 border-y border-slate-100">
+                                            <div className="bg-indigo-100/50 px-2 py-1 rounded-md inline-block min-w-[60px] text-[10px]">
+                                                {displayQty}
                                             </div>
-                                        ) : <span className="text-slate-200">—</span>}
-                                    </td>
-                                    <td className="py-2.5 bg-slate-50/80 text-left pl-4 rounded-l-[0.8rem] font-black text-slate-900 border-y border-l border-slate-100 italic">
-                                        {item.total.toLocaleString()}
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td className="py-2.5 bg-slate-50/80 text-center text-slate-600 font-mono border-y border-slate-100">
+                                            <div className="flex flex-col items-center leading-none">
+                                                <span>{displayUnitPrice.toLocaleString()}</span>
+                                                {isCartonMode && <span className="text-[7px] text-slate-400 mt-0.5">للكرتونة</span>}
+                                            </div>
+                                        </td>
+                                        <td className="py-2.5 bg-slate-50/80 text-center border-y border-slate-100">
+                                            {item.discountPercentage ? (
+                                                <div className="flex flex-col items-center leading-none">
+                                                    <span className="text-rose-600 font-black">%{item.discountPercentage}</span>
+                                                    <span className="text-[7.5px] text-rose-300 font-mono mt-0.5">{item.discountAmount?.toLocaleString()}</span>
+                                                </div>
+                                            ) : <span className="text-slate-200">—</span>}
+                                        </td>
+                                        <td className="py-2.5 bg-slate-50/80 text-center border-y border-slate-100">
+                                            {item.taxPercentage ? (
+                                                <div className="flex flex-col items-center leading-none">
+                                                    <span className="text-emerald-600 font-black">%{item.taxPercentage}</span>
+                                                    <span className="text-[7.5px] text-emerald-300 font-mono mt-0.5">{item.taxAmount?.toLocaleString()}</span>
+                                                </div>
+                                            ) : <span className="text-slate-200">—</span>}
+                                        </td>
+                                        <td className="py-2.5 bg-slate-50/80 text-left pl-4 rounded-l-[0.8rem] font-black text-slate-900 border-y border-l border-slate-100 italic">
+                                            {item.total.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

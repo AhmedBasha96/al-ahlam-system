@@ -237,6 +237,7 @@ export default function PurchaseHistoryTable({
                             discountAmount: discountAmt,
                             taxPercentage: Number(i.taxPercentage || 0),
                             taxAmount: taxAmt,
+                            unitsPerCarton: i.product?.unitsPerCarton || 1,
                             total: totalBase - discountAmt + taxAmt
                         };
                     })}
@@ -264,6 +265,7 @@ export default function PurchaseHistoryTable({
                         price: i.price,
                         discountPercentage: Number(i.discountPercentage || 0),
                         taxPercentage: Number(i.taxPercentage || 0),
+                        unitsPerCarton: i.product?.unitsPerCarton || 1,
                         total: i.quantity * i.price
                     }))}
                     paymentInfo={{

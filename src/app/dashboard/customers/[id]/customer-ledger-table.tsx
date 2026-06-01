@@ -131,7 +131,8 @@ export default function CustomerLedgerTable({ transactions, customerName, userRo
                         if (upc <= 1) return [{
                             ...item,
                             discountPercentage: Number(item.discountPercentage || 0),
-                            taxPercentage: Number(item.taxPercentage || 0)
+                            taxPercentage: Number(item.taxPercentage || 0),
+                            unitsPerCarton: 1
                         }];
                         const cartons = Math.floor(item.quantity / upc);
                         const units = item.quantity % upc;
@@ -141,20 +142,22 @@ export default function CustomerLedgerTable({ transactions, customerName, userRo
                                 ...item,
                                 productName: `${item.product?.name || item.productName || 'غير معروف'} (كرتونة)`,
                                 quantity: cartons,
-                                price: item.price * upc, // Carton Price from unit price
+                                price: item.price * upc,
                                 originalPrice: item.originalPrice ? item.originalPrice * upc : undefined,
                                 discountPercentage: Number(item.discountPercentage || 0),
                                 taxPercentage: Number(item.taxPercentage || 0),
+                                unitsPerCarton: 1, // Treat as units because price/qty are already per-carton
                                 total: cartons * item.price * upc
                             });
                         }
                         if (units > 0 || (cartons === 0 && units === 0)) {
                             rows.push({
                                 ...item,
-                                productName: `${item.product?.name || item.productName || 'غير معروف'} (متفرق)`,
+                                productName: `${item.product?.name || item.productName || 'غير معروف'} (قطعة)`,
                                 quantity: units,
                                 discountPercentage: Number(item.discountPercentage || 0),
                                 taxPercentage: Number(item.taxPercentage || 0),
+                                unitsPerCarton: 1,
                                 total: units * item.price
                             });
                         }
