@@ -143,7 +143,7 @@ export default function SupplierLedgerTable({
                         discountPercentage: Number(i.discountPercentage || 0),
                         taxPercentage: Number(i.taxPercentage || 0),
                         unitsPerCarton: i.product?.unitsPerCarton || 1,
-                        total: i.quantity * Number(i.price)
+                        total: Number(i.total || (i.quantity * Number(i.price)) * (1 - Number(i.discountPercentage || 0) / 100) * (1 + Number(i.taxPercentage || 0) / 100))
                     }))}
                     paymentInfo={{
                         type: viewingTx.paymentType,
@@ -170,7 +170,7 @@ export default function SupplierLedgerTable({
                         discountPercentage: Number(i.discountPercentage || 0),
                         taxPercentage: Number(i.taxPercentage || 0),
                         unitsPerCarton: i.product?.unitsPerCarton || 1,
-                        total: i.quantity * Number(i.price)
+                        total: Number(i.total || (i.quantity * Number(i.price)) * (1 - Number(i.discountPercentage || 0) / 100) * (1 + Number(i.taxPercentage || 0) / 100))
                     }))}
                     paymentInfo={{
                         type: editingTx.paymentType,

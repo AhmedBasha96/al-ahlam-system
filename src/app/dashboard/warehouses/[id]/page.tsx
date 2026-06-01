@@ -141,7 +141,7 @@ export default async function WarehouseDetailsPage({ params }: { params: Promise
                         discountPercentage: Number(i.discountPercentage || 0),
                         taxPercentage: Number(i.taxPercentage || 0),
                         unitsPerCarton: Number(i.product?.unitsPerCarton || 1),
-                        total: Number(i.quantity || 0) * Number(i.price || 0)
+                        total: (Number(i.quantity || 0) * Number(i.price || 0)) * (1 - Number(i.discountPercentage || 0) / 100) * (1 + Number(i.taxPercentage || 0) / 100)
                     })),
                     paymentInfo: {
                         type: t.paymentType,
