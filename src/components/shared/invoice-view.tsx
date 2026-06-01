@@ -52,8 +52,8 @@ export function InvoiceView({
     // Calculate totals for summary
     const summary = items.reduce((acc, item) => {
         const itemBase = item.quantity * (item.originalPrice || item.price);
-        const discountAmount = itemBase * (Number(item.discountPercentage || 0) / 100);
-        const taxAmount = itemBase * (Number(item.taxPercentage || 0) / 100);
+        const discountAmount = item.discountAmount ?? (itemBase * (Number(item.discountPercentage || 0) / 100));
+        const taxAmount = item.taxAmount ?? ((itemBase - discountAmount) * (Number(item.taxPercentage || 0) / 100));
         
         return {
             baseTotal: acc.baseTotal + itemBase,
@@ -224,6 +224,11 @@ export function InvoiceView({
                                     }
                                 }
 
+                                // Robust calculation of amounts for display if they weren't pre-calculated
+                                const itemBase = item.quantity * (item.originalPrice || item.price);
+                                const discountAmount = item.discountAmount ?? (itemBase * (Number(item.discountPercentage || 0) / 100));
+                                const taxAmount = item.taxAmount ?? (itemBase * (Number(item.taxPercentage || 0) / 100));
+
                                 return (
                                     <tr key={idx} className="group">
                                         <td className="py-2.5 pr-4 rounded-r-[0.8rem] bg-slate-50/80 text-slate-400 font-mono text-[9px] text-center border-y border-r border-slate-100">{idx + 1}</td>
@@ -249,7 +254,7 @@ export function InvoiceView({
                                             {item.discountPercentage ? (
                                                 <div className="flex flex-col items-center leading-none">
                                                     <span className="text-rose-600 font-black">%{item.discountPercentage}</span>
-                                                    <span className="text-[7.5px] text-rose-300 font-mono mt-0.5">{item.discountAmount?.toLocaleString()}</span>
+                                                    <span className="text-[7.5px] text-rose-300 font-mono mt-0.5">{discountAmount.toLocaleString()}</span>
                                                 </div>
                                             ) : <span className="text-slate-200">—</span>}
                                         </td>
@@ -257,7 +262,7 @@ export function InvoiceView({
                                             {item.taxPercentage ? (
                                                 <div className="flex flex-col items-center leading-none">
                                                     <span className="text-emerald-600 font-black">%{item.taxPercentage}</span>
-                                                    <span className="text-[7.5px] text-emerald-300 font-mono mt-0.5">{item.taxAmount?.toLocaleString()}</span>
+                                                    <span className="text-[7.5px] text-emerald-300 font-mono mt-0.5">{taxAmount.toLocaleString()}</span>
                                                 </div>
                                             ) : <span className="text-slate-200">—</span>}
                                         </td>
