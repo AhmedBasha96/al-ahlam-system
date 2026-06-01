@@ -83,28 +83,33 @@ export default function TransactionModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="relative w-full max-w-3xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center sm:items-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+            <div className="relative w-full max-w-3xl my-auto">
                 {!editable && !paymentOnly ? (
                     <div className="animate-in fade-in zoom-in duration-200">
-                        <button
-                            onClick={onClose}
-                            className="absolute -top-12 left-0 text-white font-bold flex items-center gap-2 hover:text-emerald-400 transition"
-                        >
-                            ✕ إغلاق
-                        </button>
-                        <InvoiceView
-                            invoiceId={id || "NEW"}
-                            date={date}
-                            partyName={partyName}
-                            userName={userName}
-                            items={items}
-                            totalAmount={paymentInfo?.totalAmount || totalAmount}
-                            paidAmount={paymentInfo?.paidAmount}
-                            remainingAmount={(paymentInfo?.totalAmount || totalAmount) - (paymentInfo?.paidAmount || 0)}
-                            paymentType={paymentInfo?.type || 'CASH'}
-                            type={type}
-                        />
+                        <div className="flex justify-between items-center mb-4 px-2">
+                            <h2 className="text-white font-black text-lg">عرض المستند</h2>
+                            <button
+                                onClick={onClose}
+                                className="text-white font-bold flex items-center gap-2 hover:text-emerald-400 transition bg-white/10 px-4 py-2 rounded-xl"
+                            >
+                                ✕ إغلاق
+                            </button>
+                        </div>
+                        <div className="max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent rounded-[1.5rem]">
+                            <InvoiceView
+                                invoiceId={id || "NEW"}
+                                date={date}
+                                partyName={partyName}
+                                userName={userName}
+                                items={items}
+                                totalAmount={paymentInfo?.totalAmount || totalAmount}
+                                paidAmount={paymentInfo?.paidAmount}
+                                remainingAmount={(paymentInfo?.totalAmount || totalAmount) - (paymentInfo?.paidAmount || 0)}
+                                paymentType={paymentInfo?.type || 'CASH'}
+                                type={type}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -152,41 +157,43 @@ export default function TransactionModal({
                             {/* Editable Items Table */}
                             {editable && (
                                 <div className="rounded-2xl border border-slate-100 overflow-hidden mb-8">
-                                    <table className="w-full text-right">
-                                        <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                                            <tr>
-                                                <th className="p-4">الصنف</th>
-                                                <th className="p-4 text-center">الكمية</th>
-                                                <th className="p-4 text-center">السعر</th>
-                                                <th className="p-4 text-left">الإجمالي</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50">
-                                            {localItems.map((item: TransactionItem, index: number) => (
-                                                <tr key={index}>
-                                                    <td className="p-4 font-bold text-slate-800">{item.productName}</td>
-                                                    <td className="p-4 text-center">
-                                                        <input
-                                                            type="number"
-                                                            value={item.quantity}
-                                                            onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                                                            className="w-20 border-2 border-slate-100 rounded-xl p-2 text-center font-black text-indigo-600 focus:border-indigo-500 outline-none"
-                                                        />
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={item.price}
-                                                            onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value) || 0)}
-                                                            className="w-24 border-2 border-slate-100 rounded-xl p-2 text-center font-bold text-slate-600 focus:border-indigo-500 outline-none"
-                                                        />
-                                                    </td>
-                                                    <td className="p-4 text-left font-black text-slate-900">{item.total.toLocaleString()}</td>
+                                    <div className="max-h-[40vh] overflow-y-auto">
+                                        <table className="w-full text-right">
+                                            <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest sticky top-0 z-10 shadow-sm">
+                                                <tr>
+                                                    <th className="p-4">الصنف</th>
+                                                    <th className="p-4 text-center">الكمية</th>
+                                                    <th className="p-4 text-center">السعر</th>
+                                                    <th className="p-4 text-left">الإجمالي</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {localItems.map((item: TransactionItem, index: number) => (
+                                                    <tr key={index}>
+                                                        <td className="p-4 font-bold text-slate-800">{item.productName}</td>
+                                                        <td className="p-4 text-center">
+                                                            <input
+                                                                type="number"
+                                                                value={item.quantity}
+                                                                onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                                                                className="w-20 border-2 border-slate-100 rounded-xl p-2 text-center font-black text-indigo-600 focus:border-indigo-500 outline-none"
+                                                            />
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={item.price}
+                                                                onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value) || 0)}
+                                                                className="w-24 border-2 border-slate-100 rounded-xl p-2 text-center font-bold text-slate-600 focus:border-indigo-500 outline-none"
+                                                            />
+                                                        </td>
+                                                        <td className="p-4 text-left font-black text-slate-900">{item.total.toLocaleString()}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             )}
 
