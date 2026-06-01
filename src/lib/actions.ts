@@ -1731,6 +1731,7 @@ export async function getSalesSessions(filters?: { repId?: string; startDate?: s
             price: Number(item.price),
             originalPrice: Number(item.originalPrice || item.price),
             discountPercentage: Number(item.discountPercentage || 0),
+            taxPercentage: Number(item.taxPercentage || 0),
             cost: Number(item.cost || 0)
         }))
     }));
@@ -1902,7 +1903,9 @@ export async function getAgencyPurchases() {
             items: t.items.map(item => ({
                 ...item,
                 price: Number(item.price),
-                cost: Number(item.cost || 0)
+                cost: Number(item.cost || 0),
+                discountPercentage: Number(item.discountPercentage || 0),
+                taxPercentage: Number(item.taxPercentage || 0)
             }))
         }));
 
@@ -1938,7 +1941,10 @@ export async function updateTransaction(
                             productId: item.productId,
                             quantity: item.quantity,
                             price: item.price,
-                            cost: product?.factoryPrice || 0
+                            cost: item.cost || product?.factoryPrice || 0,
+                            discountPercentage: Number(item.discountPercentage || 0),
+                            taxPercentage: Number(item.taxPercentage || 0),
+                            total: item.quantity * Number(item.price)
                         };
                     }))
                 });

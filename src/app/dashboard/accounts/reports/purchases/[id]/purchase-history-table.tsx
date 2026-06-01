@@ -258,10 +258,12 @@ export default function PurchaseHistoryTable({
                     partyName={agencyName}
                     userName={editingTx.user.name}
                     items={editingTx.items.map(i => ({
-                        productId: '',
+                        productId: i.productId,
                         productName: i.product.name,
                         quantity: i.quantity,
                         price: i.price,
+                        discountPercentage: Number(i.discountPercentage || 0),
+                        taxPercentage: Number(i.taxPercentage || 0),
                         total: i.quantity * i.price
                     }))}
                     paymentInfo={{

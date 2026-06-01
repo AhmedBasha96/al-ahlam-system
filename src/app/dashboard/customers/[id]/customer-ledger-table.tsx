@@ -128,7 +128,11 @@ export default function CustomerLedgerTable({ transactions, customerName, userRo
                     userName={viewingTx.user?.name || "النظام"}
                     items={(viewingTx.items || []).flatMap((item: any) => {
                         const upc = item.product?.unitsPerCarton || 1;
-                        if (upc <= 1) return [item];
+                        if (upc <= 1) return [{
+                            ...item,
+                            discountPercentage: Number(item.discountPercentage || 0),
+                            taxPercentage: Number(item.taxPercentage || 0)
+                        }];
                         const cartons = Math.floor(item.quantity / upc);
                         const units = item.quantity % upc;
                         const rows = [];
@@ -139,6 +143,8 @@ export default function CustomerLedgerTable({ transactions, customerName, userRo
                                 quantity: cartons,
                                 price: item.price * upc, // Carton Price from unit price
                                 originalPrice: item.originalPrice ? item.originalPrice * upc : undefined,
+                                discountPercentage: Number(item.discountPercentage || 0),
+                                taxPercentage: Number(item.taxPercentage || 0),
                                 total: cartons * item.price * upc
                             });
                         }
@@ -147,6 +153,8 @@ export default function CustomerLedgerTable({ transactions, customerName, userRo
                                 ...item,
                                 productName: `${item.product?.name || item.productName || 'غير معروف'} (متفرق)`,
                                 quantity: units,
+                                discountPercentage: Number(item.discountPercentage || 0),
+                                taxPercentage: Number(item.taxPercentage || 0),
                                 total: units * item.price
                             });
                         }
