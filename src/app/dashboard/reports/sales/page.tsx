@@ -33,18 +33,8 @@ export default async function SalesReportsPage({
     }
     const reps = users.filter((u: any) => u.role === 'SALES_REPRESENTATIVE');
 
-    const sessions = rawSessions.map((s: any) => ({
-        id: s.id,
-        repId: s.userId,
-        repName: s.user.name,
-        customerId: s.customerId,
-        customerName: s.customer?.name,
-        totalAmount: Number(s.totalAmount),
-        paidAmount: Number(s.paidAmount),
-        remainingAmount: Number(s.remainingAmount),
-        paymentType: s.paymentType,
-        date: s.createdAt,
-        items: s.items.map((item: any) => ({
+    const sessions = rawSessions.map((s: any) => {
+        const processedItems = s.items.map((item: any) => ({
             productId: item.productId,
             productName: item.product.name,
             quantity: item.quantity,
@@ -53,8 +43,24 @@ export default async function SalesReportsPage({
             taxPercentage: Number(item.taxPercentage || 0),
             unitsPerCarton: Number(item.product?.unitsPerCarton || 1),
             total: (item.quantity * Number(item.price)) * (1 - Number(item.discountPercentage || 0) / 100) * (1 + Number(item.taxPercentage || 0) / 100)
-        }))
-    }));
+        }));
+
+        return {
+            id: s.id,
+            repId: s.userId,
+            repName: s.user.name,
+            customerId: s.customerId,
+            customerName: s.customer?.name,
+            totalAmount: processedItems.reduce((sum, item) => sum + item.total, 0), // Use recalculated net total
+            paidAmount: Number(s.paidAmount),
+            remainingAmount: Number(s.remainingAmount),
+            paymentType: s.paymentType,
+            date: s.createdAt,
+            status: s.status, // Added status for the table
+            note: s.note,     // Added note for the table
+            items: processedItems
+        };
+    });
 
     const totalPeriodSales = sessions.reduce((sum, s) => sum + s.totalAmount, 0);
 
