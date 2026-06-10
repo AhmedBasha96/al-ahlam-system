@@ -1,6 +1,6 @@
 'use client';
 
-import { updateTransaction, deleteTransaction } from "@/lib/actions";
+import { updateTransaction, deleteTransaction, approveTransaction } from "@/lib/actions";
 import { useState, Fragment } from "react";
 import TransactionModal from "@/components/shared/transaction-modal";
 
@@ -24,6 +24,8 @@ type SalesSession = {
     paidAmount?: number;
     remainingAmount?: number;
     date: Date | string;
+    status: 'ACTIVE' | 'PENDING' | 'CANCELED';
+    note?: string;
 }
 
 export default function SalesHistoryTable({ sessions, userRole }: { sessions: SalesSession[], userRole?: string }) {
@@ -60,13 +62,19 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                             <tr className="group hover:bg-slate-50/50 transition-all">
                                 <td className="p-6 text-sm font-bold text-slate-600">
                                     {new Date(session.date).toLocaleDateString('ar-EG', { day: '2-digit', month: 'short' })}
-                                    <span className="text-[10px] text-slate-400 mr-2 font-mono">
-                                        {new Date(session.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-slate-400 font-mono">
+                                            {new Date(session.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                        {session.status === 'PENDING' && (
+                                            <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[8px] font-black animate-pulse">بانتظار الموافقة</span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="p-6 text-indigo-600 font-black">{session.repName}</td>
                                 <td className="p-6 text-slate-800 font-bold">
                                     {session.customerName || <span className="text-slate-300 italic text-xs">عميل نقدي</span>}
+                                    {session.note && <p className="text-[9px] text-rose-400 font-bold mt-1 line-clamp-1" title={session.note}>{session.note}</p>}
                                 </td>
                                 <td className="p-6">
                                     <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-tighter ${session.paymentType === 'CASH' ? 'bg-emerald-100 text-emerald-700' :
@@ -95,6 +103,20 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                                 className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
                                             >
                                                 تحصيل 📥
+                                            </button>
+                                        )}
+                                        {session.status === 'PENDING' && (userRole === 'ADMIN' || userRole === 'MANAGER') && (
+                                            <button
+                                                onClick={async () => {
+                                                    if (confirm("هل أنت متأكد من الموافقة على هذا الخصم وتفعيل الفاتورة؟")) {
+                                                        const res = await approveTransaction(session.id);
+                                                        if (res.success) window.location.reload();
+                                                        else alert("خطأ: " + res.error);
+                                                    }
+                                                }}
+                                                className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-600 transition shadow-lg shadow-emerald-100"
+                                            >
+                                                موافقة ✅
                                             </button>
                                         )}
                                         {canEdit && (

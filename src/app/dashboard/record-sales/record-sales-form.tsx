@@ -57,8 +57,11 @@ export default function RecordSalesForm({ representatives, customers, products, 
     const [selectedCustomerId, setSelectedCustomerId] = useState("");
     const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT' | 'PARTIAL'>('CASH');
     const [paidAmount, setPaidAmount] = useState(0);
+    const [globalDiscount, setGlobalDiscount] = useState(0);
     const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
+
+    const isWholesaleRep = currentUser?.pricingType === 'WHOLESALE';
 
     useEffect(() => {
         if (!selectedRepId) return;
@@ -129,7 +132,7 @@ export default function RecordSalesForm({ representatives, customers, products, 
         setItems(newItems);
     };
 
-    const calculateTotal = () => {
+    const calculateSubtotal = () => {
         return items.reduce((sum, item) => {
             const product = products.find(p => p.id === item.productId);
             const upc = product?.unitsPerCarton || 1;
@@ -141,6 +144,11 @@ export default function RecordSalesForm({ representatives, customers, products, 
                 return sum + (item.units * item.price);
             }
         }, 0);
+    };
+
+    const calculateTotal = () => {
+        const subtotal = calculateSubtotal();
+        return subtotal - (subtotal * (globalDiscount / 100));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -191,7 +199,9 @@ export default function RecordSalesForm({ representatives, customers, products, 
                 return {
                     productId: item.productId,
                     quantity: totalUnits,
-                    price: finalPrice
+                    price: finalPrice,
+                    originalPrice: finalPrice,
+                    discountPercentage: globalDiscount
                 };
             });
 
@@ -199,7 +209,12 @@ export default function RecordSalesForm({ representatives, customers, products, 
                 selectedRepId,
                 selectedCustomerId,
                 processedItems,
-                { type: paymentType, paidAmount: finalPaidAmount }
+                { 
+                    type: paymentType, 
+                    paidAmount: finalPaidAmount,
+                    status: globalDiscount > 0 ? 'PENDING' : 'ACTIVE',
+                    invoiceDiscount: globalDiscount
+                }
             );
 
             if (result.success) {
@@ -210,6 +225,7 @@ export default function RecordSalesForm({ representatives, customers, products, 
                 setSelectedCustomerId("");
                 setPaymentType('CASH');
                 setPaidAmount(0);
+                setGlobalDiscount(0);
             } else {
                 alert(`خطأ: ${result.error}`);
             }
@@ -303,10 +319,11 @@ export default function RecordSalesForm({ representatives, customers, products, 
                                     <input
                                         type="number"
                                         min="0"
-                                        value={item.units}
-                                        onChange={(e) => handleItemChange(index, 'units', Number(e.target.value))}
-                                        className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold"
+                                        value={isWholesaleRep ? 0 : item.units}
+                                        onChange={(e) => !isWholesaleRep && handleItemChange(index, 'units', Number(e.target.value))}
+                                        className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none text-center font-bold ${isWholesaleRep ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                         required
+                                        disabled={isWholesaleRep}
                                     />
                                 </div>
                             </div>
@@ -405,10 +422,31 @@ export default function RecordSalesForm({ representatives, customers, products, 
                             />
                         </div>
                     )}
+
+                    <div className="max-w-[200px] mt-4">
+                        <label className="block text-xs font-bold text-rose-600 mb-1 tracking-wider uppercase">خصم إضافي على الفاتورة (%)</label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={globalDiscount}
+                                onChange={(e) => setGlobalDiscount(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                className="w-full border-2 border-rose-100 rounded-lg p-2 focus:ring-2 focus:ring-rose-500 outline-none font-black text-rose-700 pr-8"
+                            />
+                            <span className="absolute right-3 top-2.5 text-rose-300 font-bold">%</span>
+                        </div>
+                        {globalDiscount > 0 && <p className="text-[10px] text-rose-400 mt-1 font-bold italic">* يحتاج لموافقة المدير لاعتماد الخصم</p>}
+                    </div>
                 </div>
 
                 <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-100 min-w-[300px] text-right">
                     <div className="text-emerald-800 text-sm mb-2">إجمالي الفاتورة</div>
+                    {globalDiscount > 0 && (
+                        <div className="text-xs text-slate-400 line-through mb-1">
+                            {calculateSubtotal().toLocaleString()} ج.م
+                        </div>
+                    )}
                     <div className="text-3xl font-black text-emerald-900 mb-4">
                         {calculateTotal().toLocaleString()} <span className="text-sm font-normal">ج.م</span>
                     </div>

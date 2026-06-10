@@ -1634,7 +1634,7 @@ export async function recordDirectSale(
     repId: string,
     customerId: string,
     items: { productId: string, quantity: number, price: number, originalPrice?: number, discountPercentage?: number }[],
-    paymentInfo: { type: 'CASH' | 'CREDIT' | 'PARTIAL', paidAmount?: number }
+    paymentInfo: { type: 'CASH' | 'CREDIT' | 'PARTIAL', paidAmount?: number, status?: 'ACTIVE' | 'PENDING', invoiceDiscount?: number }
 ) {
     try {
         const user = await prisma.user.findUnique({ where: { id: repId } });
@@ -1652,6 +1652,7 @@ export async function recordDirectSale(
 
             // 2. Record Session/Transaction
             const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            const globalDiscount = paymentInfo.invoiceDiscount || 0;
             const transaction = await tx.transaction.create({
                 data: {
                     type: 'SALE',
@@ -1662,6 +1663,8 @@ export async function recordDirectSale(
                     paymentType: paymentInfo.type,
                     paidAmount: (paymentInfo.type === 'CASH' ? totalAmount : (paymentInfo.type === 'CREDIT' ? 0 : (paymentInfo.paidAmount || 0))),
                     remainingAmount: (paymentInfo.type === 'CASH' ? 0 : (paymentInfo.type === 'CREDIT' ? totalAmount : (totalAmount - (paymentInfo.paidAmount || 0)))),
+                    status: paymentInfo.status || 'ACTIVE',
+                    note: globalDiscount > 0 ? `طلب خصم إضافي: ${globalDiscount}% بانتظار الموافقة` : undefined,
                     items: {
                         create: await Promise.all(items.map(async item => {
                             const product = await prisma.product.findUnique({ where: { id: item.productId } });
@@ -2508,4 +2511,27 @@ export async function completeLoadingRequest(requestId: string) {
 
     revalidatePath('/dashboard', 'layout');
     return { success: true };
+}
+
+export async function approveTransaction(id: string) {
+    try {
+        const transaction = await prisma.transaction.findUnique({
+            where: { id },
+            include: { user: true }
+        });
+        if (!transaction) throw new Error("المستند غير موجود");
+
+        await prisma.transaction.update({
+            where: { id },
+            data: { 
+                status: 'ACTIVE',
+                note: transaction.note ? `${transaction.note} (تمت الموافقة)` : 'تمت الموافقة من المدير'
+            }
+        });
+
+        revalidatePath('/dashboard/reports/sales');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: String(error) };
+    }
 }
