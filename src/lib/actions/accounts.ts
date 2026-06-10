@@ -422,12 +422,22 @@ export async function getFinancialSummary(startDate: Date, endDate: Date, agency
     };
     if (agencyId) whereBase.agencyId = agencyId;
 
-    // Total sales
-    const salesAgg = await prisma.transaction.aggregate({
+    // Total sales - Recalculated based on items to include discounts correctly
+    const salesTransactions = await prisma.transaction.findMany({
         where: { ...whereBase, type: 'SALE' },
-        _sum: { totalAmount: true, paidAmount: true }
+        include: { items: true }
     });
-    const totalSales = Number(salesAgg._sum.totalAmount || 0);
+    
+    let totalSales = 0;
+    salesTransactions.forEach(t => {
+        const transactionTotal = t.items.reduce((sum, item) => {
+            const base = Number(item.quantity) * Number(item.price);
+            const disc = base * (Number((item as any).discountPercentage || 0) / 100);
+            const tax = (base - disc) * (Number((item as any).taxPercentage || 0) / 100);
+            return sum + (base - disc + tax);
+        }, 0);
+        totalSales += transactionTotal;
+    });
 
     // Total purchases
     const purchasesAgg = await prisma.transaction.aggregate({

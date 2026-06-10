@@ -43,9 +43,23 @@ export default async function AccountsDashboard() {
         - allSupplierAccounts.filter((a: any) => a.type === 'EXPENSE').reduce((acc: number, a: any) => acc + Number(a.amount), 0)
         + allSupplierAccounts.filter((a: any) => a.type === 'INCOME').reduce((acc: number, a: any) => acc + Number(a.amount), 0);
 
-    const totalCustomerDebtAgg = await prisma.transaction.aggregate({
+    // Calculate total customer debt accurately by summing net remaining amounts
+    const customerTransactions = await prisma.transaction.findMany({
         where: { type: 'SALE' },
-        _sum: { remainingAmount: true }
+        include: { items: true }
+    });
+
+    let totalCustomerRemaining = 0;
+    customerTransactions.forEach(t => {
+        const netTotal = t.items.reduce((sum, item) => {
+            const base = Number(item.quantity) * Number(item.price);
+            const disc = base * (Number((item as any).discountPercentage || 0) / 100);
+            const tax = (base - disc) * (Number((item as any).taxPercentage || 0) / 100);
+            return sum + (base - disc + tax);
+        }, 0);
+        
+        // remainingAmount = netTotal - paidAmount
+        totalCustomerRemaining += (netTotal - Number(t.paidAmount || 0));
     });
 
     // Include AccountRecord adjustments for customers
@@ -58,7 +72,7 @@ export default async function AccountsDashboard() {
         return sum + (acc.type === 'INCOME' ? Number(acc.amount) : -Number(acc.amount));
     }, 0);
 
-    const totalCustomerDebt = Number(totalCustomerDebtAgg._sum.remainingAmount || 0) + customerAccountAdjustment;
+    const totalCustomerDebt = totalCustomerRemaining + customerAccountAdjustment;
 
     // Calculate total rep custody (Cash with reps)
     const reps = await prisma.user.findMany({
