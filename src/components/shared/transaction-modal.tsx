@@ -27,7 +27,7 @@ type Props = {
     date?: Date | string;
     editable?: boolean;
     paymentOnly?: boolean;
-    type?: 'SALE' | 'PURCHASE' | 'RETURN_IN' | 'RETURN_OUT' | 'INITIAL_STOCK' | 'INCOME' | 'EXPENSE';
+    type?: 'SALE' | 'PURCHASE' | 'RETURN_IN' | 'RETURN_OUT' | 'INITIAL_STOCK' | 'INCOME' | 'EXPENSE' | 'LOADING';
     onUpdate?: (id: string, updates: any) => Promise<any>;
     onClose: () => void;
 }

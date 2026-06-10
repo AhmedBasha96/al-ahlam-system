@@ -31,7 +31,7 @@ interface InvoiceViewProps {
     paidAmount?: number;
     remainingAmount?: number;
     paymentType: string;
-    type?: 'SALE' | 'PURCHASE' | 'RETURN_IN' | 'RETURN_OUT' | 'INITIAL_STOCK' | 'INCOME' | 'EXPENSE';
+    type?: 'SALE' | 'PURCHASE' | 'RETURN_IN' | 'RETURN_OUT' | 'INITIAL_STOCK' | 'INCOME' | 'EXPENSE' | 'LOADING';
 }
 
 export function InvoiceView({
@@ -70,10 +70,11 @@ export function InvoiceView({
         isReturn ? "فاتورة مرتجع" :
             isPurchase ? "فاتورة مشتريات" :
                 type === 'INCOME' ? "إيصال توريد نقدية" :
-                    type === 'EXPENSE' ? "إيصال صرف نقدية" : "فاتورة مبيعات";
+                    type === 'EXPENSE' ? "إيصال صرف نقدية" : 
+                        type === 'LOADING' ? "إذن تحميل بضاعة" : "فاتورة مبيعات";
 
-    const partyLabel = isPurchase ? "المورد" : "العميل";
-    const userLabel = isPurchase ? "المستلم" : "المندوب";
+    const partyLabel = type === 'LOADING' ? "من مخزن" : (isPurchase ? "المورد" : "العميل");
+    const userLabel = type === 'LOADING' ? "المندوب" : (isPurchase ? "المستلم" : "المندوب");
 
     const handlePrint = () => {
         window.print();

@@ -3,12 +3,16 @@
 import { updateLoadingRequestStatus, completeLoadingRequest } from "@/lib/actions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import TransactionModal from "@/components/shared/transaction-modal";
 
 type RequestItem = {
     id: string;
     product: {
+        id: string;
         name: string;
         image: string | null;
+        unitsPerCarton: number;
+        wholesalePrice: number;
     };
     quantity: number;
 }
@@ -36,6 +40,7 @@ type Props = {
 export default function LoadingRequestsList({ initialRequests, userRole }: Props) {
     const [loading, setLoading] = useState<string | null>(null);
     const [adminNote, setAdminNote] = useState<{ [key: string]: string }>({});
+    const [printReq, setPrintReq] = useState<LoadingRequest | null>(null);
     const router = useRouter();
 
     const handleStatusUpdate = async (id: string, status: 'APPROVED' | 'REJECTED') => {
@@ -105,15 +110,29 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                                 <span className="font-bold">من مخزن:</span> {req.warehouse.name}
                             </p>
                         </div>
-                        <div className="text-left">
-                            <p className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleDateString('ar-EG', { dateStyle: 'medium' })}</p>
+                        <div className="text-left flex flex-col items-end gap-2">
+                            <div className="flex gap-2">
+                                <p className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleDateString('ar-EG', { dateStyle: 'medium' })}</p>
+                                <button
+                                    onClick={() => setPrintReq(req)}
+                                    className="p-1 hover:bg-gray-200 rounded-md transition text-xs"
+                                    title="طباعة إذن تحميل"
+                                >
+                                    🖨️ طباعة
+                                </button>
+                            </div>
                             <p className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleTimeString('ar-EG', { timeStyle: 'short' })}</p>
                         </div>
                     </div>
 
                     {/* Items */}
                     <div className="p-4 flex-1">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">الأصناف المطلوبة:</h4>
+                        <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">الأصناف المطلوبة:</h4>
+                            <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
+                                الإجمالي: {req.items.reduce((sum, item) => sum + ((item.quantity / (item.product.unitsPerCarton || 1)) * Number(item.product.wholesalePrice)), 0).toLocaleString('ar-EG')} ج.م
+                            </div>
+                        </div>
                         <div className="space-y-2">
                             {req.items.map((item) => (
                                 <div key={item.id} className="flex items-center justify-between bg-white border border-gray-100 p-2 rounded-lg text-sm transition hover:border-emerald-200 hover:shadow-xs group">
@@ -127,9 +146,14 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                                         </div>
                                         <span className="font-medium text-gray-800">{item.product.name}</span>
                                     </div>
-                                    <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md group-hover:scale-110 transition">
-                                        {item.quantity}
-                                    </span>
+                                    <div className="flex flex-col items-end">
+                                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-xs">
+                                            {item.quantity / (item.product.unitsPerCarton || 1)} كرتونة
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 font-bold mt-0.5">
+                                            {Number(item.product.wholesalePrice).toLocaleString('ar-EG')} ج / كرتونة
+                                        </span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -195,6 +219,31 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                     </div>
                 </div>
             ))}
+
+            {printReq && (
+                <TransactionModal
+                    id={printReq.id}
+                    partyName={printReq.warehouse.name}
+                    userName={printReq.representative.name}
+                    date={printReq.createdAt}
+                    type="LOADING"
+                    items={printReq.items.map(item => ({
+                        productId: item.product.id,
+                        productName: item.product.name,
+                        quantity: item.quantity,
+                        price: Number(item.product.wholesalePrice) / (item.product.unitsPerCarton || 1),
+                        displayPrice: Number(item.product.wholesalePrice),
+                        unitsPerCarton: item.product.unitsPerCarton,
+                        total: (item.quantity / (item.product.unitsPerCarton || 1)) * Number(item.product.wholesalePrice)
+                    }))}
+                    paymentInfo={{
+                        type: 'CASH',
+                        totalAmount: printReq.items.reduce((sum, item) => sum + ((item.quantity / (item.product.unitsPerCarton || 1)) * Number(item.product.wholesalePrice)), 0),
+                        paidAmount: 0
+                    }}
+                    onClose={() => setPrintReq(null)}
+                />
+            )}
         </div>
     );
 }
