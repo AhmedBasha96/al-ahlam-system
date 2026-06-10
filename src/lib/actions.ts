@@ -2519,14 +2519,24 @@ export async function approveTransaction(id: string) {
     try {
         const transaction = await prisma.transaction.findUnique({
             where: { id },
-            include: { user: true }
+            include: { user: true, items: true }
         });
         if (!transaction) throw new Error("المستند غير موجود");
+
+        // Recalculate total based on items and their discounts
+        const finalTotal = transaction.items.reduce((sum, item) => {
+            const base = Number(item.quantity) * Number(item.price);
+            const disc = base * (Number((item as any).discountPercentage || 0) / 100);
+            return sum + (base - disc);
+        }, 0);
 
         await prisma.transaction.update({
             where: { id },
             data: { 
                 status: 'ACTIVE',
+                totalAmount: finalTotal,
+                paidAmount: transaction.paymentType === 'CASH' ? finalTotal : transaction.paidAmount,
+                remainingAmount: transaction.paymentType === 'CASH' ? 0 : (finalTotal - Number(transaction.paidAmount || 0)),
                 note: transaction.note ? `${transaction.note} (تمت الموافقة)` : 'تمت الموافقة من المدير'
             }
         });

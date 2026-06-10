@@ -87,7 +87,11 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                     </span>
                                 </td>
                                 <td className="p-6 font-black text-slate-900 text-lg">
-                                    {session.totalAmount.toLocaleString()} <span className="text-[10px] text-slate-400">ج.م</span>
+                                    {session.items.reduce((sum, item) => {
+                                        const base = item.quantity * item.price;
+                                        const disc = base * ((item as any).discountPercentage / 100 || 0);
+                                        return sum + (base - disc);
+                                    }, 0).toLocaleString()} <span className="text-[10px] text-slate-400">ج.م</span>
                                 </td>
                                 <td className="p-6 text-center">
                                     <div className="flex items-center justify-center gap-2">
