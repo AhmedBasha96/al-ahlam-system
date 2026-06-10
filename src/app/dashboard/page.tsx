@@ -73,6 +73,7 @@ export default async function DashboardPage() {
     const stats = await getDashboardStats();
     const repsData = await getRepsSummary().catch(() => []);
     const isAdmin = user.role === 'ADMIN';
+    const isAdminOrManager = user.role === 'ADMIN' || user.role === 'MANAGER';
 
     const formatDate = (date: Date) => {
         return new Intl.DateTimeFormat('ar-EG', {
@@ -194,6 +195,29 @@ export default async function DashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Pending Sales Approvals Notification */}
+            {isAdminOrManager && (stats.pendingSalesApprovals || 0) > 0 && (
+                <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-rose-100 rounded-lg flex items-center justify-center">
+                            <AlertTriangle className="w-5 h-5 text-rose-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-rose-900">تنبيه خصومات معلقة</h3>
+                            <div className="text-sm text-rose-700 mt-1">
+                                يوجد <strong>{stats.pendingSalesApprovals}</strong> فواتير مبيعات بانتظار موافقتك على الخصم الإضافي.
+                            </div>
+                        </div>
+                    </div>
+                    <Link 
+                        href="/dashboard/reports/sales" 
+                        className="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 transition text-sm font-bold shrink-0"
+                    >
+                        عرض الفواتير للموافقة
+                    </Link>
+                </div>
+            )}
 
             {/* Loading Request Notifications */}
             {stats.loadingRequests && (stats.loadingRequests.pendingApproval > 0 || stats.loadingRequests.pendingFulfillment > 0 || (stats.loadingRequests.userPending || 0) > 0) && (

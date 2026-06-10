@@ -44,6 +44,7 @@ export interface DashboardStats {
         pendingFulfillment: number;
         userPending?: number;
     };
+    pendingSalesApprovals?: number;
 }
 
 export interface RepDashboardStats {
@@ -218,7 +219,16 @@ export async function getDashboardStats(): Promise<DashboardStats> {
             },
         });
 
-        const todaySales = todayTransactions.reduce(
+    // Batch 5: Pending Approvals
+    const pendingSalesApprovals = await (prisma as any).transaction.count({
+        where: { 
+            status: 'PENDING', 
+            type: 'SALE',
+            ...(isRestricted ? { agencyId: { in: (currentUser as any).agencyIds } } : {})
+        }
+    });
+
+    const todaySales = todayTransactions.reduce(
             (sum: number, tx: any) => sum + Number(tx.totalAmount),
             0
         );
@@ -267,7 +277,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
                 userPending: currentUser.role === 'SALES_REPRESENTATIVE' 
                     ? await prisma.loadingRequest.count({ where: { repId: currentUser.id, status: { in: ['PENDING', 'APPROVED'] } } })
                     : undefined
-            }
+            },
+            pendingSalesApprovals
         };
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);

@@ -90,21 +90,7 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                     {session.totalAmount.toLocaleString()} <span className="text-[10px] text-slate-400">ج.م</span>
                                 </td>
                                 <td className="p-6 text-center">
-                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                                        <button
-                                            onClick={() => setViewingSession(session)}
-                                            className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-slate-800 transition shadow-lg shadow-slate-200"
-                                        >
-                                            عرض الفاتورة 📄
-                                        </button>
-                                        {(canPay && session.paymentType !== 'CASH') && (
-                                            <button
-                                                onClick={() => setPaymentSession(session)}
-                                                className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
-                                            >
-                                                تحصيل 📥
-                                            </button>
-                                        )}
+                                    <div className="flex items-center justify-center gap-2">
                                         {session.status === 'PENDING' && (userRole === 'ADMIN' || userRole === 'MANAGER') && (
                                             <button
                                                 onClick={async () => {
@@ -114,42 +100,59 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                                         else alert("خطأ: " + res.error);
                                                     }
                                                 }}
-                                                className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-600 transition shadow-lg shadow-emerald-100"
+                                                className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-700 transition shadow-lg shadow-emerald-200 animate-bounce"
                                             >
-                                                موافقة ✅
+                                                اعتماد الخصم ✅
                                             </button>
                                         )}
-                                        {canEdit && (
+                                        
+                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
                                             <button
-                                                onClick={() => setEditingSession(session)}
-                                                className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-indigo-100 transition"
+                                                onClick={() => setViewingSession(session)}
+                                                className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-slate-800 transition shadow-lg shadow-slate-200"
                                             >
-                                                تعديل ✏️
+                                                عرض الفاتورة 📄
                                             </button>
-                                        )}
-                                        {userRole === 'ADMIN' && (
-                                            <button
-                                                onClick={async () => {
-                                                    if (confirm(`هل أنت متأكد من حذف هذه الفاتورة؟ سيتم مسح كل الحركات المتعلقة بها في الخزينة!`)) {
-                                                        try {
-                                                            await deleteTransaction(session.id);
-                                                            window.location.reload();
-                                                        } catch (error: any) {
-                                                            alert(error.message || "حدث خطأ أثناء الحذف");
+                                            {(canPay && session.paymentType !== 'CASH' && session.status !== 'PENDING') && (
+                                                <button
+                                                    onClick={() => setPaymentSession(session)}
+                                                    className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
+                                                >
+                                                    تحصيل 📥
+                                                </button>
+                                            )}
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => setEditingSession(session)}
+                                                    className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-indigo-100 transition"
+                                                >
+                                                    تعديل ✏️
+                                                </button>
+                                            )}
+                                            {userRole === 'ADMIN' && (
+                                                <button
+                                                    onClick={async () => {
+                                                        if (confirm(`هل أنت متأكد من حذف هذه الفاتورة؟ سيتم مسح كل الحركات المتعلقة بها في الخزينة!`)) {
+                                                            try {
+                                                                await deleteTransaction(session.id);
+                                                                window.location.reload();
+                                                            } catch (error: any) {
+                                                                alert(error.message || "حدث خطأ أثناء الحذف");
+                                                            }
                                                         }
-                                                    }
-                                                }}
-                                                className="bg-red-50 text-red-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-100 transition shadow-lg shadow-red-50"
+                                                    }}
+                                                    className="bg-red-50 text-red-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-100 transition shadow-lg shadow-red-50"
+                                                >
+                                                    حذف 🗑️
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setExpandedId(expandedId === session.id ? null : session.id)}
+                                                className="text-slate-400 hover:text-indigo-600 font-black text-[10px] uppercase tracking-widest px-2"
                                             >
-                                                حذف 🗑️
+                                                {expandedId === session.id ? 'إخفاء' : 'الأصناف'}
                                             </button>
-                                        )}
-                                        <button
-                                            onClick={() => setExpandedId(expandedId === session.id ? null : session.id)}
-                                            className="text-slate-400 hover:text-indigo-600 font-black text-[10px] uppercase tracking-widest px-2"
-                                        >
-                                            {expandedId === session.id ? 'إخفاء' : 'الأصناف'}
-                                        </button>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
