@@ -1651,8 +1651,10 @@ export async function recordDirectSale(
             }
 
             // 2. Record Session/Transaction
-            const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
             const globalDiscount = paymentInfo.invoiceDiscount || 0;
+            const totalAmount = subtotal - (subtotal * (globalDiscount / 100));
+
             const transaction = await tx.transaction.create({
                 data: {
                     type: 'SALE',
@@ -1664,7 +1666,7 @@ export async function recordDirectSale(
                     paidAmount: (paymentInfo.type === 'CASH' ? totalAmount : (paymentInfo.type === 'CREDIT' ? 0 : (paymentInfo.paidAmount || 0))),
                     remainingAmount: (paymentInfo.type === 'CASH' ? 0 : (paymentInfo.type === 'CREDIT' ? totalAmount : (totalAmount - (paymentInfo.paidAmount || 0)))),
                     status: paymentInfo.status || 'ACTIVE',
-                    note: globalDiscount > 0 ? `طلب خصم إضافي: ${globalDiscount}% بانتظار الموافقة` : undefined,
+                    note: globalDiscount > 0 ? `طلب خصم إضافي: ${globalDiscount}% بانتظار الموافقة (الإجمالي قبل الخصم: ${subtotal.toLocaleString()})` : undefined,
                     items: {
                         create: await Promise.all(items.map(async item => {
                             const product = await prisma.product.findUnique({ where: { id: item.productId } });

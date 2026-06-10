@@ -49,7 +49,6 @@ export function InvoiceView({
     const invoiceRef = useRef<HTMLDivElement>(null);
     const [isSharing, setIsSharing] = useState(false);
 
-    // Calculate totals for summary
     const summary = items.reduce((acc, item) => {
         const itemBase = item.quantity * (item.originalPrice || item.price);
         const discountAmount = item.discountAmount ?? (itemBase * (Number(item.discountPercentage || 0) / 100));
@@ -61,6 +60,12 @@ export function InvoiceView({
             totalTax: acc.totalTax + taxAmount
         };
     }, { baseTotal: 0, totalDiscount: 0, totalTax: 0 });
+
+    const netTotal = summary.baseTotal - summary.totalDiscount + summary.totalTax;
+    // Use the calculated net total if the passed totalAmount is suspicious (i.e. exactly matches baseTotal while discounts exist)
+    const displayTotal = (Math.abs(totalAmount - summary.baseTotal) < 0.1 && summary.totalDiscount > 0) 
+        ? netTotal 
+        : totalAmount;
 
     const isPurchase = type === 'PURCHASE' || type === 'RETURN_OUT';
     const isReturn = type === 'RETURN_IN' || type === 'RETURN_OUT';
@@ -333,7 +338,7 @@ export function InvoiceView({
                             <div className="pt-2">
                                 <div className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.1em] mb-0.5">الصافي النهائي / GRAND TOTAL</div>
                                 <div className="text-3xl font-black text-white font-mono tracking-tighter flex items-baseline gap-1.5">
-                                    {totalAmount.toLocaleString()}
+                                    {displayTotal.toLocaleString()}
                                     <span className="text-[9px] font-sans text-white/30 tracking-normal italic font-medium">Pounds</span>
                                 </div>
                             </div>
