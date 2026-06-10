@@ -1998,15 +1998,22 @@ export async function getRepDebtBreakdown(repId: string) {
         where: { representativeId: repId },
         include: {
             transactions: {
-                select: {
-                    remainingAmount: true
-                }
+                where: { status: 'ACTIVE' },
+                include: { items: true }
             }
         }
     });
 
     return customers.map(c => {
-        const debt = c.transactions.reduce((sum, t) => sum + Number(t.remainingAmount || 0), 0);
+        const debt = c.transactions.reduce((sum, t) => {
+            const netTotal = t.items.reduce((iSum, item) => {
+                const base = Number(item.quantity) * Number(item.price);
+                const disc = base * (Number((item as any).discountPercentage || 0) / 100);
+                const tax = (base - disc) * (Number((item as any).taxPercentage || 0) / 100);
+                return iSum + (base - disc + tax);
+            }, 0);
+            return sum + (netTotal - Number(t.paidAmount || 0));
+        }, 0);
         return {
             id: c.id,
             name: c.name,
