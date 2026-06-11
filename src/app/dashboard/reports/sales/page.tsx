@@ -39,10 +39,12 @@ export default async function SalesReportsPage({
             productName: item.product.name,
             quantity: item.quantity,
             price: Number(item.price),
+            cost: Number(item.cost || 0),
             discountPercentage: Number(item.discountPercentage || 0),
             taxPercentage: Number(item.taxPercentage || 0),
             unitsPerCarton: Number(item.product?.unitsPerCarton || 1),
-            total: (item.quantity * Number(item.price)) * (1 - Number(item.discountPercentage || 0) / 100) * (1 + Number(item.taxPercentage || 0) / 100)
+            total: (item.quantity * Number(item.price)) * (1 - Number(item.discountPercentage || 0) / 100) * (1 + Number(item.taxPercentage || 0) / 100),
+            profit: ((item.quantity * Number(item.price)) * (1 - Number(item.discountPercentage || 0) / 100)) - (item.quantity * Number(item.cost || 0))
         }));
 
         return {

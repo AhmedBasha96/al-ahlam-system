@@ -10,6 +10,7 @@ type SoldItem = {
     quantity: number;
     price: number;
     total: number;
+    profit?: number;
 }
 
 type SalesSession = {
@@ -47,6 +48,7 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                         <th className="p-6">العميل</th>
                         <th className="p-6">الحالة المالية</th>
                         <th className="p-6">القيمة الكلية</th>
+                        <th className="p-6">الربح المتوقع</th>
                         <th className="p-6 text-center">الإجراءات</th>
                     </tr>
                 </thead>
@@ -93,11 +95,17 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                     </span>
                                 </td>
                                 <td className="p-6 font-black text-slate-900 text-lg">
-                                    {session.items.reduce((sum, item) => {
-                                        const base = item.quantity * item.price;
-                                        const disc = base * ((item as any).discountPercentage / 100 || 0);
-                                        return sum + (base - disc);
-                                    }, 0).toLocaleString()} <span className="text-[10px] text-slate-400">ج.م</span>
+                                    {(session.items.reduce((sum, item) => sum + item.total, 0)).toLocaleString()} <span className="text-[10px] text-slate-400">ج.م</span>
+                                </td>
+                                <td className="p-6">
+                                    <div className="flex flex-col items-end md:items-center">
+                                        <div className="text-lg font-black text-emerald-600">
+                                            {(session.items.reduce((sum, item) => sum + (Number((item as any).profit) || 0), 0)).toLocaleString()} <span className="text-[10px] opacity-70 font-bold">ج.م</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-bold">
+                                            {((session.items.reduce((sum, item) => sum + (Number((item as any).profit) || 0), 0) / (session.items.reduce((sum, item) => sum + item.total, 0) || 1)) * 100).toFixed(1)}% هامش
+                                        </div>
+                                    </div>
                                 </td>
                                 <td className="p-6 text-center">
                                     <div className="flex items-center justify-center gap-2">
