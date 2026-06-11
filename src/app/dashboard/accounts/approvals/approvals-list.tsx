@@ -2,17 +2,28 @@
 
 import { useState } from "react";
 import { approveSupplierReturn, rejectSupplierReturn } from "@/lib/actions/suppliers";
-import { Check, X, Package, Clock, Building2 } from "lucide-react";
+import { approveTransaction, deleteTransaction } from "@/lib/actions";
+import { Check, X, Package, Clock, Building2, User, Percent } from "lucide-react";
 
 export default function ApprovalsList({ initialTransactions }: { initialTransactions: any[] }) {
     const [loading, setLoading] = useState<string | null>(null);
 
-    const handleApprove = async (id: string) => {
-        if (!confirm('هل أنت متأكد من اعتماد طلب المرتجع وخصم المبلغ من حساب المورد؟')) return;
-        setLoading(id);
+    const handleApprove = async (tx: any) => {
+        const isSale = tx.type === 'SALE';
+        const msg = isSale 
+            ? 'هل أنت متأكد من الموافقة على هذا الخصم وتفعيل الفاتورة؟'
+            : 'هل أنت متأكد من اعتماد طلب المرتجع وخصم المبلغ من حساب المورد؟';
+            
+        if (!confirm(msg)) return;
+        setLoading(tx.id);
         try {
-            await approveSupplierReturn(id);
-            alert("تم اعتماد طلب المرتجع بنجاح");
+            if (isSale) {
+                await approveTransaction(tx.id);
+                alert("تم اعتماد الفاتورة وتثبيت الخصم بنجاح");
+            } else {
+                await approveSupplierReturn(tx.id);
+                alert("تم اعتماد طلب المرتجع بنجاح");
+            }
         } catch (error: any) {
             alert(error.message);
         } finally {
@@ -20,12 +31,22 @@ export default function ApprovalsList({ initialTransactions }: { initialTransact
         }
     };
 
-    const handleReject = async (id: string) => {
-        if (!confirm('هل أنت متأكد من رفض طلب المرتجع وإعادة البضاعة للمخزن؟')) return;
-        setLoading(id);
+    const handleReject = async (tx: any) => {
+        const isSale = tx.type === 'SALE';
+        const msg = isSale
+            ? 'هل أنت متأكد من رفض الخصم وحذف هذه الفاتورة المعلقة؟'
+            : 'هل أنت متأكد من رفض طلب المرتجع وإعادة البضاعة للمخزن؟';
+
+        if (!confirm(msg)) return;
+        setLoading(tx.id);
         try {
-            await rejectSupplierReturn(id);
-            alert("تم رفض طلب المرتجع وإرجاع البضاعة للمخزن");
+            if (isSale) {
+                await deleteTransaction(tx.id);
+                alert("تم رفض طلب الخصم وحذف الفاتورة");
+            } else {
+                await rejectSupplierReturn(tx.id);
+                alert("تم رفض طلب المرتجع وإرجاع البضاعة للمخزن");
+            }
         } catch (error: any) {
             alert(error.message);
         } finally {
@@ -57,14 +78,15 @@ export default function ApprovalsList({ initialTransactions }: { initialTransact
 
                     <div className="p-6 md:p-8 flex flex-col xl:flex-row gap-8">
                         {/* Transaction Meta */}
-                        <div className="flex-1 space-y-4">
+                        <div className="flex-1 space-y-4 text-right">
                             <div className="flex items-center gap-3">
-                                <div className="p-3 bg-rose-50 text-rose-500 rounded-xl">
-                                    <Package className="w-6 h-6" />
+                                <div className={`p-3 rounded-xl ${tx.type === 'SALE' ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                                    {tx.type === 'SALE' ? <Percent className="w-6 h-6" /> : <Package className="w-6 h-6" />}
                                 </div>
                                 <div>
                                     <h3 className="font-black text-xl text-slate-800">
-                                        {tx.type === 'RETURN_OUT' ? 'طلب مرتجع للمصنع' : 'عملية غير معروفة'}
+                                        {tx.type === 'RETURN_OUT' ? 'طلب مرتجع للمصنع' : 
+                                         tx.type === 'SALE' ? 'طلب خصم إضافي على فاتورة' : 'عملية غير معروفة'}
                                     </h3>
                                     <p className="text-sm text-slate-400 font-bold mt-1">
                                         تاريخ الطلب: {new Date(tx.createdAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -74,25 +96,32 @@ export default function ApprovalsList({ initialTransactions }: { initialTransact
 
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                                 <div className="bg-slate-50 p-3 rounded-xl">
-                                    <p className="text-xs text-slate-400 font-bold mb-1">بواسطة (أمين المخزن)</p>
+                                    <p className="text-xs text-slate-400 font-bold mb-1">{tx.type === 'SALE' ? 'المندوب (طالب الخصم)' : 'بواسطة (أمين المخزن)'}</p>
                                     <p className="font-black text-slate-800">{tx.user?.name}</p>
                                 </div>
                                 <div className="bg-slate-50 p-3 rounded-xl flex flex-col justify-center">
-                                    <p className="text-xs text-slate-400 font-bold mb-1">المورد المستلم</p>
+                                    <p className="text-xs text-slate-400 font-bold mb-1">{tx.type === 'SALE' ? 'العميل' : 'المورد المستلم'}</p>
                                     <div className="flex items-center gap-1 font-black text-slate-800">
-                                        <Building2 className="w-4 h-4 text-blue-500" />
-                                        <span>{tx.supplier?.name || "غير محدد"}</span>
+                                        {tx.type === 'SALE' ? <User className="w-4 h-4 text-emerald-500" /> : <Building2 className="w-4 h-4 text-blue-500" />}
+                                        <span>{tx.type === 'SALE' ? (tx.customer?.name || "عميل نقدي") : (tx.supplier?.name || "غير محدد")}</span>
                                     </div>
                                 </div>
                                 <div className="bg-slate-50 p-3 rounded-xl flex flex-col justify-center">
-                                    <p className="text-xs text-slate-400 font-bold mb-1">المخزن المسحوب منه</p>
+                                    <p className="text-xs text-slate-400 font-bold mb-1">المخزن / الموقع</p>
                                     <p className="font-black text-slate-800 truncate" title={tx.warehouse?.name}>{tx.warehouse?.name || "غير محدد"}</p>
                                 </div>
-                                <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
-                                    <p className="text-xs text-rose-400 font-bold mb-1">القيمة الإجمالية</p>
-                                    <p className="font-black text-rose-600 text-lg">{formatMoney(Number(tx.totalAmount))}</p>
+                                <div className={`p-3 rounded-xl border ${tx.type === 'SALE' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
+                                    <p className="text-xs opacity-70 font-bold mb-1">القيمة الإجمالية</p>
+                                    <p className="font-black text-lg">{formatMoney(Number(tx.totalAmount))}</p>
                                 </div>
                             </div>
+                            
+                            {tx.note && (
+                                <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl">
+                                    <p className="text-xs text-amber-600 font-black mb-1">ملاحظات الطلب:</p>
+                                    <p className="text-sm text-amber-800 font-bold">{tx.note}</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Items Table */}
@@ -122,7 +151,7 @@ export default function ApprovalsList({ initialTransactions }: { initialTransact
                         {/* Actions */}
                         <div className="flex xl:flex-col gap-3 justify-center min-w-[140px] border-t xl:border-t-0 xl:border-r border-slate-100 pt-6 xl:pt-0 xl:pr-6">
                             <button
-                                onClick={() => handleApprove(tx.id)}
+                                onClick={() => handleApprove(tx)}
                                 disabled={loading !== null}
                                 className="flex-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-4 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                             >
@@ -134,7 +163,7 @@ export default function ApprovalsList({ initialTransactions }: { initialTransact
                                 )}
                             </button>
                             <button
-                                onClick={() => handleReject(tx.id)}
+                                onClick={() => handleReject(tx)}
                                 disabled={loading !== null}
                                 className="flex-1 bg-white text-rose-500 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 px-4 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                             >

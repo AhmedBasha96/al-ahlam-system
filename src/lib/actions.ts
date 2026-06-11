@@ -845,7 +845,7 @@ export async function deleteCustomer(id: string) {
 
 export async function deleteTransaction(id: string) {
     const user = await getCurrentUser();
-    if (user.role !== 'ADMIN') throw new Error(`Unauthorized: Admin access required`);
+    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') throw new Error(`Unauthorized: Higher access required`);
 
     // We use a transaction to ensure all related records are cleaned up or the deletion fails
     await prisma.$transaction(async (tx) => {

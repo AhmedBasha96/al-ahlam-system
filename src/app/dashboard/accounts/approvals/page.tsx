@@ -18,6 +18,7 @@ export default async function ApprovalsPage() {
             user: true,
             agency: true,
             supplier: true,
+            customer: true,
             warehouse: true,
             items: {
                 include: { product: true }
@@ -31,8 +32,10 @@ export default async function ApprovalsPage() {
         type: tx.type,
         createdAt: tx.createdAt.toISOString(),
         totalAmount: Number(tx.totalAmount),
+        note: tx.note,
         user: tx.user ? { name: tx.user.name } : null,
         supplier: tx.supplier ? { name: tx.supplier.name } : null,
+        customer: tx.customer ? { name: tx.customer.name } : null,
         warehouse: tx.warehouse ? { name: tx.warehouse.name } : null,
         items: tx.items.map((item: any) => ({
             id: item.id,

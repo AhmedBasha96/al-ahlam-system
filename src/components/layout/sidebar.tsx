@@ -44,7 +44,7 @@ export default function Sidebar({ role }: SidebarProps) {
         { href: '/dashboard/products', label: 'الأصناف والأسعار', icon: Package, visible: canSeeProducts },
         { href: '/dashboard/warehouses', label: 'المخازن', icon: Warehouse, visible: canSeeWarehouses },
         { href: '/dashboard/accounts', label: 'الحسابات', icon: Wallet, visible: canSeeAccounts },
-        { href: '/dashboard/accounts/approvals', label: 'إعتمادات المرتجعات', icon: CheckCircle, visible: canSeeAccounts },
+        { href: '/dashboard/accounts/approvals', label: 'طلبات الإعتماد والموافقات', icon: CheckCircle, visible: canSeeAccounts },
         { href: '/dashboard/accounts/banks', label: 'البنوك والقروض', icon: Building2, visible: canSeeAccounts },
         { href: '/dashboard/accounts/reps-custody', label: 'عهد وتحصيلات المناديب', icon: Wallet, visible: canSeeAccounts },
         { href: '/dashboard/reports/sales', label: 'تقارير المبيعات', icon: History, visible: canSeeSalesReports },
