@@ -72,6 +72,7 @@ export default function ClientOperationProfitReport({
     const [isLoading, setIsLoading] = useState(false);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [typeFilter, setTypeFilter] = useState("ALL");
+    const [mode, setMode] = useState<'CASH' | 'ACCRUAL'>('CASH');
 
     const handleFilter = async () => {
         setIsLoading(true);
@@ -79,7 +80,8 @@ export default function ClientOperationProfitReport({
             const newData = await getOperationProfitReport(
                 new Date(startDate),
                 new Date(endDate),
-                agencyId === 'ALL' ? undefined : agencyId
+                agencyId === 'ALL' ? undefined : agencyId,
+                mode
             );
             setData(newData);
         } catch (error) {
@@ -161,9 +163,13 @@ export default function ClientOperationProfitReport({
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-800 to-indigo-600 pb-2">
-                            تفاصيل أرباح العمليات
+                            {mode === 'CASH' ? 'أرباح العمليات (المحصلة)' : 'أرباح العمليات (الإجمالية)'}
                         </h1>
-                        <p className="text-slate-600 font-medium">تحليل الربحية لكل عملية بيع ومرتجع بشكل منفصل</p>
+                        <p className="text-slate-600 font-medium">
+                            {mode === 'CASH' 
+                                ? 'تحليل الربحية بناءً على المبالغ التي تم تحصيلها فعلياً (ربح محقق)' 
+                                : 'تحليل الربحية بناءً على إجمالي المبيعات حتى لو لم يتم تحصيلها بالكامل (ربح استحقاق)'}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -173,10 +179,30 @@ export default function ClientOperationProfitReport({
                 {/* Search & Filters Card */}
                 <Card className="lg:col-span-3 border-white/60 bg-white/80 backdrop-blur-sm shadow-xl">
                     <CardHeader className="pb-4">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Search className="w-5 h-5 text-indigo-600" />
-                            تصفية وبحث
-                        </CardTitle>
+                            <CardTitle className="text-lg flex items-center justify-between gap-2">
+                                <span className="flex items-center gap-2">
+                                    <Search className="w-5 h-5 text-indigo-600" />
+                                    تصفية وبحث
+                                </span>
+                                <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                                    <Button 
+                                        variant={mode === 'CASH' ? 'default' : 'ghost'} 
+                                        size="sm" 
+                                        className={`rounded-lg text-[10px] font-black h-8 ${mode === 'CASH' ? 'bg-indigo-600 shadow-md' : 'text-slate-500'}`}
+                                        onClick={() => setMode('CASH')}
+                                    >
+                                        أرباح محصلة 💵
+                                    </Button>
+                                    <Button 
+                                        variant={mode === 'ACCRUAL' ? 'default' : 'ghost'} 
+                                        size="sm" 
+                                        className={`rounded-lg text-[10px] font-black h-8 ${mode === 'ACCRUAL' ? 'bg-indigo-600 shadow-md' : 'text-slate-500'}`}
+                                        onClick={() => setMode('ACCRUAL')}
+                                    >
+                                        أرباح إجمالية 📊
+                                    </Button>
+                                </div>
+                            </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="grid md:grid-cols-5 gap-4">
@@ -250,7 +276,9 @@ export default function ClientOperationProfitReport({
                 {/* Quick Summary Card */}
                 <Card className="bg-gradient-to-br from-indigo-600 to-blue-700 border-none shadow-xl text-white">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm opacity-80 uppercase tracking-wider font-bold text-center">صافي الربح للفترة</CardTitle>
+                        <CardTitle className="text-sm opacity-80 uppercase tracking-wider font-bold text-center">
+                            {mode === 'CASH' ? 'صافي الربح المحصل' : 'صافي الربح المتوقع'}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col items-center justify-center pt-2">
                         <div className="text-4xl font-black mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
