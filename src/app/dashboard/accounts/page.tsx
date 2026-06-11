@@ -103,12 +103,20 @@ export default async function AccountsDashboard() {
                         نظرة شاملة على أداء شهر <span className="text-indigo-600 font-bold underline decoration-wavy decoration-indigo-300 underline-offset-4">{now.toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}</span>
                     </p>
                 </div>
-                <div className="glass-card px-4 py-2 rounded-full flex items-center gap-2 text-sm font-semibold text-slate-600 mt-4 md:mt-0">
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    بيانات حية
+                <div className="flex flex-col md:flex-row items-end gap-3">
+                    <Link href="/dashboard/accounts/reports">
+                        <div className="glass-card px-6 py-2.5 rounded-full flex items-center gap-2 text-sm font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/80 transition-colors border border-indigo-200/50 cursor-pointer shadow-sm">
+                            <PieChart className="w-5 h-5" />
+                            عرض التقارير والتحليلات
+                        </div>
+                    </Link>
+                    <div className="glass-card px-4 py-2.5 rounded-full flex items-center gap-2 text-sm font-semibold text-slate-600">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        بيانات حية
+                    </div>
                 </div>
             </div>
 
