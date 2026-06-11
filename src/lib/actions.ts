@@ -1720,7 +1720,11 @@ export async function getSalesSessions(filters?: { repId?: string; startDate?: s
             createdAt: {
                 gte: filters?.startDate && filters.startDate !== "" ? new Date(filters.startDate) : undefined,
                 lte: filters?.endDate && filters.endDate !== "" ? new Date(filters.endDate) : undefined
-            }
+            },
+            OR: [
+                { note: null },
+                { NOT: { note: { contains: 'تحميل للمندوب' } } }
+            ]
         },
         include: { user: true, customer: true, items: { include: { product: true } } },
         orderBy: { createdAt: 'desc' }
@@ -2466,6 +2470,7 @@ export async function completeLoadingRequest(requestId: string) {
 
     // Perform the actual loading
     await prisma.$transaction(async (tx) => {
+        const transactionItems = [];
         for (const item of request.items) {
             // Check stock
             const sourceStock = await tx.stock.findUnique({
@@ -2490,7 +2495,18 @@ export async function completeLoadingRequest(requestId: string) {
                 create: { warehouseId: request.repId, productId: item.productId, quantity: item.quantity }
             });
 
-            // Record transaction
+            // Prepare item for the single transaction
+            const product = await tx.product.findUnique({ where: { id: item.productId } });
+            transactionItems.push({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: 0,
+                cost: Number(product?.factoryPrice || 0)
+            });
+        }
+
+        // Record ONE transaction for the whole request
+        if (transactionItems.length > 0) {
             await tx.transaction.create({
                 data: {
                     type: 'SALE',
@@ -2500,12 +2516,7 @@ export async function completeLoadingRequest(requestId: string) {
                     warehouseId: request.warehouseId,
                     note: `تحميل للمندوب (بناء على طلب): ${request.representative.name}`,
                     items: {
-                        create: [{
-                            productId: item.productId,
-                            quantity: item.quantity,
-                            price: 0,
-                            cost: Number(await tx.product.findUnique({ where: { id: item.productId } }).then(p => p?.factoryPrice || 0))
-                        }]
+                        create: transactionItems
                     }
                 }
             });
