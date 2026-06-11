@@ -74,7 +74,13 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                 <td className="p-6 text-indigo-600 font-black">{session.repName}</td>
                                 <td className="p-6 text-slate-800 font-bold">
                                     {session.customerName || <span className="text-slate-300 italic text-xs">عميل نقدي</span>}
-                                    {session.note && <p className="text-[9px] text-rose-400 font-bold mt-1 line-clamp-1" title={session.note}>{session.note}</p>}
+                                    {session.note && (
+                                        <p className={`text-[9px] font-bold mt-1 line-clamp-1 ${session.status === 'PENDING' ? 'text-rose-400' : 'text-emerald-500'}`} title={session.note}>
+                                            {session.status === 'PENDING' 
+                                                ? session.note 
+                                                : session.note.replace('بانتظار الموافقة', 'تمت الموافقة ✅')}
+                                        </p>
+                                    )}
                                 </td>
                                 <td className="p-6">
                                     <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-tighter ${session.paymentType === 'CASH' ? 'bg-emerald-100 text-emerald-700' :

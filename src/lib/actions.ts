@@ -2555,7 +2555,9 @@ export async function approveTransaction(id: string) {
                 totalAmount: finalTotal,
                 paidAmount: transaction.paymentType === 'CASH' ? finalTotal : transaction.paidAmount,
                 remainingAmount: transaction.paymentType === 'CASH' ? 0 : (finalTotal - Number(transaction.paidAmount || 0)),
-                note: transaction.note ? `${transaction.note} (تمت الموافقة)` : 'تمت الموافقة من المدير'
+                note: transaction.note 
+                    ? transaction.note.replace('بانتظار الموافقة', 'تمت الموافقة من الإدارة ✅') 
+                    : 'تمت الموافقة من الإدارة ✅'
             }
         });
 
