@@ -120,6 +120,30 @@ export default function ClientOperationProfitReport({
         }), { totalRevenue: 0, totalCost: 0, totalProfit: 0, count: 0 });
     }, [filteredData]);
 
+    const productSummary = useMemo(() => {
+        const summary: Record<string, { revenue: number, cost: number, profit: number, quantity: number }> = {};
+        
+        filteredData.forEach(tx => {
+            tx.items.forEach(item => {
+                const name = (item as any).productName;
+                if (!summary[name]) summary[name] = { revenue: 0, cost: 0, profit: 0, quantity: 0 };
+                
+                const price = (item as any).displayPrice || (item as any).price;
+                const cost = (item as any).displayCost || (item as any).cost;
+                const qty = (item as any).quantity;
+                
+                summary[name].revenue += price * qty;
+                summary[name].cost += cost * qty;
+                summary[name].profit += (price - cost) * qty;
+                summary[name].quantity += qty;
+            });
+        });
+
+        return Object.entries(summary)
+            .map(([name, data]) => ({ name, ...data }))
+            .sort((a, b) => b.profit - a.profit);
+    }, [filteredData]);
+
     return (
         <div className="relative min-h-screen -m-6 p-8 bg-gradient-to-br from-blue-50 via-indigo-50/30 to-slate-50 overflow-hidden">
             {/* Background Decor */}
@@ -249,6 +273,53 @@ export default function ClientOperationProfitReport({
                 </Card>
             </div>
 
+            {/* Product Profit Summary */}
+            {productSummary.length > 0 && (
+                <Card className="relative z-10 mb-8 border-indigo-200 bg-white/90 shadow-lg overflow-hidden">
+                    <CardHeader className="pb-2 bg-indigo-50/50">
+                        <CardTitle className="text-xl flex items-center gap-2 text-indigo-800 font-black">
+                            <Package className="w-6 h-6 text-indigo-600" />
+                            ملخص أرباح الأصناف (الأكثر ربحية)
+                        </CardTitle>
+                        <CardDescription className="text-slate-500 font-bold">بناءً على المبالغ المحصلة والعمليات المختارة</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right text-sm">
+                                <thead className="bg-slate-50 text-slate-400 font-black border-b border-slate-100">
+                                    <tr>
+                                        <th className="p-4">الصنف</th>
+                                        <th className="p-4 text-center">إجمالي المبيعات</th>
+                                        <th className="p-4 text-center">إجمالي التكلفة</th>
+                                        <th className="p-4 text-center">صافي الربح</th>
+                                        <th className="p-4 text-center">هامش الربح</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {productSummary.slice(0, 10).map((prod, idx) => (
+                                        <tr key={idx} className="hover:bg-indigo-50/30 transition-colors group">
+                                            <td className="p-4 font-black text-slate-700">{prod.name}</td>
+                                            <td className="p-4 text-center font-bold text-slate-600">{formatMoney(prod.revenue)}</td>
+                                            <td className="p-4 text-center text-slate-400">{formatMoney(prod.cost)}</td>
+                                            <td className="p-4 text-center">
+                                                <div className={`font-black text-lg ${prod.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                    {formatMoney(prod.profit)}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full font-black text-[10px]">
+                                                    {prod.revenue > 0 ? ((prod.profit / prod.revenue) * 100).toFixed(1) : 0}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Transactions Table */}
             <div className="relative z-10 space-y-4">
                 {filteredData.length > 0 ? (
@@ -355,20 +426,32 @@ export default function ClientOperationProfitReport({
                                                 <h3 className="text-sm font-bold">تفاصيل المنتجات والتكلفة</h3>
                                             </div>
                                             <div className="grid gap-3">
-                                                <div className="grid grid-cols-4 text-xs font-bold text-slate-400 pb-2 px-2 border-b border-slate-200">
+                                                <div className="grid grid-cols-5 text-xs font-bold text-slate-400 pb-2 px-2 border-b border-slate-200">
                                                     <span>المنتج</span>
                                                     <span className="text-center">الكمية</span>
                                                     <span className="text-center">سعر البيع</span>
                                                     <span className="text-center">سعر التكلفة</span>
+                                                    <span className="text-center">ربح الصنف</span>
                                                 </div>
-                                                {tx.items.map((item, idx) => (
-                                                    <div key={idx} className="grid grid-cols-4 text-sm px-2 py-1 items-center hover:bg-white rounded-lg transition-colors">
-                                                        <div className="font-bold text-slate-700">{(item as any).productName}</div>
-                                                        <div className="text-center font-mono text-indigo-600 bg-indigo-50 rounded-md py-0.5 mx-auto px-2">x {(item as any).formattedQuantity || (item as any).quantity}</div>
-                                                        <div className="text-center font-bold text-slate-800">{formatMoney((item as any).displayPrice || (item as any).price)}</div>
-                                                        <div className="text-center text-slate-500">{formatMoney((item as any).displayCost || (item as any).cost)}</div>
-                                                    </div>
-                                                ))}
+                                                {tx.items.map((item, idx) => {
+                                                    const price = (item as any).displayPrice || (item as any).price;
+                                                    const cost = (item as any).displayCost || (item as any).cost;
+                                                    const unitProfit = price - cost;
+                                                    const rowProfit = unitProfit * (item as any).quantity;
+
+                                                    return (
+                                                        <div key={idx} className="grid grid-cols-5 text-sm px-2 py-2 items-center hover:bg-white rounded-lg transition-colors border-b border-slate-50 last:border-0">
+                                                            <div className="font-bold text-slate-700">{(item as any).productName}</div>
+                                                            <div className="text-center font-mono text-indigo-600 bg-indigo-50 rounded-md py-0.5 mx-auto px-2">x {(item as any).formattedQuantity || (item as any).quantity}</div>
+                                                            <div className="text-center font-bold text-slate-800">{formatMoney(price)}</div>
+                                                            <div className="text-center text-slate-500">{formatMoney(cost)}</div>
+                                                            <div className={`text-center font-black ${rowProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                                {formatMoney(rowProfit)}
+                                                                <div className="text-[8px] opacity-70">({formatMoney(unitProfit)} / وحدة)</div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
