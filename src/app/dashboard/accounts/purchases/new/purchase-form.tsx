@@ -194,15 +194,54 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
 
                     <div className="space-y-4">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50 p-4 rounded-lg gap-4">
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                <Label className="text-lg font-semibold whitespace-nowrap">البحث بالباركود:</Label>
-                                <Input 
-                                    placeholder="اضرب الباركود هنا..." 
-                                    className="max-w-xs border-emerald-500 focus-visible:ring-emerald-500"
-                                    value={barcodeInput}
-                                    onChange={e => setBarcodeInput(e.target.value)}
-                                    onKeyDown={handleBarcodeSearch}
-                                />
+                            <div className="flex flex-col gap-1 w-full md:w-auto relative">
+                                <div className="flex items-center gap-4">
+                                    <Label className="text-lg font-semibold whitespace-nowrap">البحث بالباركود:</Label>
+                                    <Input 
+                                        placeholder="اكتب جزء من الباركود أو الاسم..." 
+                                        className="max-w-xs border-emerald-500 focus-visible:ring-emerald-500 font-bold"
+                                        value={barcodeInput}
+                                        onChange={e => setBarcodeInput(e.target.value)}
+                                        onKeyDown={handleBarcodeSearch}
+                                    />
+                                </div>
+                                
+                                {barcodeInput.length >= 2 && (
+                                    <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[300px] overflow-y-auto">
+                                        {products
+                                            .filter(p => 
+                                                p.barcode?.toLowerCase().includes(barcodeInput.toLowerCase()) || 
+                                                p.name.toLowerCase().includes(barcodeInput.toLowerCase())
+                                            )
+                                            .slice(0, 10)
+                                            .map(p => (
+                                                <button
+                                                    key={p.id}
+                                                    type="button"
+                                                    className="w-full text-right px-4 py-2 hover:bg-emerald-50 flex flex-col border-b last:border-0 border-slate-50 transition-colors"
+                                                    onClick={() => {
+                                                        const emptyRowIndex = items.findIndex(it => it.productId === "");
+                                                        if (emptyRowIndex !== -1) {
+                                                            updateItem(emptyRowIndex, 'productId', p.id);
+                                                        } else {
+                                                            setItems([...items, { productId: p.id, cartons: 1, cost: Number(p.factoryPrice), discountPercentage: 0, taxPercentage: 0 }]);
+                                                        }
+                                                        setBarcodeInput("");
+                                                    }}
+                                                >
+                                                    <span className="font-bold text-slate-800">{p.name}</span>
+                                                    <span className="text-[10px] text-emerald-600 font-mono">Barcode: {p.barcode}</span>
+                                                </button>
+                                            ))
+                                        }
+                                        {products.filter(p => 
+                                            p.barcode?.toLowerCase().includes(barcodeInput.toLowerCase()) || 
+                                            p.name.toLowerCase().includes(barcodeInput.toLowerCase())
+                                        ).length === 0 && (
+                                            <div className="p-4 text-center text-slate-400 text-sm italic">لا توجد نتائج مطابقة</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <Button type="button" variant="outline" size="sm" onClick={() => addItem()}>
                                 <Plus className="w-4 h-4 mr-1" /> صنف يدوي
