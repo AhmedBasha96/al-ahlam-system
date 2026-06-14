@@ -216,7 +216,13 @@ export function InvoiceView({
                                 
                                 let displayQty = item.formattedQuantity;
                                 let displayUnitPrice = item.displayPrice || item.price;
-                                
+
+                                // Always adjust displayed unit price to carton price if in carton mode
+                                if (isCartonMode) {
+                                    displayUnitPrice = item.price * upc;
+                                }
+
+                                // Calculate Quantity String if not provided
                                 if (!displayQty) {
                                     if (isCartonMode) {
                                         const cartons = Math.floor(item.quantity / upc);
@@ -224,7 +230,6 @@ export function InvoiceView({
                                         displayQty = cartons > 0 
                                             ? `${cartons} كرتونة${units > 0 ? ` + ${units} علبة` : ''}`
                                             : `${units} علبة`;
-                                        displayUnitPrice = item.price * upc; // Show Carton Price
                                     } else {
                                         displayQty = `${item.quantity} كرتونة`;
                                     }
