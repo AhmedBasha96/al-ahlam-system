@@ -58,9 +58,13 @@ export default async function SupplierAccountPage({ params }: { params: Promise<
                 user: t.user ? { name: t.user.name } : { name: "غير معروف" },
                 items: (t.items || []).map((i: any) => ({
                     productId: i.productId,
-                    product: { name: i.product?.name || "غير معروف" },
+                    product: { 
+                        name: i.product?.name || "غير معروف",
+                        unitsPerCarton: i.product?.unitsPerCarton || 1 
+                    },
                     quantity: i.quantity,
-                    price: Number(i.price || 0)
+                    price: Number(i.price || 0),
+                    unitsPerCarton: i.product?.unitsPerCarton || 1
                 })),
                 paymentType: t.paymentType,
                 paidAmount: Number(t.paidAmount || 0),

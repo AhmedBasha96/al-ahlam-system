@@ -89,6 +89,7 @@ export default async function CustomerDetailsPage({ params }: { params: Promise<
                                 productName: i.product?.name || "منتج غير معروف",
                                 quantity: i.quantity,
                                 price: Number(i.price || 0),
+                                unitsPerCarton: i.product?.unitsPerCarton || 1,
                                 total: i.quantity * Number(i.price || 0)
                             }))
                         }))}
