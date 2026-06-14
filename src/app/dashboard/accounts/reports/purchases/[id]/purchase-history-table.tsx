@@ -225,7 +225,7 @@ export default function PurchaseHistoryTable({
                         const pieces = i.quantity % (i.product.unitsPerCarton || 1);
                         const formattedQty = cartons > 0
                             ? `${cartons} كرتونة${pieces > 0 ? ` + ${pieces} علبة` : ''}`
-                            : `${pieces} علبة`;
+                            : `${pieces} كرتونة`; // Change fallback to كرتونة if no cartons are detected (usually when upc=1)
 
                         return {
                             productId: i.productId,

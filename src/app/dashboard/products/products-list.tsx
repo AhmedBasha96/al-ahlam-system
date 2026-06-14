@@ -199,23 +199,22 @@ export default function ProductsList({ products, agencies, suppliers, userRole }
                                     </div>
                                 </div>
 
-                                {/* Sub-unit details */}
                                 <div className="mt-3 pt-3 border-t border-dashed border-slate-200">
                                     <div className="flex justify-between items-center bg-blue-50/50 p-2 rounded-lg">
-                                        <span className="text-[10px] font-black text-blue-600">عدد القطع:</span>
+                                        <span className="text-[10px] font-black text-blue-600">عدد العلب بالكرتونة:</span>
                                         <span className="text-xs font-black text-blue-800 bg-white px-2 py-0.5 rounded shadow-sm">{(product as any).unitsPerCarton || 1}</span>
                                     </div>
                                     <div className="grid grid-cols-3 gap-1 mt-2">
                                         <div className="text-center">
-                                            <span className="block text-[8px] text-slate-400 font-bold">قطعة (مصنع)</span>
+                                            <span className="block text-[8px] text-slate-400 font-bold">علبة (مصنع)</span>
                                             <span className="text-[10px] font-black text-slate-700">{(product as any).unitFactoryPrice || 0}</span>
                                         </div>
                                         <div className="text-center border-x border-slate-100">
-                                            <span className="block text-[8px] text-slate-400 font-bold">قطعة (جملة)</span>
+                                            <span className="block text-[8px] text-slate-400 font-bold">علبة (جملة)</span>
                                             <span className="text-[10px] font-black text-slate-700">{(product as any).unitWholesalePrice || 0}</span>
                                         </div>
                                         <div className="text-center">
-                                            <span className="block text-[8px] text-emerald-500 font-bold">قطعة (قطاعي)</span>
+                                            <span className="block text-[8px] text-emerald-500 font-bold">علبة (قطاعي)</span>
                                             <span className="text-[10px] font-black text-emerald-700">{(product as any).unitRetailPrice || 0}</span>
                                         </div>
                                     </div>

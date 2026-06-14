@@ -226,7 +226,7 @@ export function InvoiceView({
                                             : `${units} علبة`;
                                         displayUnitPrice = item.price * upc; // Show Carton Price
                                     } else {
-                                        displayQty = `${item.quantity} علبة`;
+                                        displayQty = `${item.quantity} كرتونة`;
                                     }
                                 }
 
