@@ -224,8 +224,8 @@ export default function PurchaseHistoryTable({
                         const cartons = Math.floor(i.quantity / (i.product.unitsPerCarton || 1));
                         const pieces = i.quantity % (i.product.unitsPerCarton || 1);
                         const formattedQty = cartons > 0
-                            ? `${cartons} كرتونة${pieces > 0 ? ` + ${pieces} قطعة` : ''}`
-                            : `${pieces} قطعة`;
+                            ? `${cartons} كرتونة${pieces > 0 ? ` + ${pieces} علبة` : ''}`
+                            : `${pieces} علبة`;
 
                         return {
                             productId: i.productId,

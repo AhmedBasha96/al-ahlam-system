@@ -160,7 +160,7 @@ export default function LoadStockForm({ warehouseId, products, reps, stocks }: P
                                             const units = qty % upc;
                                             return (
                                                 <option key={product.id} value={product.id}>
-                                                    {product.name} (المتاح: {cartons} ك + {units} ع)
+                                                    {product.name} (المتاح: {cartons} كرتونة + {units} علبة)
                                                 </option>
                                             );
                                         })}

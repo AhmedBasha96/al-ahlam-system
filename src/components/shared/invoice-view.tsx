@@ -222,11 +222,11 @@ export function InvoiceView({
                                         const cartons = Math.floor(item.quantity / upc);
                                         const units = item.quantity % upc;
                                         displayQty = cartons > 0 
-                                            ? `${cartons} ك${units > 0 ? ` + ${units} ق` : ''}`
-                                            : `${units} قطعة`;
+                                            ? `${cartons} كرتونة${units > 0 ? ` + ${units} علبة` : ''}`
+                                            : `${units} علبة`;
                                         displayUnitPrice = item.price * upc; // Show Carton Price
                                     } else {
-                                        displayQty = `${item.quantity} قطعة`;
+                                        displayQty = `${item.quantity} علبة`;
                                     }
                                 }
 
@@ -242,7 +242,7 @@ export function InvoiceView({
                                             <div className="text-slate-900 font-black leading-tight mb-0.5">{item.productName}</div>
                                             <div className="text-[8px] text-slate-400 font-mono tracking-tighter uppercase opacity-60">
                                                 ID: {item.productId.slice(0, 6)} 
-                                                {isCartonMode && ` • (${upc} قطعة/ك)`}
+                                                {isCartonMode && ` • (${upc} علبة/كرتونة)`}
                                             </div>
                                         </td>
                                         <td className="py-2.5 bg-slate-50/80 text-center font-black text-indigo-600 border-y border-slate-100">
