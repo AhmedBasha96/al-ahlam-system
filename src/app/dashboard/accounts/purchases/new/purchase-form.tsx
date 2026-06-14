@@ -61,12 +61,27 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
             e.preventDefault();
             const product = products.find(p => p.barcode === barcodeInput);
             if (product) {
+                const productAgencyId = product.agencyId;
+                const targetWarehouse = warehouses.find(w => w.agencyId === productAgencyId);
+
+                // If warehouse is already set and doesn't match this product's agency
+                if (warehouseId && targetWarehouse && warehouseId !== targetWarehouse.id) {
+                    alert(`عذراً، هذا المنتج يتبع توكيل آخر (${productAgencyId}). لا يمكنك دمج توكيلات مختلفة في نفس الفاتورة.`);
+                    return;
+                }
+
                 const emptyRowIndex = items.findIndex(it => it.productId === "");
                 if (emptyRowIndex !== -1) {
                     updateItem(emptyRowIndex, 'productId', product.id);
                 } else {
                     setItems([...items, { productId: product.id, cartons: 1, cost: Number(product.factoryPrice), discountPercentage: 0, taxPercentage: 0 }]);
                 }
+                
+                // Auto-set warehouse if not set
+                if (!warehouseId && targetWarehouse) {
+                    setWarehouseId(targetWarehouse.id);
+                }
+                
                 setBarcodeInput("");
             } else {
                 alert("المنتج غير موجود!");
@@ -93,10 +108,24 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
 
         newItems[index] = newItem;
         setItems(newItems);
+
+        // Auto-select warehouse based on product
+        if (newItem.productId && !warehouseId) {
+            const productAgencyId = product?.agencyId;
+            const targetWarehouse = warehouses.find(w => w.agencyId === productAgencyId);
+            if (targetWarehouse) {
+                setWarehouseId(targetWarehouse.id);
+            }
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+
+        if (!warehouseId) {
+            alert("يرجى اختيار منتج أولاً لتحديد المخزن تلقائياً أو اختر المخزن يدوياً");
+            return;
+        }
 
         const validItems = items.filter(it => it.productId && it.cartons > 0);
         if (validItems.length === 0) {
@@ -264,14 +293,30 @@ export default function PurchaseForm({ warehouses, suppliers, products }: Purcha
                                             <span>المنتج</span>
                                             {product && <span className="text-[10px] text-blue-500 font-mono">[{product.barcode}]</span>}
                                         </Label>
-                                        <Select value={item.productId} onValueChange={(val) => updateItem(index, 'productId', val)} required>
+                                        <Select 
+                                            value={item.productId} 
+                                            onValueChange={(val) => {
+                                                const productObj = products.find(p => p.id === val);
+                                                const targetWh = warehouses.find(w => w.agencyId === productObj?.agencyId);
+                                                
+                                                if (warehouseId && targetWh && warehouseId !== targetWh.id) {
+                                                    alert("هذا المنتج يتبع توكيل مختلف عن باقي الفاتورة");
+                                                    return;
+                                                }
+                                                updateItem(index, 'productId', val);
+                                            }} 
+                                            required
+                                        >
                                             <SelectTrigger className="h-10 text-sm">
                                                 <SelectValue placeholder="اختر المنتج" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {products.map(p => (
-                                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                                ))}
+                                                {products
+                                                    .filter(p => !warehouseId || warehouses.find(w => w.id === warehouseId)?.agencyId === p.agencyId)
+                                                    .map(p => (
+                                                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                                    ))
+                                                }
                                             </SelectContent>
                                         </Select>
                                     </div>
