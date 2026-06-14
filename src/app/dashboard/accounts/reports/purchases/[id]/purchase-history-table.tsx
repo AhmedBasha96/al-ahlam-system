@@ -156,7 +156,7 @@ export default function PurchaseHistoryTable({
                                     )}
                                 </td>
                                 <td className="px-6 py-5">
-                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all flex-wrap">
+                                    <div className="flex items-center justify-center gap-2 transition-all flex-wrap">
                                         <button
                                             onClick={() => setViewingTx(tx)}
                                             className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-800 transition"
@@ -220,10 +220,10 @@ export default function PurchaseHistoryTable({
                         const totalBase = i.quantity * i.price;
                         const discountAmt = totalBase * (Number(i.discountPercentage || 0) / 100);
                         const taxAmt = (totalBase - discountAmt) * (Number(i.taxPercentage || 0) / 100);
-                        
+
                         const cartons = Math.floor(i.quantity / (i.product.unitsPerCarton || 1));
                         const pieces = i.quantity % (i.product.unitsPerCarton || 1);
-                        const formattedQty = cartons > 0 
+                        const formattedQty = cartons > 0
                             ? `${cartons} كرتونة${pieces > 0 ? ` + ${pieces} قطعة` : ''}`
                             : `${pieces} قطعة`;
 

@@ -123,7 +123,7 @@ export default async function PurchasesPage() {
                             </div>
 
                             <h2 className="text-2xl font-black text-slate-800 mb-2 group-hover:text-indigo-600 transition-colors duration-500">{agency.name}</h2>
-                            <p className="text-[10px] text-slate-400 font-black mb-8 italic opacity-0 group-hover:opacity-100 transition-opacity">كشف حساب، مديونيات، وفواتير التوريد...</p>
+                            <p className="text-[10px] text-slate-400 font-black mb-8 italic transition-opacity">كشف حساب، مديونيات، وفواتير التوريد...</p>
 
                             <div className="mt-auto space-y-3 pt-6 border-t border-slate-50">
                                 <div className="flex justify-between items-center">

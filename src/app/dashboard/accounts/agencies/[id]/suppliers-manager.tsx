@@ -85,7 +85,7 @@ export default function SuppliersManager({ agencyId, suppliers, agencies }: Prop
                             <CardContent className="p-5">
                                 <div className="flex justify-between items-start mb-4">
                                     <h4 className="font-black text-slate-800 text-lg">{supplier.name}</h4>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex gap-1 transition-opacity">
                                         <button
                                             onClick={() => setEditingSupplier(supplier)}
                                             className="p-2 hover:bg-slate-100 rounded-full text-blue-500 transition-colors"

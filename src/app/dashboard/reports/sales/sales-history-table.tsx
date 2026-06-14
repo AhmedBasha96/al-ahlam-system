@@ -78,8 +78,8 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                     {session.customerName || <span className="text-slate-300 italic text-xs">عميل نقدي</span>}
                                     {session.note && (
                                         <p className={`text-[9px] font-bold mt-1 line-clamp-1 ${session.status === 'PENDING' ? 'text-rose-400' : 'text-emerald-500'}`} title={session.note}>
-                                            {session.status === 'PENDING' 
-                                                ? session.note 
+                                            {session.status === 'PENDING'
+                                                ? session.note
                                                 : session.note.replace('بانتظار الموافقة', 'تمت الموافقة ✅')}
                                         </p>
                                     )}
@@ -123,8 +123,8 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                                 اعتماد الخصم ✅
                                             </button>
                                         )}
-                                        
-                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+
+                                        <div className="flex items-center justify-center gap-2 transition-all transform translate-x-2 group-hover:translate-x-0">
                                             <button
                                                 onClick={() => setViewingSession(session)}
                                                 className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-slate-800 transition shadow-lg shadow-slate-200"

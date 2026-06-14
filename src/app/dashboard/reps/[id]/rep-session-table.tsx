@@ -99,7 +99,7 @@ export default function RepSessionTable({ sessions, userRole }: Props) {
                                         {session.remainingAmount.toLocaleString()} ج.م
                                     </TableCell>
                                     <TableCell className="text-center">
-                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                        <div className="flex items-center justify-center gap-2 transition-all">
                                             <button
                                                 onClick={() => setViewingSession(session)}
                                                 className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-800 transition shadow-sm"

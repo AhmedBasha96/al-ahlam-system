@@ -122,7 +122,7 @@ export default function ClientBanksPage({ banks, alerts }: { banks: any[], alert
                                     </div>
                                 </div>
 
-                                <div className="absolute bottom-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1">
+                                <div className="absolute bottom-6 left-6 transition-opacity transform group-hover:translate-x-1">
                                     <ArrowRight className="text-indigo-400 w-6 h-6" />
                                 </div>
                             </div>
