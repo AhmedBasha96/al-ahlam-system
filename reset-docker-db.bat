@@ -51,7 +51,15 @@ if "%OPTION%"=="1" (
         goto wait_db
     )
     
-    echo %GREEN% Database is healthy!
+    :: Double check connection
+    docker compose exec -T db mysqladmin ping -u root -ppassword >nul 2>&1
+    if not !ERRORLEVEL! == 0 (
+        echo Database is healthy but not accepting connections yet...
+        timeout /t 2 /nobreak > nul
+        goto wait_db
+    )
+    
+    echo %GREEN% Database is healthy and accepting connections!
     
     :after_wait
     :: Extra short sleep to ensure connections are accepted

@@ -46,8 +46,11 @@ case $OPTION in
         while [ $attempts -lt $max_attempts ]; do
             status=$(docker inspect -f '{{.State.Health.Status}}' db 2>/dev/null || echo "unknown")
             if [ "$status" = "healthy" ]; then
-                log_info "Database is healthy!"
-                break
+                # Double check that we can actually connect to the database port/user
+                if docker compose exec -T db mysqladmin ping -u root -ppassword &>/dev/null; then
+                    log_info "Database is healthy and accepting connections!"
+                    break
+                fi
             fi
             log_info "Database status: $status... waiting (attempt $((attempts+1))/$max_attempts)..."
             sleep 2
