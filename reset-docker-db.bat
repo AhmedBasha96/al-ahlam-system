@@ -1,8 +1,7 @@
 @echo off
-chcp 65001 > nul
 setlocal enabledelayedexpansion
 
-:: Colors (if supported, otherwise plain text)
+:: Colors/Prefixes
 set GREEN=[INFO]
 set YELLOW=[WARN]
 set RED=[ERROR]
@@ -11,61 +10,61 @@ set RED=[ERROR]
 cd /d "%~dp0"
 
 echo ===========================================
-echo    اسكريبت تفريغ قاعدة البيانات في Docker   
+echo         Docker Database Reset Script
 echo ===========================================
-echo اختر طريقة التفريغ المناسبة:
-echo 1) تفريغ كامل (Hard Reset) - حذف الحاوية والـ Volume وإعادة البناء والتشغيل والتهجير والـ Seed
-echo 2) تصفير البيانات عبر Prisma (Migrate Reset) - حذف الجداول وإعادة تطبيق الـ Migrations والـ Seed
-echo 3) تفريغ سجلات المعاملات فقط (Soft Reset) - تشغيل اسكريبت reset-db.ts
-echo 4) إلغاء العملية
+echo Choose the database reset method:
+echo 1) Full Hard Reset - Stop containers, delete volume, recreate and run migrations ^& seed
+echo 2) Prisma Migrate Reset - Recreate tables and run migrations ^& seed without deleting volumes
+echo 3) Soft Reset - Clear transactional data only (runs scripts/reset-db.ts)
+echo 4) Cancel
 echo ===========================================
-set /p OPTION="أدخل رقم الاختيار (1-4): "
+set /p OPTION="Enter your choice (1-4): "
 
 if "%OPTION%"=="1" (
-    echo %GREEN% بدء التفريغ الكامل للحاوية والـ Volume...
-    echo %YELLOW% سيتم حذف كل البيانات نهائياً وتصفير قاعدة البيانات.
+    echo %GREEN% Starting Full Hard Reset...
+    echo %YELLOW% This will permanently delete all data and recreate the database.
     
-    echo %GREEN% إيقاف الحاويات وحذف الـ Volume...
+    echo %GREEN% Stopping containers and removing volumes...
     docker compose down -v
     
-    echo %GREEN% تشغيل قاعدة البيانات...
+    echo %GREEN% Starting database container...
     docker compose up -d db
     
-    echo %GREEN% انتظار قاعدة البيانات حتى تصبح جاهزة (10 ثوانٍ)...
+    echo %GREEN% Waiting for database to be ready (10 seconds)...
     timeout /t 10 /nobreak > nul
     
-    echo %GREEN% تطبيق الـ Migrations...
+    echo %GREEN% Applying migrations...
     docker compose run --rm migrate
     
-    echo %GREEN% تشغيل باقي الخدمات...
+    echo %GREEN% Starting app and nginx...
     docker compose up -d app nginx
     
-    echo %GREEN% تطبيق الـ Seed لتغذية البيانات الأساسية...
+    echo %GREEN% Seeding database...
     docker compose exec -T app npm run prisma:seed || docker compose run --rm migrate npx prisma db seed
     
-    echo %GREEN% تم تفريغ وإعادة بناء قاعدة البيانات بالكامل بنجاح!
+    echo %GREEN% Database has been completely recreated and reset successfully!
     goto end
 )
 
 if "%OPTION%"=="2" (
-    echo %GREEN% تصفير قاعدة البيانات عبر Prisma...
+    echo %GREEN% Resetting database via Prisma Migrate...
     docker compose run --rm migrate npx prisma migrate reset --force
-    echo %GREEN% تم تصفير الجداول وإعادة تطبيق المايجريشن والـ Seed بنجاح!
+    echo %GREEN% Database tables recreated and seeded successfully!
     goto end
 )
 
 if "%OPTION%"=="3" (
-    echo %GREEN% تفريغ السجلات مع الحفاظ على هيكل الجداول الأساسية...
+    echo %GREEN% Clearing data while keeping database schema intact...
     docker compose run --rm migrate npx tsx scripts/reset-db.ts
-    echo %GREEN% تم تصفير سجلات المعاملات بنجاح!
+    echo %GREEN% Transactional records cleared successfully!
     goto end
 )
 
 if "%OPTION%"=="4" (
-    echo تم إلغاء العملية.
+    echo Operation cancelled.
     goto end
 )
 
-echo اختيار غير صحيح.
+echo Invalid choice.
 :end
 pause
