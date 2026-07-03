@@ -30,8 +30,32 @@ if "%OPTION%"=="1" (
     echo %GREEN% Starting database container...
     docker compose up -d db
     
-    echo %GREEN% Waiting for database to be ready (10 seconds)...
-    timeout /t 10 /nobreak > nul
+    echo %GREEN% Waiting for database to be fully healthy...
+    set ATTEMPTS=0
+    set MAX_ATTEMPTS=30
+    
+    :wait_db
+    set /a ATTEMPTS+=1
+    if !ATTEMPTS! gtr %MAX_ATTEMPTS% (
+        echo %RED% Database failed to become healthy in time. Trying to proceed anyway...
+        goto after_wait
+    )
+    
+    :: Get health status
+    set STATUS=unknown
+    for /f "tokens=*" %%i in ('docker inspect -f "{{.State.Health.Status}}" db 2^>nul') do set STATUS=%%i
+    
+    echo Database status: !STATUS!... waiting (attempt !ATTEMPTS!/%MAX_ATTEMPTS%)...
+    if not "!STATUS!"=="healthy" (
+        timeout /t 2 /nobreak > nul
+        goto wait_db
+    )
+    
+    echo %GREEN% Database is healthy!
+    
+    :after_wait
+    :: Extra short sleep to ensure connections are accepted
+    timeout /t 3 /nobreak > nul
     
     echo %GREEN% Applying migrations...
     docker compose run --rm migrate

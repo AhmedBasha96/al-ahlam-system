@@ -39,9 +39,27 @@ case $OPTION in
         log_info "Starting database container..."
         docker compose up -d db
         
-        # 3. Wait for database readiness
-        log_info "Waiting for database to be ready..."
-        docker compose exec db sh -c 'until mysqladmin ping -h localhost --silent; do sleep 1; done' 2>/dev/null || sleep 10
+        # 3. Wait for database to be fully healthy
+        log_info "Waiting for database to be fully healthy..."
+        attempts=0
+        max_attempts=30
+        while [ $attempts -lt $max_attempts ]; do
+            status=$(docker inspect -f '{{.State.Health.Status}}' db 2>/dev/null || echo "unknown")
+            if [ "$status" = "healthy" ]; then
+                log_info "Database is healthy!"
+                break
+            fi
+            log_info "Database status: $status... waiting (attempt $((attempts+1))/$max_attempts)..."
+            sleep 2
+            attempts=$((attempts+1))
+        done
+        
+        if [ "$status" != "healthy" ]; then
+            log_error "Database failed to become healthy in time. Trying to proceed anyway..."
+        fi
+        
+        # Extra short sleep to ensure connections are accepted
+        sleep 3
         
         # 4. Run database migrations
         log_info "Applying migrations..."
