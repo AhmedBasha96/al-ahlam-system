@@ -312,14 +312,17 @@ export async function getWarehouseDashboardData(): Promise<WarehouseDashboardSta
             include: { product: true, warehouse: { select: { name: true } } }
         });
 
-        const inventory = stocks.map(s => ({
-            productId: s.product.id,
-            productName: s.product.name,
-            warehouseName: (s as any).warehouse?.name || '',
-            quantity: s.quantity,
-            price: Number(s.product.retailPrice),
-            value: s.quantity * Number(s.product.retailPrice)
-        }));
+        const inventory = stocks.map(s => {
+            const unitPrice = Number(s.product.retailPrice) / (s.product.unitsPerCarton || 1);
+            return {
+                productId: s.product.id,
+                productName: s.product.name,
+                warehouseName: (s as any).warehouse?.name || '',
+                quantity: s.quantity,
+                price: Number(s.product.retailPrice),
+                value: s.quantity * unitPrice
+            };
+        });
 
         const totalStockValue = inventory.reduce((sum, item) => sum + item.value, 0);
         const lowStockItems: ProductAlert[] = inventory
@@ -389,7 +392,7 @@ export async function getRepDashboardData(): Promise<RepDashboardStats> {
 
     const dbUser = await prisma.user.findUnique({
         where: { id: currentUser.id },
-        select: { name: true }
+        select: { name: true, pricingType: true }
     });
 
     if (!dbUser) throw new Error('User not found');
@@ -464,13 +467,18 @@ export async function getRepDashboardData(): Promise<RepDashboardStats> {
             where: { warehouseId: repWarehouse.id, quantity: { gt: 0 } },
             include: { product: true }
         });
-        inventory = stocks.map(s => ({
-            productId: s.product.id,
-            productName: s.product.name,
-            quantity: s.quantity,
-            price: Number(s.product.retailPrice),
-            value: s.quantity * Number(s.product.retailPrice)
-        }));
+        const isWholesale = dbUser.pricingType === 'WHOLESALE';
+        inventory = stocks.map(s => {
+            const price = isWholesale ? Number(s.product.wholesalePrice) : Number(s.product.retailPrice);
+            const unitPrice = price / (s.product.unitsPerCarton || 1);
+            return {
+                productId: s.product.id,
+                productName: s.product.name,
+                quantity: s.quantity,
+                price: price,
+                value: s.quantity * unitPrice
+            };
+        });
         totalInventoryValue = inventory.reduce((sum, item) => sum + item.value, 0);
     }
 
