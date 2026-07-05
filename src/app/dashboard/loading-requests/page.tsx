@@ -5,6 +5,9 @@ import LoadingRequestsList from "./loading-requests-list";
 export default async function LoadingRequestsPage() {
     const requests = await getLoadingRequests();
     const user = await getCurrentUser();
+    
+    // Serialize to standard JSON objects to avoid serialization crashes in Next.js Client Components (e.g. Decimal objects)
+    const serializedRequests = JSON.parse(JSON.stringify(requests));
 
     return (
         <div className="space-y-6">
@@ -23,7 +26,7 @@ export default async function LoadingRequestsPage() {
                 )}
             </div>
 
-            <LoadingRequestsList initialRequests={requests as any} userRole={user.role} />
+            <LoadingRequestsList initialRequests={serializedRequests} userRole={user.role} />
         </div>
     );
 }
