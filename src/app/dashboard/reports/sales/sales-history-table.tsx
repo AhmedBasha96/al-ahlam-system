@@ -62,10 +62,10 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                     ) : sessions.map((session) => (
                         <Fragment key={session.id}>
                             <tr className="group hover:bg-slate-50/50 transition-all">
-                                <td className="p-6 text-sm font-bold text-slate-600">
+                                <td className="p-6 text-sm font-bold text-slate-600" suppressHydrationWarning>
                                     {new Date(session.date).toLocaleDateString('ar-EG', { day: '2-digit', month: 'short' })}
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-slate-400 font-mono">
+                                        <span className="text-[10px] text-slate-400 font-mono" suppressHydrationWarning>
                                             {new Date(session.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                         {session.status === 'PENDING' && (
@@ -94,15 +94,15 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                                 'جزئي'}
                                     </span>
                                 </td>
-                                <td className="p-6 font-black text-slate-900 text-lg">
+                                <td className="p-6 font-black text-slate-900 text-lg" suppressHydrationWarning>
                                     {(session.items.reduce((sum, item) => sum + item.total, 0)).toLocaleString()} <span className="text-[10px] text-slate-400">ج.م</span>
                                 </td>
                                 <td className="p-6">
                                     <div className="flex flex-col items-end md:items-center">
-                                        <div className="text-lg font-black text-emerald-600">
+                                        <div className="text-lg font-black text-emerald-600" suppressHydrationWarning>
                                             {(session.items.reduce((sum, item) => sum + (Number((item as any).profit) || 0), 0)).toLocaleString()} <span className="text-[10px] opacity-70 font-bold">ج.م</span>
                                         </div>
-                                        <div className="text-[10px] text-slate-400 font-bold">
+                                        <div className="text-[10px] text-slate-400 font-bold" suppressHydrationWarning>
                                             {((session.items.reduce((sum, item) => sum + (Number((item as any).profit) || 0), 0) / (session.items.reduce((sum, item) => sum + item.total, 0) || 1)) * 100).toFixed(1)}% هامش
                                         </div>
                                     </div>
@@ -192,8 +192,8 @@ export default function SalesHistoryTable({ sessions, userRole }: { sessions: Sa
                                                         <tr key={idx} className="hover:bg-slate-50/50">
                                                             <td className="p-4 font-bold text-slate-800">{item.productName}</td>
                                                             <td className="p-4 text-center font-black text-indigo-600">{item.quantity}</td>
-                                                            <td className="p-4 text-center text-slate-500 font-mono">{item.price.toLocaleString()}</td>
-                                                            <td className="p-4 text-left font-black text-slate-900">{item.total.toLocaleString()}</td>
+                                                            <td className="p-4 text-center text-slate-500 font-mono" suppressHydrationWarning>{item.price.toLocaleString()}</td>
+                                                            <td className="p-4 text-left font-black text-slate-900" suppressHydrationWarning>{item.total.toLocaleString()}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>

@@ -233,7 +233,7 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                     date={printReq.createdAt}
                     type="LOADING"
                     items={printReq.items.map(item => ({
-                        productId: item.product?.id || item.productId,
+                        productId: item.product?.id || item.productId || '',
                         productName: item.product?.name || `صنف محذوف (#${item.productId})`,
                         quantity: item.quantity,
                         price: item.product ? (Number(item.product.wholesalePrice) / (item.product.unitsPerCarton || 1)) : 0,

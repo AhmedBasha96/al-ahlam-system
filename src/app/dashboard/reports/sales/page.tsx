@@ -36,7 +36,7 @@ export default async function SalesReportsPage({
     const sessions = rawSessions.map((s: any) => {
         const processedItems = s.items.map((item: any) => ({
             productId: item.productId,
-            productName: item.product.name,
+            productName: item.product?.name || `منتج محذوف (#${item.productId})`,
             quantity: item.quantity,
             price: Number(item.price),
             cost: Number(item.cost || 0),
@@ -53,7 +53,7 @@ export default async function SalesReportsPage({
             repName: s.user.name,
             customerId: s.customerId,
             customerName: s.customer?.name,
-            totalAmount: processedItems.reduce((sum, item) => sum + item.total, 0), // Use recalculated net total
+            totalAmount: processedItems.reduce((sum: number, item: any) => sum + item.total, 0), // Use recalculated net total
             paidAmount: Number(s.paidAmount),
             remainingAmount: Number(s.remainingAmount),
             paymentType: s.paymentType,
