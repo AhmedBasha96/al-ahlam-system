@@ -271,7 +271,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
                 pendingFulfillment: await prisma.loadingRequest.count({
                     where: { 
                         status: 'APPROVED',
-                        ...(isRestricted && currentUser.role === 'WAREHOUSE_KEEPER' ? { warehouseId: (currentUser as any).warehouseId } : {})
+                        ...(isRestricted && currentUser.role === 'WAREHOUSE_KEEPER' ? { warehouseId: { in: (currentUser as any).warehouseIds } } : {})
                     }
                 }),
                 userPending: currentUser.role === 'SALES_REPRESENTATIVE' 

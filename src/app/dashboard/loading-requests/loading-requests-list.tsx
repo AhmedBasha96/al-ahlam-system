@@ -7,13 +7,14 @@ import TransactionModal from "@/components/shared/transaction-modal";
 
 type RequestItem = {
     id: string;
+    productId?: string;
     product: {
         id: string;
         name: string;
         image: string | null;
         unitsPerCarton: number;
         wholesalePrice: number;
-    };
+    } | null;
     quantity: number;
 }
 
@@ -130,7 +131,11 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                         <div className="flex justify-between items-center mb-3">
                             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">الأصناف المطلوبة:</h4>
                             <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
-                                الإجمالي: {req.items.reduce((sum, item) => sum + ((item.quantity / (item.product.unitsPerCarton || 1)) * Number(item.product.wholesalePrice)), 0).toLocaleString('ar-EG')} ج.م
+                                الإجمالي: {req.items.reduce((sum, item) => {
+                                    const price = item.product ? Number(item.product.wholesalePrice) : 0;
+                                    const upc = item.product ? (item.product.unitsPerCarton || 1) : 1;
+                                    return sum + ((item.quantity / upc) * price);
+                                }, 0).toLocaleString('ar-EG')} ج.م
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -138,20 +143,20 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                                 <div key={item.id} className="flex items-center justify-between bg-white border border-gray-100 p-2 rounded-lg text-sm transition hover:border-emerald-200 hover:shadow-xs group">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 min-w-[32px] rounded bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden">
-                                            {item.product.image ? (
+                                            {item.product?.image ? (
                                                 <img src={item.product.image} alt={item.product.name} className="w-full h-full object-cover" />
                                             ) : (
                                                 <span className="text-[10px] text-gray-300">🖼️</span>
                                             )}
                                         </div>
-                                        <span className="font-medium text-gray-800">{item.product.name}</span>
+                                        <span className="font-medium text-gray-800">{item.product?.name || `صنف محذوف (#${item.productId})`}</span>
                                     </div>
                                     <div className="flex flex-col items-end">
                                         <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-xs">
-                                            {item.quantity / (item.product.unitsPerCarton || 1)} كرتونة
+                                            {item.quantity / (item.product?.unitsPerCarton || 1)} كرتونة
                                         </span>
                                         <span className="text-[10px] text-gray-400 font-bold mt-0.5">
-                                            {Number(item.product.wholesalePrice).toLocaleString('ar-EG')} ج / كرتونة
+                                            {item.product ? `${Number(item.product.wholesalePrice).toLocaleString('ar-EG')} ج / كرتونة` : '-'}
                                         </span>
                                     </div>
                                 </div>
@@ -228,17 +233,21 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                     date={printReq.createdAt}
                     type="LOADING"
                     items={printReq.items.map(item => ({
-                        productId: item.product.id,
-                        productName: item.product.name,
+                        productId: item.product?.id || item.productId,
+                        productName: item.product?.name || `صنف محذوف (#${item.productId})`,
                         quantity: item.quantity,
-                        price: Number(item.product.wholesalePrice) / (item.product.unitsPerCarton || 1),
-                        displayPrice: Number(item.product.wholesalePrice),
-                        unitsPerCarton: item.product.unitsPerCarton,
-                        total: (item.quantity / (item.product.unitsPerCarton || 1)) * Number(item.product.wholesalePrice)
+                        price: item.product ? (Number(item.product.wholesalePrice) / (item.product.unitsPerCarton || 1)) : 0,
+                        displayPrice: item.product ? Number(item.product.wholesalePrice) : 0,
+                        unitsPerCarton: item.product?.unitsPerCarton || 1,
+                        total: item.product ? ((item.quantity / (item.product.unitsPerCarton || 1)) * Number(item.product.wholesalePrice)) : 0
                     }))}
                     paymentInfo={{
                         type: 'CASH',
-                        totalAmount: printReq.items.reduce((sum, item) => sum + ((item.quantity / (item.product.unitsPerCarton || 1)) * Number(item.product.wholesalePrice)), 0),
+                        totalAmount: printReq.items.reduce((sum, item) => {
+                            const price = item.product ? Number(item.product.wholesalePrice) : 0;
+                            const upc = item.product ? (item.product.unitsPerCarton || 1) : 1;
+                            return sum + ((item.quantity / upc) * price);
+                        }, 0),
                         paidAmount: 0
                     }}
                     onClose={() => setPrintReq(null)}

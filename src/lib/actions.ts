@@ -2421,7 +2421,7 @@ export async function getLoadingRequests() {
     } else if (user.role === 'MANAGER') {
         where.agencyId = { in: user.agencyIds };
     } else if (user.role === 'WAREHOUSE_KEEPER') {
-        where.warehouseId = user.warehouseId;
+        where.warehouseId = { in: user.warehouseIds };
         where.status = { in: ['APPROVED', 'COMPLETED'] };
     } else if (user.role === 'ADMIN') {
         // Admin sees everything
@@ -2467,6 +2467,13 @@ export async function completeLoadingRequest(requestId: string) {
 
     if (!request) throw new Error("Request not found");
     if (request.status !== 'APPROVED') throw new Error("Request must be approved first");
+
+    if (user.role === 'WAREHOUSE_KEEPER') {
+        const warehouseIds = (user as any).warehouseIds || [];
+        if (!warehouseIds.includes(request.warehouseId)) {
+            throw new Error("غير مصرح لك بإتمام الطلبات لهذا المخزن");
+        }
+    }
 
     // Perform the actual loading
     await prisma.$transaction(async (tx) => {
