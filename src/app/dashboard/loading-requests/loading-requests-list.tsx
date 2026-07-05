@@ -113,7 +113,7 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                         </div>
                         <div className="text-left flex flex-col items-end gap-2">
                             <div className="flex gap-2">
-                                <p className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleDateString('ar-EG', { dateStyle: 'medium' })}</p>
+                                <p className="text-xs text-gray-400" suppressHydrationWarning>{new Date(req.createdAt).toLocaleDateString('ar-EG', { dateStyle: 'medium' })}</p>
                                 <button
                                     onClick={() => setPrintReq(req)}
                                     className="p-1 hover:bg-gray-200 rounded-md transition text-xs"
@@ -122,7 +122,7 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                                     🖨️ طباعة
                                 </button>
                             </div>
-                            <p className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleTimeString('ar-EG', { timeStyle: 'short' })}</p>
+                            <p className="text-xs text-gray-400" suppressHydrationWarning>{new Date(req.createdAt).toLocaleTimeString('ar-EG', { timeStyle: 'short' })}</p>
                         </div>
                     </div>
 
@@ -130,7 +130,7 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                     <div className="p-4 flex-1">
                         <div className="flex justify-between items-center mb-3">
                             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">الأصناف المطلوبة:</h4>
-                            <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
+                            <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded" suppressHydrationWarning>
                                 الإجمالي: {req.items.reduce((sum, item) => {
                                     const price = item.product ? Number(item.product.wholesalePrice) : 0;
                                     const upc = item.product ? (item.product.unitsPerCarton || 1) : 1;
@@ -155,7 +155,7 @@ export default function LoadingRequestsList({ initialRequests, userRole }: Props
                                         <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-xs">
                                             {item.quantity / (item.product?.unitsPerCarton || 1)} كرتونة
                                         </span>
-                                        <span className="text-[10px] text-gray-400 font-bold mt-0.5">
+                                        <span className="text-[10px] text-gray-400 font-bold mt-0.5" suppressHydrationWarning>
                                             {item.product ? `${Number(item.product.wholesalePrice).toLocaleString('ar-EG')} ج / كرتونة` : '-'}
                                         </span>
                                     </div>
