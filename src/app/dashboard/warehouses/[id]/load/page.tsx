@@ -20,6 +20,7 @@ export default async function LoadingPage({ params }: { params: Promise<{ id: st
             pricingType: u.pricingType || undefined,
             warehouseId: u.warehouseId || undefined
         }));
+    const rawStocks = await getStocks();
 
     return (
         <div className="space-y-6">
@@ -31,7 +32,7 @@ export default async function LoadingPage({ params }: { params: Promise<{ id: st
             </div>
 
             {reps.length > 0 ? (
-                <LoadStockForm warehouseId={warehouseId} products={allProducts} reps={reps} />
+                <LoadStockForm warehouseId={warehouseId} products={allProducts} reps={reps} stocks={rawStocks} />
             ) : (
                 <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg flex items-center gap-3 text-yellow-800">
                     <span className="text-2xl">⚠️</span>

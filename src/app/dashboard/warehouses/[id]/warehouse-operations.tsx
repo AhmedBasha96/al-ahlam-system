@@ -277,8 +277,8 @@ export default function WarehouseOperations({
                                 اذهب لإدارة الطلبات
                             </Link>
                         </div>
-                        <div className="opacity-50 pointer-events-none grayscale">
-                            <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} />
+                        <div>
+                            <LoadStockForm warehouseId={warehouseId} products={agencyProducts} reps={reps} stocks={allStocks} />
                         </div>
                     </div>
                 ) : activeTab === 'returns' ? (
